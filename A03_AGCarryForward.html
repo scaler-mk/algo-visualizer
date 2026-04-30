@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 3 — AG Pairs Carry Forward</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  pre.code { font-size: 14px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .comment { color: #888; font-style: italic; }
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vars-table td { padding: 8px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 110px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 12px;
+                       text-transform: uppercase; letter-spacing: 0.5px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; font-size: 16px; }
+  .check-row { margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 14px;
+               line-height: 1.6; background: #E6F1FB; border: 1px solid #ddd; }
+  .check-row.hit { background: #E8F5E9; border-color: #43A047; }
+  .check-row.bump { background: #FFEBEE; border-color: #E53935; color: #B71C1C; font-weight: 600; }
+  .check-row.stop { background: #FFF9C4; border-color: #F9A825; color: #5D4037; font-weight: 600; }
+  .string-row { display: flex; gap: 0; margin-top: 8px; }
+  .ch {
+    width: 50px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700; border: 1.5px solid #ddd;
+    background: #fff; color: #555; transition: all 0.25s;
+    font-family: 'SF Mono', monospace;
+  }
+  .ch.active { background: #FFF9C4; border-color: #F9A825; transform: scale(1.05); }
+  .ch.is-a { background: #E8F5E9; color: #1B5E20; border-color: #43A047; }
+  .ch.is-g { background: #FFEBEE; color: #B71C1C; border-color: #E53935; }
+  .ch.is-a.active, .ch.is-g.active { transform: scale(1.05); border-width: 2.5px; }
+  .ch.dim { background: #f9f9f9; color: #ccc; }
+  .index-row { display: flex; gap: 0; margin-top: 4px; }
+  .idx-label {
+    width: 50px; text-align: center; font-size: 11px; color: #888;
+    font-family: 'SF Mono', monospace;
+  }
+  .controls { margin-top: 20px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 16px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 12px;
+          font-family: -apple-system, system-ui, sans-serif; font-weight: 600; }
+  .sp-ok { background: #E8F5E9; color: #1B5E20; border: 1px solid #43A047; }
+  .sp-err { background: #FFEBEE; color: #B71C1C; border: 1px solid #E53935; }
+  .sp-hl { background: #FFF9C4; color: #5D4037; border: 1px solid #F9A825; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 3 · AG-pairs carry forward (single pass)</h1>
+  <div class="subtitle">Walk left to right once. When you hit 'a' → count_a++. When you hit 'g' → result += count_a. Done.</div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Pseudocode</div>
+      <pre class="code"><span class="line" data-line="1"><span class="keyword">function</span> count_ag(str) {</span><span class="line" data-line="2">    result = 0;</span><span class="line" data-line="3">    count_a = 0;</span><span class="line" data-line="4">    <span class="keyword">for</span> (i -&gt; 0 <span class="keyword">to</span> n-1) {</span><span class="line" data-line="5">        <span class="keyword">if</span> (str[i] == 'a') {</span><span class="line" data-line="6">            count_a++;</span><span class="line" data-line="7">        } <span class="keyword">else if</span> (str[i] == 'g') {</span><span class="line" data-line="8">            result += count_a;</span><span class="line" data-line="9">        }</span><span class="line" data-line="10">    }</span><span class="line" data-line="11">    <span class="keyword">return</span> result;</span><span class="line" data-line="12">}</span></pre>
+      <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Variables</div>
+      <table class="vars-table">
+        <tr><td class="label">i</td><td class="value" id="varI">—</td></tr>
+        <tr><td class="label">str[i]</td><td class="value" id="varCh">—</td></tr>
+        <tr><td class="label">count_a</td><td class="value" id="varCount" style="color:#1B5E20;">0</td></tr>
+        <tr><td class="label">result</td><td class="value" id="varResult" style="color:#B71C1C;">0</td></tr>
+      </table>
+
+      <div class="check-row" id="checkRow">Click STEP to begin.</div>
+
+      <div class="panel-title" style="margin-top:18px;">String s = "acbagkagg"</div>
+      <div class="string-row" id="strRow"></div>
+      <div class="index-row" id="strIdx"></div>
+
+      <div class="pills">
+        <div class="pill sp-ok">▣ found 'a' — count_a++</div>
+        <div class="pill sp-err">▣ found 'g' — result += count_a</div>
+        <div class="pill sp-hl">▣ current i</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const S = "acbagkagg";
+
+// Build cells
+const strRow = document.getElementById('strRow');
+const strIdx = document.getElementById('strIdx');
+[...S].forEach((ch, i) => {
+  const c = document.createElement('div');
+  c.className = 'ch';
+  if (ch === 'a') c.classList.add('is-a-base');
+  if (ch === 'g') c.classList.add('is-g-base');
+  c.id = 's-' + i;
+  c.textContent = ch;
+  strRow.appendChild(c);
+  const lbl = document.createElement('div');
+  lbl.className = 'idx-label'; lbl.textContent = '[' + i + ']';
+  strIdx.appendChild(lbl);
+});
+
+// Build steps
+let count_a = 0, result = 0;
+const steps = [];
+for (let i = 0; i < S.length; i++) {
+  const ch = S[i];
+  if (ch === 'a') {
+    count_a++;
+    steps.push({
+      i, ch, count_a, result,
+      action: 'a-bump',
+      line: 6,
+      narration: `i = ${i}: char is <b>'a'</b>. Increment count_a → ${count_a}.`
+    });
+  } else if (ch === 'g') {
+    result += count_a;
+    steps.push({
+      i, ch, count_a, result,
+      action: 'g-bump',
+      line: 8,
+      addedAmount: count_a,
+      narration: `i = ${i}: char is <b>'g'</b>. Add count_a (${count_a}) to result → ${result}.`
+    });
+  } else {
+    steps.push({
+      i, ch, count_a, result,
+      action: 'skip',
+      line: 4,
+      narration: `i = ${i}: char is '${ch}' — neither 'a' nor 'g'. Skip.`
+    });
+  }
+}
+steps.push({
+  final: true,
+  count_a, result,
+  line: 11,
+  narration: `Loop done. Total ag-pairs = <b>${result}</b>. One pass through the string. O(N) time.`
+});
+
+let cursor = 0, playing = false, timer = null;
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  if (cursor === 0) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varCh').textContent = '—';
+    document.getElementById('varCount').textContent = '0';
+    document.getElementById('varResult').textContent = '0';
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').textContent = 'Click STEP to begin.';
+    setLine(null);
+    document.querySelectorAll('#strRow .ch').forEach(c => { c.className = 'ch'; });
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.`;
+    return;
+  }
+  const s = steps[cursor - 1];
+  setLine(s.line);
+  document.getElementById('narration').innerHTML = s.narration;
+
+  if (s.final) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varCh').textContent = '—';
+    document.getElementById('varCount').textContent = s.count_a;
+    document.getElementById('varResult').textContent = s.result;
+    document.querySelectorAll('#strRow .ch').forEach((c, i) => {
+      c.className = 'ch';
+      if (S[i] === 'a') c.classList.add('is-a');
+      else if (S[i] === 'g') c.classList.add('is-g');
+      else c.classList.add('dim');
+    });
+    document.getElementById('checkRow').className = 'check-row stop';
+    document.getElementById('checkRow').innerHTML = `Final answer: ${s.result} ag-pairs.`;
+    return;
+  }
+
+  document.getElementById('varI').textContent = s.i;
+  document.getElementById('varCh').textContent = `'${s.ch}'`;
+  document.getElementById('varCount').textContent = s.count_a;
+  document.getElementById('varResult').textContent = s.result;
+
+  // Mark each character based on past actions and current
+  document.querySelectorAll('#strRow .ch').forEach((c, i) => {
+    c.className = 'ch';
+    if (i < s.i) {
+      // past — color based on what they were
+      if (S[i] === 'a') c.classList.add('is-a');
+      else if (S[i] === 'g') c.classList.add('is-g');
+      else c.classList.add('dim');
+    } else if (i === s.i) {
+      c.classList.add('active');
+      if (s.action === 'a-bump') c.classList.add('is-a');
+      else if (s.action === 'g-bump') c.classList.add('is-g');
+    }
+  });
+
+  if (s.action === 'a-bump') {
+    document.getElementById('checkRow').className = 'check-row hit';
+    document.getElementById('checkRow').innerHTML = `Found 'a'. count_a is now ${s.count_a}.`;
+  } else if (s.action === 'g-bump') {
+    document.getElementById('checkRow').className = 'check-row bump';
+    document.getElementById('checkRow').innerHTML = `Found 'g'. result += ${s.addedAmount} → result = ${s.result}.`;
+  } else {
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').innerHTML = `Skip — '${s.ch}' is not 'a' or 'g'.`;
+  }
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 950);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+reset();
+</script>
+</body>
+</html>

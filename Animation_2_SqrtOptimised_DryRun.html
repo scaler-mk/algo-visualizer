@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 2 — Count Factors (sqrt N) Dry Run</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  pre.code { font-size: 14px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .comment { color: #888; font-style: italic; }
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vars-table td { padding: 6px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 110px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 12px;
+                       text-transform: uppercase; letter-spacing: 0.5px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; }
+  .check-row { margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 14px;
+               line-height: 1.6; background: #E6F1FB; border: 1px solid #ddd; }
+  .check-row.hit { background: #E8F5E9; border-color: #43A047; }
+  .check-row.miss { background: #FFEBEE; border-color: #E53935; }
+  .check-row.stop { background: #FFF9C4; border-color: #F9A825; color: #5D4037; font-weight: 600;}
+
+  .pairs-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .pairs-table th, .pairs-table td { padding: 6px 10px; border: 1px solid #ddd; text-align: center;
+                                     font-family: 'SF Mono', monospace; }
+  .pairs-table th { background: #f9f9f9; color: #555; font-weight: 600; font-size: 11px;
+                    text-transform: uppercase; letter-spacing: 0.5px;
+                    font-family: -apple-system, system-ui, sans-serif; }
+  .pairs-table tr.scan td { background: #FFF9C4; }
+  .pairs-table tr.found td { background: #E8F5E9; color: #1B5E20; font-weight: 700; }
+  .pairs-table tr.dim td { color: #aaa; }
+  .pairs-table tr.beyond td { background: #FFEBEE; color: #B71C1C; opacity: 0.5; }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 12px;
+          font-family: -apple-system, system-ui, sans-serif; font-weight: 600; }
+  .sp-hl { background: #FFF9C4; color: #5D4037; border: 1px solid #F9A825; }
+  .sp-ok { background: #E8F5E9; color: #1B5E20; border: 1px solid #43A047; }
+  .sp-stop { background: #FFEBEE; color: #B71C1C; border: 1px solid #E53935; }
+
+  .controls { margin-top: 20px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 16px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+  .output-line { margin-top: 10px; color: #1B5E20; font-weight: 700; font-size: 14px;
+                 font-family: 'SF Mono', monospace; }
+  .formula { display: inline-block; padding: 4px 10px; background: #E6F1FB; border-radius: 4px;
+             font-weight: 700; color: #185FA5; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 2 · Count Factors — sqrt(N) Optimised Dry Run</h1>
+  <div class="subtitle">Tracing <code>countFactors(24)</code>. Loop runs <strong>i × i ≤ N</strong>. Each factor pair counts twice.
+    <em style="color:#B71C1C;">⚠ This version doesn't yet handle perfect squares — see Animation 3.</em></div>
+
+  <div class="grid">
+    <!-- LEFT: Code -->
+    <div class="panel">
+      <div class="panel-title">Pseudocode</div>
+      <pre class="code"><span class="line" data-line="1"><span class="keyword">function</span> countFactors(N) {</span><span class="line" data-line="2">    fac_count = 0</span><span class="line" data-line="3">    <span class="keyword">for</span> (i -&gt; 1 <span class="keyword">till</span> i*i &lt;= N) {</span><span class="line" data-line="4">        <span class="keyword">if</span> (N % i == 0)</span><span class="line" data-line="5">            fac_count = fac_count + 2  <span class="comment">// count i AND N/i</span></span><span class="line" data-line="6">    }</span><span class="line" data-line="7">    <span class="keyword">return</span> fac_count</span><span class="line" data-line="8">}</span></pre>
+      <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.</div>
+    </div>
+
+    <!-- RIGHT: State -->
+    <div class="panel">
+      <div class="panel-title">Variables</div>
+      <table class="vars-table">
+        <tr><td class="label">N</td><td class="value">24</td></tr>
+        <tr><td class="label">i</td><td class="value" id="varI">—</td></tr>
+        <tr><td class="label">i × i</td><td class="value" id="varISq">—</td></tr>
+        <tr><td class="label">N % i</td><td class="value" id="varMod">—</td></tr>
+        <tr><td class="label">fac_count</td><td class="value" id="varCount">0</td></tr>
+      </table>
+
+      <div class="check-row" id="checkRow">Loop condition: <span class="formula">i × i ≤ 24</span></div>
+
+      <div class="panel-title" style="margin-top:18px;">Factor pairs explored</div>
+      <table class="pairs-table">
+        <thead><tr><th>i</th><th>i × i</th><th>i ≤ √N?</th><th>N / i</th><th>+factors</th></tr></thead>
+        <tbody id="pairsBody"></tbody>
+      </table>
+
+      <div class="pills">
+        <div class="pill sp-hl">▣ scanning</div>
+        <div class="pill sp-ok">▣ pair found</div>
+        <div class="pill sp-stop">▣ loop ends</div>
+      </div>
+
+      <div class="output-line" id="output"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const N = 24;
+const rows = [];
+let i = 1;
+while (i * i <= N + 1) { // include the failing-condition row
+  const passes = i * i <= N;
+  rows.push({ i, iSq: i*i, passes, isFactor: N % i === 0, mod: N % i, nOverI: N / i });
+  i++;
+}
+
+const tbody = document.getElementById('pairsBody');
+rows.forEach((r, idx) => {
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + idx;
+  tr.classList.add('dim');
+  tr.innerHTML = `<td>${r.i}</td><td>${r.iSq}</td><td>${r.passes ? '✓' : '✗'}</td><td>${r.passes ? r.nOverI : '—'}</td><td>${r.passes && r.isFactor ? '+2' : (r.passes ? '0' : '—')}</td>`;
+  tbody.appendChild(tr);
+});
+
+const steps = [];
+steps.push({ line: 2, narration: "fac_count = 0", count: 0 });
+rows.forEach((r, idx) => {
+  steps.push({
+    line: 3,
+    narration: `Check loop: i = ${r.i}, i*i = ${r.iSq}, N = ${N}. Is ${r.iSq} ≤ ${N}? ${r.passes ? "YES — enter loop." : "NO — exit loop."}`,
+    i: r.i, iSq: r.iSq, mod: '—', rowIdx: idx, rowState: r.passes ? 'scan' : 'beyond', loopOk: r.passes
+  });
+  if (r.passes) {
+    steps.push({
+      line: 4,
+      narration: `Check: ${N} % ${r.i} = ${r.mod}. ${r.isFactor ? `${r.i} divides ${N} — factor pair: (${r.i}, ${r.nOverI}).` : "Not a factor."}`,
+      i: r.i, iSq: r.iSq, mod: r.mod, rowIdx: idx, rowState: r.isFactor ? 'found' : 'scan', isFactor: r.isFactor, nOverI: r.nOverI
+    });
+    if (r.isFactor) {
+      steps.push({
+        line: 5,
+        narration: `Add 2 to fac_count (one for ${r.i}, one for ${r.nOverI}).`,
+        i: r.i, iSq: r.iSq, mod: r.mod, rowIdx: idx, rowState: 'found', countDelta: 2
+      });
+    }
+  }
+});
+steps.push({ line: 7, narration: `Loop ends. Factors of 24 → counted: 8 (1, 2, 3, 4, 6, 8, 12, 24).`, final: true });
+
+let cursor = 0;
+let count = 0;
+let playing = false;
+let timer = null;
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+function clearRows() {
+  document.querySelectorAll('#pairsBody tr').forEach(tr => { tr.className = 'dim'; });
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  if (cursor === 0) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varISq').textContent = '—';
+    document.getElementById('varMod').textContent = '—';
+    document.getElementById('varCount').textContent = '0';
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').innerHTML = 'Loop condition: <span class="formula">i × i ≤ 24</span>';
+    document.getElementById('output').textContent = '';
+    setLine(null);
+    clearRows();
+    document.getElementById('narration').innerHTML = "Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.";
+    return;
+  }
+
+  const s = steps[cursor - 1];
+  setLine(s.line);
+  document.getElementById('narration').textContent = s.narration;
+
+  if (s.i != null) document.getElementById('varI').textContent = s.i;
+  if (s.iSq != null) document.getElementById('varISq').textContent = s.iSq;
+  if (s.mod != null && s.mod !== '—') document.getElementById('varMod').textContent = s.mod;
+  else if (s.mod === '—') document.getElementById('varMod').textContent = '—';
+
+  if (s.countDelta) count += s.countDelta;
+  document.getElementById('varCount').textContent = count;
+
+  const cr = document.getElementById('checkRow');
+  if (s.line === 3) {
+    if (s.loopOk) {
+      cr.className = 'check-row';
+      cr.innerHTML = `Loop check: <span class="formula">${s.iSq} ≤ ${N}</span> → continue`;
+    } else {
+      cr.className = 'check-row stop';
+      cr.innerHTML = `Loop check: <span class="formula">${s.iSq} ≤ ${N}</span> → false. Exit loop.`;
+    }
+  } else if (s.line === 4) {
+    if (s.isFactor) {
+      cr.className = 'check-row hit';
+      cr.innerHTML = `✓ Factor pair: (${s.i}, ${s.nOverI})`;
+    } else {
+      cr.className = 'check-row miss';
+      cr.innerHTML = `✗ ${N} % ${s.i} = ${s.mod} ≠ 0`;
+    }
+  } else if (s.line === 5) {
+    cr.className = 'check-row hit';
+    cr.innerHTML = `fac_count += 2 → ${count}`;
+  }
+
+  // Update rows
+  if (s.rowIdx != null) {
+    const row = document.getElementById('row-' + s.rowIdx);
+    if (row) {
+      row.className = s.rowState;
+    }
+  }
+  // Lock previous rows to their final state
+  for (let k = 0; k < (s.rowIdx ?? 0); k++) {
+    const row = document.getElementById('row-' + k);
+    if (row && rows[k].passes && rows[k].isFactor) row.className = 'found';
+    else if (row && rows[k].passes) row.className = '';
+    else if (row) row.className = 'beyond';
+  }
+
+  if (s.final) {
+    document.getElementById('checkRow').className = 'check-row hit';
+    document.getElementById('checkRow').textContent = `Done. fac_count = ${count}.`;
+    document.getElementById('output').textContent = `Output → countFactors(24) = ${count}`;
+  }
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; count = 0; render(); }
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 850);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+reset();
+</script>
+</body>
+</html>

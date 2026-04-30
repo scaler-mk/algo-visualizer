@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 5 — Big-O Growth Hierarchy</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 22px;
+           margin-bottom: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 14px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+
+  .slider-row { display: flex; align-items: center; gap: 16px; margin-bottom: 18px;
+                font-family: -apple-system, system-ui, sans-serif; }
+  .slider-row label { font-weight: 600; color: #333; }
+  input[type=range] { flex: 1; max-width: 400px; }
+  .n-display {
+    font-family: 'SF Mono', monospace; font-weight: 700; color: #185FA5;
+    font-size: 18px; min-width: 80px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+  th { background: #f9f9f9; color: #555; font-weight: 600; font-size: 11px;
+       text-transform: uppercase; letter-spacing: 0.5px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  td.complexity { font-weight: 700; color: #185FA5; min-width: 110px; }
+  td.value { font-family: 'SF Mono', monospace; }
+
+  .bar-cell { padding: 0 !important; }
+  .bar-wrap { width: 100%; height: 24px; display: flex; align-items: center; padding: 0 8px; }
+  .bar { height: 16px; border-radius: 3px; transition: width 0.6s ease, background 0.4s; min-width: 2px; }
+
+  .verdict { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+             font-family: -apple-system, system-ui, sans-serif; display: inline-block; }
+  .v-instant { background: #E8F5E9; color: #1B5E20; border: 1px solid #43A047; }
+  .v-fast { background: #E6F1FB; color: #185FA5; border: 1px solid #185FA5; }
+  .v-ok { background: #FFF9C4; color: #5D4037; border: 1px solid #F9A825; }
+  .v-slow { background: #FFEBEE; color: #B71C1C; border: 1px solid #E53935; }
+  .v-dead { background: #1B1B1B; color: #fff; border: 1px solid #000; }
+
+  .insight {
+    margin-top: 18px; padding: 16px; background: #f9f9f9; border-radius: 6px;
+    border-left: 3px solid #185FA5;
+    font-family: -apple-system, system-ui, sans-serif; font-size: 14px; line-height: 1.6;
+    color: #333;
+  }
+
+  .preset-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;
+                font-family: -apple-system, system-ui, sans-serif; }
+  .preset-btn { padding: 6px 14px; border: 1px solid #185FA5; background: white; color: #185FA5;
+                font-size: 12px; font-weight: 600; border-radius: 5px; cursor: pointer; }
+  .preset-btn:hover { background: #f0f6fc; }
+  .preset-btn.active { background: #185FA5; color: white; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 5 · Big-O Growth Hierarchy</h1>
+  <div class="subtitle">Slide N to see how each complexity class scales. Watch where things stop being acceptable.</div>
+
+  <div class="panel">
+    <div class="panel-title">Input size N</div>
+    <div class="preset-row">
+      <button class="preset-btn" data-n="10">N = 10</button>
+      <button class="preset-btn active" data-n="36">N = 36</button>
+      <button class="preset-btn" data-n="100">N = 100</button>
+      <button class="preset-btn" data-n="1000">N = 1,000</button>
+      <button class="preset-btn" data-n="100000">N = 10⁵</button>
+      <button class="preset-btn" data-n="100000000">N = 10⁸</button>
+    </div>
+    <div class="slider-row">
+      <label>N =</label>
+      <input type="range" id="nSlider" min="1" max="100" value="36" step="1" />
+      <div class="n-display" id="nDisplay">36</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Complexity</th>
+          <th>Iterations</th>
+          <th style="width:30%;">Visual</th>
+          <th>Time @ 10⁸ ops/sec</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <div class="insight" id="insight">
+      <strong>Key insight:</strong> Try N = 36 first, then crank it to 10⁸. Watch O(2^N) and O(N!) literally blow up while O(log N), O(√N) stay calm. <em>This is why algorithm choice matters — it's not "premature optimization", it's the difference between "ships in 1 sec" and "ships in 317 years."</em>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROWS = [
+  { label: 'O(1)',          fn: (n) => 1,                     order: 0 },
+  { label: 'O(log N)',      fn: (n) => Math.log2(n),          order: 1 },
+  { label: 'O(√N)',         fn: (n) => Math.sqrt(n),          order: 2 },
+  { label: 'O(N)',          fn: (n) => n,                     order: 3 },
+  { label: 'O(N log N)',    fn: (n) => n * Math.log2(n),      order: 4 },
+  { label: 'O(N²)',         fn: (n) => n * n,                 order: 5 },
+  { label: 'O(N³)',         fn: (n) => n * n * n,             order: 6 },
+  { label: 'O(2^N)',        fn: (n) => Math.pow(2, n),        order: 7, dangerous: true },
+  { label: 'O(N!)',         fn: (n) => factorial(n),          order: 8, dangerous: true },
+];
+
+function factorial(n) {
+  if (n > 170) return Infinity;
+  let r = 1;
+  for (let i = 2; i <= n; i++) r *= i;
+  return r;
+}
+
+function formatNum(x) {
+  if (!isFinite(x)) return '∞';
+  if (x < 1) return x.toFixed(3);
+  if (x < 10) return x.toFixed(2);
+  if (x < 1000) return Math.round(x).toString();
+  if (x < 1e6) return Math.round(x).toLocaleString();
+  if (x < 1e9) return (x / 1e6).toFixed(2) + ' × 10⁶';
+  if (x < 1e12) return (x / 1e9).toFixed(2) + ' × 10⁹';
+  if (x < 1e15) return (x / 1e12).toFixed(2) + ' × 10¹²';
+  if (x < 1e18) return (x / 1e15).toFixed(2) + ' × 10¹⁵';
+  if (x < 1e100) return x.toExponential(2);
+  return '> 10¹⁰⁰';
+}
+
+function timeFromIters(iters) {
+  if (!isFinite(iters)) return '> heat death of universe';
+  const opsPerSec = 1e8;
+  const sec = iters / opsPerSec;
+  if (sec < 1e-6) return '< 1 µs';
+  if (sec < 1e-3) return (sec * 1e6).toFixed(1) + ' µs';
+  if (sec < 1) return (sec * 1000).toFixed(2) + ' ms';
+  if (sec < 60) return sec.toFixed(2) + ' sec';
+  if (sec < 3600) return (sec / 60).toFixed(1) + ' min';
+  if (sec < 86400) return (sec / 3600).toFixed(1) + ' hours';
+  if (sec < 31536000) return (sec / 86400).toFixed(1) + ' days';
+  if (sec < 31536000 * 1000) return (sec / 31536000).toFixed(1) + ' years';
+  if (sec < 31536000 * 1e9) return (sec / 31536000).toExponential(1) + ' years';
+  return '> heat death of universe';
+}
+
+function verdictForSec(iters) {
+  if (!isFinite(iters)) return { label: 'unfathomable', cls: 'v-dead' };
+  const sec = iters / 1e8;
+  if (sec < 0.001) return { label: 'instant', cls: 'v-instant' };
+  if (sec < 1) return { label: 'fast', cls: 'v-fast' };
+  if (sec < 10) return { label: 'acceptable', cls: 'v-ok' };
+  if (sec < 3600) return { label: 'too slow', cls: 'v-slow' };
+  return { label: 'career-ending', cls: 'v-dead' };
+}
+
+const colors = ['#43A047', '#185FA5', '#1B5E20', '#5D9CEC', '#F9A825', '#FB8C00', '#E53935', '#B71C1C', '#1B1B1B'];
+
+function render(n) {
+  document.getElementById('nDisplay').textContent = n.toLocaleString();
+  // Compute max iterations (cap log scale display)
+  const allValues = ROWS.map(r => r.fn(n));
+  const maxLog = Math.log10(Math.max(...allValues.filter(v => isFinite(v) && v > 0), 10));
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  ROWS.forEach((r, idx) => {
+    const v = r.fn(n);
+    const tr = document.createElement('tr');
+    const verdict = verdictForSec(v);
+    const logv = isFinite(v) && v > 0 ? Math.log10(v) : 0;
+    const widthPct = isFinite(v) ? Math.min(100, Math.max(2, (logv / Math.max(maxLog, 1)) * 100)) : 100;
+    tr.innerHTML = `
+      <td class="complexity">${r.label}</td>
+      <td class="value">${formatNum(v)}</td>
+      <td class="bar-cell"><div class="bar-wrap"><div class="bar" style="width:${widthPct}%; background:${colors[idx]};"></div></div></td>
+      <td class="value">${timeFromIters(v)}</td>
+      <td><span class="verdict ${verdict.cls}">${verdict.label}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+const slider = document.getElementById('nSlider');
+slider.addEventListener('input', () => render(+slider.value));
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const n = +btn.dataset.n;
+    // Update slider — clamp range when needed
+    slider.max = Math.max(100, n);
+    slider.value = n;
+    render(n);
+  });
+});
+
+render(36);
+</script>
+</body>
+</html>

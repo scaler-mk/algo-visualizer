@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 4 — Sum of First N (Gauss Pairing)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .toggle-row { display: flex; gap: 8px; margin-bottom: 18px; align-items: center;
+                font-family: -apple-system, system-ui, sans-serif; }
+  .toggle-row span { font-size: 13px; color: #555; margin-right: 6px; }
+  .tog-btn { padding: 6px 16px; border: 1px solid #185FA5; background: white; color: #185FA5;
+             font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer; }
+  .tog-btn.active { background: #185FA5; color: white; }
+
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 22px;
+           margin-bottom: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 14px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+
+  .num-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
+  .num-cell {
+    min-width: 38px; height: 38px; padding: 0 8px;
+    background: #E6F1FB; border: 1px solid #ddd; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #185FA5; transition: all 0.4s;
+    position: relative;
+  }
+  .num-cell.paired-fwd { background: #FFF9C4; border-color: #F9A825; color: #5D4037; }
+  .num-cell.paired-rev { background: #FFF9C4; border-color: #F9A825; color: #5D4037; }
+  .pair-label {
+    position: absolute; top: -22px; right: -2px;
+    background: #43A047; color: white; font-size: 11px;
+    padding: 2px 6px; border-radius: 10px;
+    font-family: -apple-system, system-ui, sans-serif;
+    opacity: 0; transition: opacity 0.4s;
+  }
+  .num-cell.summed .pair-label { opacity: 1; }
+
+  .formula-box {
+    margin-top: 22px; padding: 16px 22px; background: #f9f9f9; border-radius: 6px;
+    border-left: 3px solid #185FA5; font-size: 16px; line-height: 1.7;
+    font-family: 'SF Mono', monospace;
+  }
+  .formula-box .highlight { background: #FFF9C4; padding: 2px 6px; border-radius: 3px; }
+  .formula-box .green { color: #1B5E20; font-weight: 700; }
+
+  .narration { padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; margin-top: 16px; }
+
+  .controls { display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+
+  .row-label { display: inline-block; min-width: 90px; color: #888; font-size: 12px;
+               font-family: -apple-system, system-ui, sans-serif; margin-right: 8px;
+               text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+
+  .pair-line { display: flex; align-items: center; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 4 · Sum of First N — Gauss's Pairing Trick</h1>
+  <div class="subtitle">Pair the first number with the last, second with the second-last, and so on. Every pair sums to N+1.</div>
+
+  <div class="toggle-row">
+    <span>Choose N:</span>
+    <button class="tog-btn active" id="t10">N = 10</button>
+    <button class="tog-btn" id="t8">N = 8</button>
+    <button class="tog-btn" id="t6">N = 6</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Forward sequence (1 to N)</div>
+    <div class="num-row" id="forwardRow"></div>
+
+    <div class="panel-title" style="margin-top:18px;">Reverse sequence (N down to 1)</div>
+    <div class="num-row" id="reverseRow"></div>
+
+    <div class="formula-box" id="formulaBox">
+      Click <strong>STEP</strong> to begin pairing.
+    </div>
+
+    <div class="narration" id="narration">Watch how each column adds up to the same value.</div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+let N = 10;
+let cursor = 0;
+let playing = false;
+let timer = null;
+let steps = [];
+
+function buildSteps() {
+  steps = [];
+  steps.push({ kind: 'intro', narration: `Write the sum forward: 1 + 2 + ... + ${N}.`, html: `Sum = 1 + 2 + 3 + … + ${N}` });
+  steps.push({ kind: 'reverse', narration: `Now write the SAME sum backwards underneath.`, html: `Forward:  1 + 2 + 3 + … + ${N}<br>Reverse:  ${N} + ${N-1} + … + 1` });
+  // Pair up each column
+  for (let k = 1; k <= N; k++) {
+    steps.push({
+      kind: 'pair', col: k, narration: `Column ${k}: ${k} + ${N + 1 - k} = ${N + 1}.`,
+      html: `Each column sums to ${N+1}. After ${k} columns: running sum = ${k} × ${N+1} = ${k * (N+1)}.`
+    });
+  }
+  steps.push({ kind: 'total', narration: `All ${N} columns sum to ${N+1}. So total of both rows = ${N} × ${N+1}.`,
+               html: `Total of BOTH rows = ${N} × ${N+1} = ${N * (N+1)}.` });
+  steps.push({ kind: 'halve', narration: `But we counted the sum TWICE. Divide by 2.`,
+               html: `Sum of 1 to ${N} = (${N} × ${N+1}) / 2 = <span class="green">${N * (N+1) / 2}</span>` });
+  steps.push({ kind: 'general', narration: `Generalize for any N.`,
+               html: `<span class="highlight">1 + 2 + 3 + … + N = N × (N + 1) / 2</span> &nbsp;&nbsp; <span class="green">→ O(1) formula instead of O(N) loop!</span>` });
+  document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+}
+
+function buildRows() {
+  const fwd = document.getElementById('forwardRow');
+  const rev = document.getElementById('reverseRow');
+  fwd.innerHTML = '';
+  rev.innerHTML = '';
+  for (let i = 1; i <= N; i++) {
+    const c = document.createElement('div');
+    c.className = 'num-cell';
+    c.id = 'fwd-' + i;
+    c.textContent = i;
+    fwd.appendChild(c);
+  }
+  for (let i = N; i >= 1; i--) {
+    const c = document.createElement('div');
+    c.className = 'num-cell';
+    c.id = 'rev-' + (N + 1 - i); // rev cell at column k corresponds to value N+1-k
+    c.innerHTML = i + '<span class="pair-label">=' + (N+1) + '</span>';
+    rev.appendChild(c);
+  }
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  // reset highlights
+  document.querySelectorAll('.num-cell').forEach(c => c.classList.remove('paired-fwd','paired-rev','summed'));
+
+  if (cursor === 0) {
+    document.getElementById('formulaBox').innerHTML = "Click <strong>STEP</strong> to begin pairing.";
+    document.getElementById('narration').textContent = "Watch how each column adds up to the same value.";
+    return;
+  }
+  const s = steps[cursor - 1];
+  document.getElementById('formulaBox').innerHTML = s.html;
+  document.getElementById('narration').textContent = s.narration;
+
+  if (s.kind === 'pair' || s.kind === 'reverse' || s.kind === 'total' || s.kind === 'halve' || s.kind === 'general') {
+    // Highlight pairs up to current column
+    let upTo = 0;
+    if (s.kind === 'pair') upTo = s.col;
+    else if (s.kind === 'reverse') upTo = 0;
+    else upTo = N; // total / halve / general → all paired
+
+    for (let k = 1; k <= upTo; k++) {
+      const fwdCell = document.getElementById('fwd-' + k);
+      const revCell = document.getElementById('rev-' + k);
+      if (fwdCell) { fwdCell.classList.add('paired-fwd'); fwdCell.classList.add('summed'); }
+      if (revCell) { revCell.classList.add('paired-rev'); revCell.classList.add('summed'); }
+    }
+  }
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 1100);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+function switchN(newN, btnId) {
+  N = newN;
+  document.querySelectorAll('.tog-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(btnId).classList.add('active');
+  cursor = 0;
+  buildRows();
+  buildSteps();
+  render();
+}
+
+document.getElementById('t10').onclick = () => switchN(10, 't10');
+document.getElementById('t8').onclick = () => switchN(8, 't8');
+document.getElementById('t6').onclick = () => switchN(6, 't6');
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+buildRows();
+buildSteps();
+reset();
+</script>
+</body>
+</html>

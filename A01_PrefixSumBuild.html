@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 1 — Building the Prefix Sum Array</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  pre.code { font-size: 14px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vars-table td { padding: 6px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 110px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 12px;
+                       text-transform: uppercase; letter-spacing: 0.5px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; }
+  .check-row { margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 14px;
+               line-height: 1.6; background: #E6F1FB; border: 1px solid #ddd; }
+  .check-row.hit { background: #E8F5E9; border-color: #43A047; }
+  .check-row.stop { background: #FFF9C4; border-color: #F9A825; color: #5D4037; font-weight: 600; }
+  .array-row { display: flex; gap: 0; margin-top: 8px; }
+  .cell {
+    width: 60px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; border: 1.5px solid #ddd;
+    background: #E6F1FB; color: #185FA5; transition: all 0.25s;
+    font-family: 'SF Mono', monospace;
+  }
+  .cell.empty { background: #fff; color: #ccc; border-style: dashed; }
+  .cell.active { background: #FFF9C4; border-color: #F9A825; color: #5D4037; }
+  .cell.done { background: #E8F5E9; border-color: #43A047; color: #1B5E20; }
+  .cell.input-active { background: #FFF9C4; border-color: #F9A825; color: #5D4037; }
+  .index-row { display: flex; gap: 0; margin-top: 4px; }
+  .idx-label {
+    width: 60px; text-align: center; font-size: 11px; color: #888;
+    font-family: 'SF Mono', monospace;
+  }
+  .formula-box {
+    margin-top: 14px; padding: 12px; background: #FFF9C4; border: 1px solid #F9A825;
+    border-radius: 6px; font-family: 'SF Mono', monospace; font-size: 13px; color: #5D4037;
+    text-align: center;
+  }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 12px;
+          font-family: -apple-system, system-ui, sans-serif; font-weight: 600; }
+  .sp-hl { background: #FFF9C4; color: #5D4037; border: 1px solid #F9A825; }
+  .sp-ok { background: #E8F5E9; color: #1B5E20; border: 1px solid #43A047; }
+  .controls { margin-top: 20px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 16px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 1 · Building the Prefix Sum Array</h1>
+  <div class="subtitle">Watch pf[ ] fill in cell by cell. Each cell uses the formula pf[i] = pf[i−1] + A[i].</div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Pseudocode</div>
+      <pre class="code"><span class="line" data-line="1"><span class="keyword">function</span> buildPrefixSum(A[], N) {</span><span class="line" data-line="2">    pf[0] = A[0];</span><span class="line" data-line="3">    <span class="keyword">for</span> (i -&gt; 1 <span class="keyword">to</span> N-1) {</span><span class="line" data-line="4">        pf[i] = pf[i-1] + A[i];</span><span class="line" data-line="5">    }</span><span class="line" data-line="6">    <span class="keyword">return</span> pf;</span><span class="line" data-line="7">}</span></pre>
+      <div class="formula-box">pf[i] = pf[i−1] + A[i]</div>
+      <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Variables</div>
+      <table class="vars-table">
+        <tr><td class="label">N</td><td class="value">5</td></tr>
+        <tr><td class="label">i</td><td class="value" id="varI">—</td></tr>
+        <tr><td class="label">pf[i−1]</td><td class="value" id="varPrev">—</td></tr>
+        <tr><td class="label">A[i]</td><td class="value" id="varA">—</td></tr>
+        <tr><td class="label">pf[i]</td><td class="value" id="varNew">—</td></tr>
+      </table>
+
+      <div class="check-row" id="checkRow">Click STEP to begin.</div>
+
+      <div class="panel-title" style="margin-top:18px;">Input array A</div>
+      <div class="array-row" id="inputRow"></div>
+      <div class="index-row" id="inputIdx"></div>
+
+      <div class="panel-title" style="margin-top:14px;">Prefix sum array pf</div>
+      <div class="array-row" id="pfRow"></div>
+      <div class="index-row" id="pfIdx"></div>
+
+      <div class="pills">
+        <div class="pill sp-hl">▣ being computed</div>
+        <div class="pill sp-ok">▣ done</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const A = [2, 5, -1, 7, 1];
+const N = A.length;
+const pf = [];
+// Compute pf for snapshot reference
+pf.push(A[0]);
+for (let i = 1; i < N; i++) pf.push(pf[i-1] + A[i]);
+
+// Build cells
+const inputRow = document.getElementById('inputRow');
+const inputIdx = document.getElementById('inputIdx');
+const pfRow = document.getElementById('pfRow');
+const pfIdx = document.getElementById('pfIdx');
+
+A.forEach((v, i) => {
+  const c = document.createElement('div');
+  c.className = 'cell'; c.id = 'in-' + i; c.textContent = v;
+  inputRow.appendChild(c);
+  const lbl = document.createElement('div');
+  lbl.className = 'idx-label'; lbl.textContent = '[' + i + ']';
+  inputIdx.appendChild(lbl);
+});
+A.forEach((_, i) => {
+  const c = document.createElement('div');
+  c.className = 'cell empty'; c.id = 'pf-' + i; c.textContent = '—';
+  pfRow.appendChild(c);
+  const lbl = document.createElement('div');
+  lbl.className = 'idx-label'; lbl.textContent = '[' + i + ']';
+  pfIdx.appendChild(lbl);
+});
+
+// Build steps
+const steps = [];
+steps.push({ line: 2, narration: `Initialize: pf[0] = A[0] = ${A[0]}.`,
+             vars: { i: 0, prev: '—', a: A[0], pfNew: pf[0] }, fillIdx: 0 });
+for (let i = 1; i < N; i++) {
+  steps.push({
+    line: 3,
+    narration: `Loop iteration: i = ${i}.`,
+    vars: { i, prev: pf[i-1], a: A[i], pfNew: '—' },
+    activeIdx: i
+  });
+  steps.push({
+    line: 4,
+    narration: `Compute pf[${i}] = pf[${i-1}] + A[${i}] = ${pf[i-1]} + ${A[i]} = ${pf[i]}.`,
+    vars: { i, prev: pf[i-1], a: A[i], pfNew: pf[i] },
+    fillIdx: i
+  });
+}
+steps.push({ line: 6, narration: `Loop done. pf array fully built: [${pf.join(', ')}]. Total cost: O(N).`,
+             vars: { i: N, prev: '—', a: '—', pfNew: '—' }, final: true });
+
+let cursor = 0, playing = false, timer = null;
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  if (cursor === 0) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varPrev').textContent = '—';
+    document.getElementById('varA').textContent = '—';
+    document.getElementById('varNew').textContent = '—';
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').textContent = 'Click STEP to begin.';
+    setLine(null);
+    document.querySelectorAll('#inputRow .cell').forEach((c, i) => {
+      c.className = 'cell'; c.textContent = A[i];
+    });
+    document.querySelectorAll('#pfRow .cell').forEach((c, i) => {
+      c.className = 'cell empty'; c.textContent = '—';
+    });
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.`;
+    return;
+  }
+  const s = steps[cursor - 1];
+  setLine(s.line);
+  document.getElementById('narration').textContent = s.narration;
+
+  document.getElementById('varI').textContent = s.vars.i ?? '—';
+  document.getElementById('varPrev').textContent = s.vars.prev ?? '—';
+  document.getElementById('varA').textContent = s.vars.a ?? '—';
+  document.getElementById('varNew').textContent = s.vars.pfNew ?? '—';
+
+  // Highlight input array
+  document.querySelectorAll('#inputRow .cell').forEach((c, i) => {
+    c.className = 'cell';
+    const idx = s.fillIdx ?? s.activeIdx;
+    if (!s.final && idx === i) c.classList.add('input-active');
+  });
+
+  // Highlight pf array
+  document.querySelectorAll('#pfRow .cell').forEach((c, i) => {
+    c.className = 'cell';
+    if (s.final) {
+      c.classList.add('done');
+      c.textContent = pf[i];
+    } else if (s.fillIdx != null && i === s.fillIdx) {
+      c.classList.add('active');
+      c.textContent = pf[i];
+    } else if (s.fillIdx != null && i < s.fillIdx) {
+      c.classList.add('done');
+      c.textContent = pf[i];
+    } else if (s.activeIdx != null && i < s.activeIdx) {
+      c.classList.add('done');
+      c.textContent = pf[i];
+    } else {
+      c.classList.add('empty');
+      c.textContent = '—';
+    }
+  });
+
+  // Check row
+  if (s.final) {
+    document.getElementById('checkRow').className = 'check-row stop';
+    document.getElementById('checkRow').innerHTML = `Done. ${N} additions = O(N) build cost.`;
+  } else if (s.line === 4) {
+    document.getElementById('checkRow').className = 'check-row hit';
+    document.getElementById('checkRow').innerHTML = `Computed pf[${s.vars.i}] = ${s.vars.pfNew}.`;
+  } else if (s.line === 2) {
+    document.getElementById('checkRow').className = 'check-row hit';
+    document.getElementById('checkRow').innerHTML = `Base case: pf[0] = A[0] = ${s.vars.pfNew}.`;
+  } else if (s.line === 3) {
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').innerHTML = `Iterating: i = ${s.vars.i}.`;
+  }
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 900);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+reset();
+</script>
+</body>
+</html>

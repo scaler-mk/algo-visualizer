@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 4 — All Subarrays Enumeration</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  pre.code { font-size: 14px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vars-table td { padding: 8px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 110px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 12px;
+                       text-transform: uppercase; letter-spacing: 0.5px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; font-size: 16px; }
+  .check-row { margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 14px;
+               line-height: 1.6; background: #E6F1FB; border: 1px solid #ddd; }
+  .check-row.hit { background: #E8F5E9; border-color: #43A047; }
+  .check-row.stop { background: #FFF9C4; border-color: #F9A825; color: #5D4037; font-weight: 600; }
+  .array-row { display: flex; gap: 0; margin-top: 8px; }
+  .cell {
+    width: 70px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; border: 1.5px solid #ddd;
+    background: #E6F1FB; color: #185FA5; transition: all 0.25s;
+    font-family: 'SF Mono', monospace;
+  }
+  .cell.dim { background: #f9f9f9; color: #ccc; }
+  .cell.in-sub { background: #E8F5E9; color: #1B5E20; border-color: #43A047; }
+  .cell.start-marker { background: #FFEBEE; color: #B71C1C; border-color: #E53935; border-width: 2px; }
+  .cell.end-marker { background: #FFF9C4; color: #5D4037; border-color: #F9A825; border-width: 2px; }
+  .index-row { display: flex; gap: 0; margin-top: 4px; }
+  .idx-label {
+    width: 70px; text-align: center; font-size: 11px; color: #888;
+    font-family: 'SF Mono', monospace;
+  }
+  .controls { margin-top: 20px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 16px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 12px;
+          font-family: -apple-system, system-ui, sans-serif; font-weight: 600; }
+  .sp-err { background: #FFEBEE; color: #B71C1C; border: 1px solid #E53935; }
+  .sp-hl { background: #FFF9C4; color: #5D4037; border: 1px solid #F9A825; }
+  .sp-ok { background: #E8F5E9; color: #1B5E20; border: 1px solid #43A047; }
+  .found-list { margin-top: 12px; padding: 10px; background: #f9f9f9;
+                border: 1px solid #ddd; border-radius: 6px; font-size: 12px;
+                font-family: 'SF Mono', monospace; min-height: 40px; max-height: 130px;
+                overflow-y: auto; line-height: 1.6; }
+  .found-item { display: inline-block; padding: 2px 8px; margin: 2px; background: #E8F5E9;
+                color: #1B5E20; border: 1px solid #43A047; border-radius: 4px; }
+  .total-counter { display: inline-block; padding: 4px 12px; background: #1B5E20;
+                   color: white; border-radius: 12px; font-weight: 700; font-size: 13px;
+                   margin-left: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 4 · Print all subarrays — outer × inner loop</h1>
+  <div class="subtitle">For each start i, walk every end j from i to N−1. Print arr[i..j]. The double loop visits every contiguous slice exactly once.</div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Pseudocode</div>
+      <pre class="code"><span class="line" data-line="1"><span class="keyword">function</span> printSubarrays(arr[], n) {</span><span class="line" data-line="2">    <span class="keyword">for</span> (i -&gt; 0 <span class="keyword">to</span> n-1) {</span><span class="line" data-line="3">        <span class="keyword">for</span> (j -&gt; i <span class="keyword">to</span> n-1) {</span><span class="line" data-line="4">            <span class="keyword">for</span> (k -&gt; i <span class="keyword">to</span> j) {</span><span class="line" data-line="5">                print(arr[k]);</span><span class="line" data-line="6">            }</span><span class="line" data-line="7">        }</span><span class="line" data-line="8">    }</span><span class="line" data-line="9">}</span></pre>
+      <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Variables</div>
+      <table class="vars-table">
+        <tr><td class="label">i (start)</td><td class="value" id="varI" style="color:#B71C1C;">—</td></tr>
+        <tr><td class="label">j (end)</td><td class="value" id="varJ" style="color:#5D4037;">—</td></tr>
+        <tr><td class="label">subarray</td><td class="value" id="varSub" style="color:#1B5E20; font-size:14px;">—</td></tr>
+      </table>
+
+      <div class="check-row" id="checkRow">Click STEP to begin.</div>
+
+      <div class="panel-title" style="margin-top:18px;">arr = [1, 2, 3, 4]</div>
+      <div class="array-row" id="arrRow"></div>
+      <div class="index-row" id="arrIdx"></div>
+
+      <div class="pills">
+        <div class="pill sp-err">▣ i (start)</div>
+        <div class="pill sp-hl">▣ j (end)</div>
+        <div class="pill sp-ok">▣ subarray arr[i..j]</div>
+      </div>
+
+      <div class="panel-title" style="margin-top:14px;">
+        Found subarrays
+        <span class="total-counter" id="totalCounter">0</span>
+      </div>
+      <div class="found-list" id="foundList"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const arr = [1, 2, 3, 4];
+const N = arr.length;
+
+// Build cells
+const arrRow = document.getElementById('arrRow');
+const arrIdx = document.getElementById('arrIdx');
+arr.forEach((v, i) => {
+  const c = document.createElement('div'); c.className = 'cell'; c.id = 'a-' + i; c.textContent = v;
+  arrRow.appendChild(c);
+  const lbl = document.createElement('div'); lbl.className = 'idx-label'; lbl.textContent = '[' + i + ']';
+  arrIdx.appendChild(lbl);
+});
+
+// Build steps - enumerate all subarrays
+const steps = [];
+for (let i = 0; i < N; i++) {
+  for (let j = i; j < N; j++) {
+    steps.push({ i, j, sub: arr.slice(i, j + 1), line: 5 });
+  }
+}
+steps.push({ final: true, line: 9 });
+
+let cursor = 0, playing = false, timer = null;
+const found = []; // accumulated subarrays found
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  if (cursor === 0) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varJ').textContent = '—';
+    document.getElementById('varSub').textContent = '—';
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').textContent = 'Click STEP to begin.';
+    setLine(null);
+    document.querySelectorAll('#arrRow .cell').forEach(c => { c.className = 'cell'; });
+    document.getElementById('foundList').innerHTML = '';
+    document.getElementById('totalCounter').textContent = '0';
+    found.length = 0;
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.`;
+    return;
+  }
+  const s = steps[cursor - 1];
+  setLine(s.line);
+
+  if (s.final) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varJ').textContent = '—';
+    document.getElementById('varSub').textContent = '—';
+    document.querySelectorAll('#arrRow .cell').forEach(c => { c.className = 'cell'; });
+    document.getElementById('checkRow').className = 'check-row stop';
+    document.getElementById('checkRow').innerHTML = `Done. Total subarrays = ${found.length}. For N=${N}: N(N+1)/2 = ${N*(N+1)/2}.`;
+    document.getElementById('narration').innerHTML = `All subarrays enumerated. Outer loop runs ${N} times, inner loop averages N/2 iterations, copy step adds another N — total work is <b>O(N³)</b>.`;
+    return;
+  }
+
+  document.getElementById('varI').textContent = s.i;
+  document.getElementById('varJ').textContent = s.j;
+  document.getElementById('varSub').textContent = '[' + s.sub.join(', ') + ']';
+
+  // Add to found list (only on first encounter)
+  while (found.length < cursor) {
+    const idx = found.length;
+    found.push(steps[idx]);
+  }
+
+  // Render cells
+  document.querySelectorAll('#arrRow .cell').forEach((c, i) => {
+    c.className = 'cell';
+    if (i < s.i || i > s.j) c.classList.add('dim');
+    else c.classList.add('in-sub');
+  });
+  // Mark i and j on top of in-sub
+  if (s.i === s.j) {
+    document.getElementById('a-' + s.i).className = 'cell start-marker';
+  } else {
+    document.getElementById('a-' + s.i).className = 'cell start-marker';
+    document.getElementById('a-' + s.j).className = 'cell end-marker';
+  }
+
+  // Update found list
+  const fl = document.getElementById('foundList');
+  fl.innerHTML = found.filter(f => !f.final).map(f =>
+    `<span class="found-item">[${f.sub.join(', ')}]</span>`
+  ).join('');
+  document.getElementById('totalCounter').textContent = found.filter(f => !f.final).length;
+
+  document.getElementById('checkRow').className = 'check-row hit';
+  document.getElementById('checkRow').innerHTML = `Print arr[${s.i}..${s.j}] = [${s.sub.join(', ')}]`;
+  document.getElementById('narration').innerHTML = `Outer i=${s.i}, inner j=${s.j}. Subarray: <b>[${s.sub.join(', ')}]</b>. Length ${s.sub.length}.`;
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 700);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+reset();
+</script>
+</body>
+</html>

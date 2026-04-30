@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 4 — 3-Reverse Rotation O(N)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  pre.code { font-size: 13px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .comment { color: #888; font-style: italic; }
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vars-table td { padding: 6px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 130px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 12px;
+                       text-transform: uppercase; letter-spacing: 0.5px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; }
+  .check-row { margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 14px;
+               line-height: 1.6; background: #E6F1FB; border: 1px solid #ddd; }
+  .check-row.hit { background: #E8F5E9; border-color: #43A047; }
+  .check-row.stop { background: #FFF9C4; border-color: #F9A825; color: #5D4037; font-weight: 600; }
+
+  .stage-row {
+    margin-top: 14px; padding: 10px 12px; border-radius: 6px;
+    border: 1px solid #ddd; transition: all 0.25s;
+  }
+  .stage-row.active {
+    border-color: #F9A825; background: #FFF9C4;
+  }
+  .stage-row.done {
+    border-color: #43A047; background: #E8F5E9;
+  }
+  .stage-row .stage-label {
+    font-size: 12px; font-weight: 700; color: #555; letter-spacing: 0.6px;
+    font-family: -apple-system, system-ui, sans-serif; margin-bottom: 6px;
+  }
+  .stage-row .stage-array { display: flex; gap: 0; }
+  .stage-cell {
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; border: 1.2px solid #ccc;
+    background: #fff; color: #185FA5; transition: all 0.25s;
+    font-family: 'SF Mono', monospace;
+  }
+  .stage-cell.in-range { background: #FFF9C4; border-color: #F9A825; color: #5D4037; }
+  .stage-cell.fixed { background: #E8F5E9; border-color: #43A047; color: #1B5E20; }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 12px;
+          font-family: -apple-system, system-ui, sans-serif; font-weight: 600; }
+  .sp-hl { background: #FFF9C4; color: #5D4037; border: 1px solid #F9A825; }
+  .sp-ok { background: #E8F5E9; color: #1B5E20; border: 1px solid #43A047; }
+
+  .controls { margin-top: 20px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 16px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 4 · The 3-Reverse Trick — O(N)</h1>
+  <div class="subtitle">N = 7, K = 3. Watch how 3 reversals beat the O(N×K) brute-force approach.</div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Pseudocode</div>
+      <pre class="code"><span class="line" data-line="1"><span class="keyword">function</span> rotate(arr[], N, K) {</span><span class="line" data-line="2">    K = K % N;        <span class="comment">// edge case</span></span><span class="line" data-line="3">    reverse(arr, 0, N-1);</span><span class="line" data-line="4">    reverse(arr, 0, K-1);</span><span class="line" data-line="5">    reverse(arr, K, N-1);</span><span class="line" data-line="6">}</span></pre>
+
+      <div class="panel-title" style="margin-top:18px;">Variables</div>
+      <table class="vars-table">
+        <tr><td class="label">N</td><td class="value">7</td></tr>
+        <tr><td class="label">K (after % N)</td><td class="value" id="varK">3</td></tr>
+        <tr><td class="label">current step</td><td class="value" id="varStep">—</td></tr>
+      </table>
+
+      <div class="check-row" id="checkRow">Click STEP to begin.</div>
+      <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong>.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Array transformation</div>
+
+      <div class="stage-row" id="stage0">
+        <div class="stage-label">Step 0 — Original</div>
+        <div class="stage-array" id="arr0"></div>
+      </div>
+
+      <div class="stage-row" id="stage1">
+        <div class="stage-label">Step 1 — Reverse FULL [0..N−1]</div>
+        <div class="stage-array" id="arr1"></div>
+      </div>
+
+      <div class="stage-row" id="stage2">
+        <div class="stage-label">Step 2 — Reverse first K [0..K−1]</div>
+        <div class="stage-array" id="arr2"></div>
+      </div>
+
+      <div class="stage-row" id="stage3">
+        <div class="stage-label">Step 3 — Reverse last N−K [K..N−1]</div>
+        <div class="stage-array" id="arr3"></div>
+      </div>
+
+      <div class="pills">
+        <div class="pill sp-hl">▣ in-range</div>
+        <div class="pill sp-ok">▣ in final position</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const N = 7, K = 3;
+const orig = [1, 2, 3, 4, 5, 6, 7];
+const afterStep1 = [7, 6, 5, 4, 3, 2, 1];     // full reverse
+const afterStep2 = [5, 6, 7, 4, 3, 2, 1];     // reverse [0..K-1]
+const afterStep3 = [5, 6, 7, 1, 2, 3, 4];     // reverse [K..N-1]
+
+const stages = [
+  { id: 0, arr: orig, range: null },
+  { id: 1, arr: afterStep1, range: [0, N-1], fixed: null },
+  { id: 2, arr: afterStep2, range: [0, K-1], fixed: [0, K-1] },
+  { id: 3, arr: afterStep3, range: [K, N-1], fixed: [0, N-1] }
+];
+
+// Build cells for all 4 stages
+function buildAllStages() {
+  for (let s = 0; s < 4; s++) {
+    const row = document.getElementById('arr' + s);
+    row.innerHTML = '';
+    for (let k = 0; k < N; k++) {
+      const c = document.createElement('div');
+      c.className = 'stage-cell';
+      c.id = 'arr' + s + '-cell-' + k;
+      c.textContent = stages[s].arr[k];
+      row.appendChild(c);
+    }
+  }
+}
+
+// Build steps - for each stage transition, narrate it
+const steps = [
+  { line: 2, stage: 0, narration: `K = K % N = 3 % 7 = 3. (Edge case: large K wraps around.)`, varStep: 'init' },
+  { line: 3, stage: 0, narration: `About to perform Step 1: Reverse full array [0..${N-1}].`, varStep: 'before-S1' },
+  { line: 3, stage: 1, narration: `Step 1 done. Full array reversed: ${afterStep1.join(', ')}. The last K elements {5,6,7} are now at the front, but reversed.`, varStep: 'S1-done' },
+  { line: 4, stage: 1, narration: `About to perform Step 2: Reverse the first K elements [0..${K-1}].`, varStep: 'before-S2' },
+  { line: 4, stage: 2, narration: `Step 2 done. First K = ${afterStep2.slice(0, K).join(', ')} now in correct order. Front is FIXED.`, varStep: 'S2-done' },
+  { line: 5, stage: 2, narration: `About to perform Step 3: Reverse the last N−K = ${N-K} elements [${K}..${N-1}].`, varStep: 'before-S3' },
+  { line: 5, stage: 3, narration: `Step 3 done. Last N−K = ${afterStep3.slice(K).join(', ')} now in correct order.`, varStep: 'S3-done' },
+  { line: 6, stage: 3, narration: `Done. Final answer: ${afterStep3.join(', ')}. Total work = 3 passes of N → O(N).`, varStep: 'final', final: true }
+];
+
+let cursor = 0, playing = false, timer = null;
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  // Reset all stages first
+  document.querySelectorAll('.stage-row').forEach(r => r.className = 'stage-row');
+  document.querySelectorAll('.stage-cell').forEach(c => c.className = 'stage-cell');
+
+  if (cursor === 0) {
+    setLine(null);
+    document.getElementById('varStep').textContent = '—';
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').textContent = 'Click STEP to begin.';
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong>.`;
+    // Show only stage 0
+    return;
+  }
+
+  const s = steps[cursor - 1];
+  setLine(s.line);
+  document.getElementById('narration').textContent = s.narration;
+  document.getElementById('varStep').textContent = s.varStep;
+
+  // Reveal stages up to the current stage
+  for (let i = 0; i <= s.stage; i++) {
+    const stageRow = document.getElementById('stage' + i);
+    if (i === s.stage) stageRow.classList.add('active');
+    else stageRow.classList.add('done');
+
+    // Highlight cells in range
+    const stage = stages[i];
+    if (stage.fixed) {
+      for (let k = stage.fixed[0]; k <= stage.fixed[1]; k++) {
+        const c = document.getElementById(`arr${i}-cell-${k}`);
+        if (c) c.classList.add('fixed');
+      }
+    }
+    if (stage.range && i === s.stage) {
+      for (let k = stage.range[0]; k <= stage.range[1]; k++) {
+        const c = document.getElementById(`arr${i}-cell-${k}`);
+        if (c) {
+          c.classList.remove('fixed');
+          c.classList.add('in-range');
+        }
+      }
+    }
+  }
+
+  // Hide unrevealed stages
+  for (let i = s.stage + 1; i < 4; i++) {
+    const stageRow = document.getElementById('stage' + i);
+    stageRow.style.opacity = '0.25';
+  }
+  // Show revealed
+  for (let i = 0; i <= s.stage; i++) {
+    const stageRow = document.getElementById('stage' + i);
+    stageRow.style.opacity = '1';
+  }
+
+  // Check row narration
+  const cr = document.getElementById('checkRow');
+  if (s.varStep === 'init') {
+    cr.className = 'check-row hit';
+    cr.innerHTML = `Edge case: K = ${K} % N = ${K}`;
+  } else if (s.varStep.startsWith('before')) {
+    cr.className = 'check-row';
+    cr.innerHTML = `About to call <strong>reverse()</strong>...`;
+  } else if (s.varStep.endsWith('done')) {
+    cr.className = 'check-row hit';
+    cr.innerHTML = `Reverse complete. Move to next step.`;
+  } else if (s.final) {
+    cr.className = 'check-row stop';
+    cr.innerHTML = `Done. Three reversals, each O(N). Total: O(N).`;
+  }
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() {
+  pause(); cursor = 0;
+  // hide stages 1-3 initially
+  for (let i = 1; i < 4; i++) {
+    document.getElementById('stage' + i).style.opacity = '0.25';
+  }
+  document.getElementById('stage0').style.opacity = '1';
+  render();
+}
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 1500);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+buildAllStages();
+document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+reset();
+</script>
+</body>
+</html>
