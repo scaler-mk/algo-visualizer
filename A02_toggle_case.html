@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Toggle Case — Dry Run Animation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #F5F2EC; color: #1a1a1a; padding: 24px; }
+  h1 { font-family: Georgia, serif; font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 14px; color: #5a5a5a; margin-bottom: 20px; }
+
+  .string-row { display: flex; gap: 6px; margin: 16px 0; }
+  .char-box { width: 70px; height: 70px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.4s; border: 2px solid transparent; }
+  .char-box .ch { font-size: 28px; font-weight: 700; }
+  .char-box .idx { font-size: 11px; margin-top: 2px; }
+  .char-box .asc { font-size: 10px; color: #5a5a5a; }
+  .char-box.idle { background: white; border-color: #A89F8E; }
+  .char-box.active { background: #F8E4C7; border-color: #C8924A; transform: scale(1.12); box-shadow: 0 4px 16px rgba(200,146,74,0.3); }
+  .char-box.done-upper { background: #D7E5F4; border-color: #4A7CB5; }
+  .char-box.done-lower { background: #D4EBDC; border-color: #5BA678; }
+
+  .label { font-size: 13px; font-weight: 700; color: #5a5a5a; margin-right: 12px; min-width: 80px; }
+  .row-wrap { display: flex; align-items: center; }
+
+  .math-box { background: white; border: 1.5px solid #C8924A; border-radius: 10px; padding: 14px 20px; margin: 12px 0; min-height: 50px; font-size: 15px; transition: all 0.3s; }
+  .math-box .op { font-family: 'Courier New', monospace; color: #7A4A1F; font-weight: 700; background: #F8E4C7; padding: 2px 8px; border-radius: 4px; }
+
+  .controls { display: flex; gap: 8px; margin: 16px 0; }
+  .btn { padding: 8px 16px; border-radius: 8px; border: 1.5px solid; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-step { background: #D7E5F4; border-color: #4A7CB5; color: #0F4C81; }
+  .btn-reset { background: #F5D5CE; border-color: #C46B5C; color: #8B2E1F; }
+  .btn-auto { background: #D4EBDC; border-color: #5BA678; color: #1B5E20; }
+
+  .result-label { font-size: 16px; font-weight: 700; color: #1B5E20; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Toggle case — step-by-step dry run</h1>
+<p class="subtitle">Input: "Hello" — converting uppercase to lowercase and vice versa using ±32</p>
+
+<div class="controls">
+  <button class="btn btn-step" onclick="next()">Next step</button>
+  <button class="btn btn-step" onclick="prev()">Prev step</button>
+  <button class="btn btn-auto" id="autoBtn" onclick="toggleAuto()">Auto-play</button>
+  <button class="btn btn-reset" onclick="reset()">Reset</button>
+  <span style="font-size:13px;color:#5a5a5a;align-self:center;" id="counter">Step 0 / 5</span>
+</div>
+
+<div class="row-wrap">
+  <span class="label">Input:</span>
+  <div class="string-row" id="inputRow"></div>
+</div>
+
+<div class="math-box" id="mathBox">Click <b>Next step</b> to start the dry run</div>
+
+<div class="row-wrap" style="margin-top: 12px;">
+  <span class="label">Output:</span>
+  <div class="string-row" id="outputRow"></div>
+</div>
+
+<div class="result-label" id="resultLabel"></div>
+
+<script>
+const input = ['H','e','l','l','o'];
+const ascii = [72, 101, 108, 108, 111];
+const output = ['h','E','L','L','O'];
+const outAscii = [104, 69, 76, 76, 79];
+const isUpper = [true, false, false, false, false];
+
+let step = -1;
+let autoI = null;
+
+function render() {
+  const iR = document.getElementById('inputRow');
+  const oR = document.getElementById('outputRow');
+  const math = document.getElementById('mathBox');
+  const counter = document.getElementById('counter');
+  const res = document.getElementById('resultLabel');
+
+  counter.textContent = `Step ${Math.max(0,step+1)} / ${input.length}`;
+
+  // Input row
+  iR.innerHTML = input.map((c, i) => {
+    let cls = 'char-box';
+    if (i === step) cls += ' active';
+    else if (i < step) cls += (isUpper[i] ? ' done-upper' : ' done-lower');
+    else cls += ' idle';
+    return `<div class="${cls}"><span class="ch">${c}</span><span class="idx">i=${i}</span><span class="asc">ASCII ${ascii[i]}</span></div>`;
+  }).join('');
+
+  // Output row
+  oR.innerHTML = input.map((_, i) => {
+    if (i > step || step < 0) return `<div class="char-box idle"><span class="ch" style="color:#ccc;">_</span><span class="idx">i=${i}</span></div>`;
+    let cls = isUpper[i] ? 'done-lower' : 'done-upper';
+    return `<div class="char-box ${cls}"><span class="ch">${output[i]}</span><span class="idx">i=${i}</span><span class="asc">ASCII ${outAscii[i]}</span></div>`;
+  }).join('');
+
+  // Math explanation
+  if (step < 0) {
+    math.innerHTML = 'Click <b>Next step</b> to start the dry run';
+    res.textContent = '';
+  } else {
+    const c = input[step];
+    const a = ascii[step];
+    const oc = output[step];
+    const oa = outAscii[step];
+    if (isUpper[step]) {
+      math.innerHTML = `<b>i=${step}:</b> A[${step}] = '${c}' — is uppercase? <b>YES</b> (${a} is between 65-90)<br>→ <span class="op">'${c}' (${a}) + 32 = ${oa} = '${oc}'</span> — converted to lowercase`;
+    } else {
+      math.innerHTML = `<b>i=${step}:</b> A[${step}] = '${c}' — is lowercase? <b>YES</b> (${a} is between 97-122)<br>→ <span class="op">'${c}' (${a}) - 32 = ${oa} = '${oc}'</span> — converted to uppercase`;
+    }
+    if (step === input.length - 1) {
+      res.textContent = 'Result: "hELLO" — all cases toggled!';
+    } else {
+      res.textContent = `Result so far: "${output.slice(0, step+1).join('')}${'_'.repeat(input.length - step - 1)}"`;
+    }
+  }
+}
+
+function next() { if (step < input.length - 1) { step++; render(); } }
+function prev() { if (step >= 0) { step--; render(); } }
+function reset() { step = -1; if (autoI) { clearInterval(autoI); autoI = null; document.getElementById('autoBtn').textContent = 'Auto-play'; } render(); }
+function toggleAuto() {
+  const btn = document.getElementById('autoBtn');
+  if (autoI) { clearInterval(autoI); autoI = null; btn.textContent = 'Auto-play'; }
+  else { autoI = setInterval(() => { if (step >= input.length - 1) { clearInterval(autoI); autoI = null; btn.textContent = 'Auto-play'; } else next(); }, 1500); btn.textContent = 'Pause'; }
+}
+
+render();
+</script>
+</body>
+</html>

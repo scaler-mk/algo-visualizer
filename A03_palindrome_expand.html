@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Longest Palindromic Substring — Center Expansion</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #F5F2EC; color: #1a1a1a; padding: 24px; }
+  h1 { font-family: Georgia, serif; font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 14px; color: #5a5a5a; margin-bottom: 16px; }
+
+  .string-row { display: flex; gap: 4px; margin: 12px 0; justify-content: center; }
+  .char-box { width: 52px; height: 58px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.35s; border: 2px solid #A89F8E; background: white; }
+  .char-box .ch { font-size: 20px; font-weight: 700; }
+  .char-box .idx { font-size: 10px; color: #5a5a5a; }
+  .char-box.center { background: #F8E4C7; border-color: #C8924A; transform: scale(1.1); box-shadow: 0 3px 12px rgba(200,146,74,0.25); }
+  .char-box.match { background: #D4EBDC; border-color: #5BA678; }
+  .char-box.mismatch { background: #F5D5CE; border-color: #C46B5C; }
+  .char-box.best { background: #D7E5F4; border-color: #4A7CB5; }
+
+  .pointer-row { display: flex; gap: 4px; justify-content: center; height: 28px; }
+  .ptr-cell { width: 52px; text-align: center; font-size: 12px; font-weight: 700; }
+  .ptr-L { color: #C46B5C; }
+  .ptr-R { color: #0F4C81; }
+  .ptr-C { color: #C8924A; }
+
+  .info-bar { display: flex; gap: 16px; margin: 8px 0; flex-wrap: wrap; }
+  .info-chip { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+  .chip-center { background: #F8E4C7; color: #7A4A1F; border: 1px solid #C8924A; }
+  .chip-length { background: #D4EBDC; color: #1B5E20; border: 1px solid #5BA678; }
+  .chip-best { background: #D7E5F4; color: #0F4C81; border: 1px solid #4A7CB5; }
+  .chip-status { background: white; color: #5a5a5a; border: 1px solid #A89F8E; }
+
+  .explain { background: white; border: 1.5px solid #C8924A; border-radius: 10px; padding: 12px 16px; margin: 10px 0; font-size: 14px; min-height: 44px; }
+
+  .controls { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+  .btn { padding: 7px 14px; border-radius: 8px; border: 1.5px solid; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-step { background: #D7E5F4; border-color: #4A7CB5; color: #0F4C81; }
+  .btn-reset { background: #F5D5CE; border-color: #C46B5C; color: #8B2E1F; }
+  .btn-auto { background: #D4EBDC; border-color: #5BA678; color: #1B5E20; }
+
+  .legend { display: flex; gap: 14px; margin: 8px 0; font-size: 12px; }
+  .leg-item { display: flex; align-items: center; gap: 4px; }
+  .leg-box { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid; }
+</style>
+</head>
+<body>
+<h1>Longest palindromic substring — expand around center</h1>
+<p class="subtitle">String: "anamadamm" — watch the algorithm try each center and expand outward</p>
+
+<div class="legend">
+  <div class="leg-item"><div class="leg-box" style="background:#F8E4C7;border-color:#C8924A;"></div> Center</div>
+  <div class="leg-item"><div class="leg-box" style="background:#D4EBDC;border-color:#5BA678;"></div> Match</div>
+  <div class="leg-item"><div class="leg-box" style="background:#F5D5CE;border-color:#C46B5C;"></div> Mismatch</div>
+  <div class="leg-item"><div class="leg-box" style="background:#D7E5F4;border-color:#4A7CB5;"></div> Best palindrome found</div>
+</div>
+
+<div class="pointer-row" id="ptrRow"></div>
+<div class="string-row" id="strRow"></div>
+
+<div class="info-bar" id="infoBar"></div>
+<div class="explain" id="explainBox">Click <b>Next step</b> to begin</div>
+
+<div class="controls">
+  <button class="btn btn-step" onclick="next()">Next step</button>
+  <button class="btn btn-step" onclick="prev()">Prev step</button>
+  <button class="btn btn-auto" id="autoBtn" onclick="toggleAuto()">Auto-play</button>
+  <button class="btn btn-reset" onclick="reset()">Reset</button>
+  <span style="font-size:13px;color:#5a5a5a;align-self:center;" id="counter"></span>
+</div>
+
+<script>
+const S = "anamadamm";
+const N = S.length;
+
+// Precompute all steps
+const steps = [];
+let bestLen = 0, bestL = 0, bestR = 0;
+
+for (let c = 0; c < N; c++) {
+  // Odd
+  let l = c, r = c;
+  steps.push({ type: 'center', c, mode: 'odd', l, r, bestLen, bestL, bestR, explain: `Center=${c} ('${S[c]}'), ODD expansion: start with left=${l}, right=${r}` });
+  while (l >= 0 && r < N) {
+    if (S[l] === S[r]) {
+      let len = r - l + 1;
+      steps.push({ type: 'match', c, mode: 'odd', l, r, len, bestLen, bestL, bestR, explain: `s[${l}]='${S[l]}' == s[${r}]='${S[r]}' MATCH! Current palindrome length = ${len}` });
+      if (len > bestLen) { bestLen = len; bestL = l; bestR = r; }
+      l--; r++;
+    } else {
+      steps.push({ type: 'mismatch', c, mode: 'odd', l, r, bestLen, bestL, bestR, explain: `s[${l}]='${S[l]}' != s[${r}]='${S[r]}' MISMATCH — stop expanding. Best so far = ${bestLen}` });
+      break;
+    }
+  }
+  if (l < 0 || r >= N) {
+    if (steps[steps.length-1].type === 'match')
+      steps.push({ type: 'boundary', c, mode: 'odd', l: l+1, r: r-1, bestLen, bestL, bestR, explain: `Hit boundary — stop. Best so far = ${bestLen}` });
+  }
+
+  // Even
+  l = c; r = c + 1;
+  if (r < N) {
+    steps.push({ type: 'center', c, mode: 'even', l, r, bestLen, bestL, bestR, explain: `Center=${c}-${c+1} ('${S[c]}','${S[r]}'), EVEN expansion: left=${l}, right=${r}` });
+    while (l >= 0 && r < N) {
+      if (S[l] === S[r]) {
+        let len = r - l + 1;
+        steps.push({ type: 'match', c, mode: 'even', l, r, len, bestLen, bestL, bestR, explain: `s[${l}]='${S[l]}' == s[${r}]='${S[r]}' MATCH! Length = ${len}` });
+        if (len > bestLen) { bestLen = len; bestL = l; bestR = r; }
+        l--; r++;
+      } else {
+        steps.push({ type: 'mismatch', c, mode: 'even', l, r, bestLen, bestL, bestR, explain: `s[${l}]='${S[l]}' != s[${r}]='${S[r]}' MISMATCH — stop. Best = ${bestLen}` });
+        break;
+      }
+    }
+  }
+}
+steps.push({ type: 'done', bestLen, bestL, bestR, explain: `DONE! Longest palindromic substring = "${S.substring(bestL, bestR+1)}" (length ${bestLen})` });
+
+let cur = -1, autoI = null;
+
+function render() {
+  const strRow = document.getElementById('strRow');
+  const ptrRow = document.getElementById('ptrRow');
+  const info = document.getElementById('infoBar');
+  const ex = document.getElementById('explainBox');
+  const cnt = document.getElementById('counter');
+
+  cnt.textContent = `Step ${cur+1} / ${steps.length}`;
+
+  if (cur < 0) {
+    strRow.innerHTML = S.split('').map((c,i) => `<div class="char-box"><span class="ch">${c}</span><span class="idx">${i}</span></div>`).join('');
+    ptrRow.innerHTML = S.split('').map(() => `<div class="ptr-cell"></div>`).join('');
+    info.innerHTML = '';
+    ex.innerHTML = 'Click <b>Next step</b> to begin';
+    return;
+  }
+
+  const s = steps[cur];
+  ex.textContent = s.explain;
+
+  // Info chips
+  let bL = s.bestLen || bestLen, bLt = s.bestL ?? bestL, bRt = s.bestR ?? bestR;
+  let chips = '';
+  if (s.type !== 'done') {
+    chips += `<span class="info-chip chip-center">Center: ${s.c} (${s.mode})</span>`;
+  }
+  chips += `<span class="info-chip chip-best">Best: "${S.substring(bLt, bRt+1)}" len=${bL}</span>`;
+  if (s.type === 'done') chips = `<span class="info-chip chip-best" style="font-size:16px;">ANSWER: "${S.substring(s.bestL, s.bestR+1)}" — length ${s.bestLen}</span>`;
+  info.innerHTML = chips;
+
+  // String row
+  strRow.innerHTML = S.split('').map((ch, i) => {
+    let cls = 'char-box';
+    if (s.type === 'done') {
+      if (i >= s.bestL && i <= s.bestR) cls += ' best';
+    } else {
+      if (s.type === 'mismatch' && (i === s.l || i === s.r)) cls += ' mismatch';
+      else if (s.type === 'match' && i >= s.l && i <= s.r) cls += ' match';
+      else if (s.type === 'center' && (i === s.l || i === s.r)) cls += ' center';
+    }
+    return `<div class="${cls}"><span class="ch">${ch}</span><span class="idx">${i}</span></div>`;
+  }).join('');
+
+  // Pointer row
+  ptrRow.innerHTML = S.split('').map((_, i) => {
+    let txt = '';
+    if (s.type !== 'done') {
+      if (i === s.l && i === s.r) txt = '<span class="ptr-C">L/R</span>';
+      else if (i === s.l) txt = '<span class="ptr-L">L</span>';
+      else if (i === s.r) txt = '<span class="ptr-R">R</span>';
+    }
+    return `<div class="ptr-cell">${txt}</div>`;
+  }).join('');
+}
+
+function next() { if (cur < steps.length - 1) { cur++; render(); } }
+function prev() { if (cur >= 0) { cur--; render(); } }
+function reset() { cur = -1; if (autoI) { clearInterval(autoI); autoI = null; document.getElementById('autoBtn').textContent = 'Auto-play'; } render(); }
+function toggleAuto() {
+  const btn = document.getElementById('autoBtn');
+  if (autoI) { clearInterval(autoI); autoI = null; btn.textContent = 'Auto-play'; }
+  else { autoI = setInterval(() => { if (cur >= steps.length - 1) { clearInterval(autoI); autoI = null; btn.textContent = 'Auto-play'; } else next(); }, 1200); btn.textContent = 'Pause'; }
+}
+
+render();
+</script>
+</body>
+</html>

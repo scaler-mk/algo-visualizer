@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>String Immutability — Memory Simulator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #F5F2EC; color: #1a1a1a; padding: 24px; }
+  h1 { font-family: Georgia, serif; font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 14px; color: #5a5a5a; margin-bottom: 20px; }
+  .container { display: flex; gap: 24px; }
+  .panel { flex: 1; min-width: 0; }
+  .panel-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; padding: 8px 14px; border-radius: 8px; }
+  .stack-title { background: #D7E5F4; color: #0F4C81; }
+  .pool-title { background: #D4EBDC; color: #1B5E20; }
+  .log-title { background: #F8E4C7; color: #7A4A1F; }
+
+  .stack-area, .pool-area { min-height: 200px; background: white; border-radius: 12px; border: 1.5px solid #A89F8E; padding: 16px; position: relative; }
+  .ref-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 6px; border-radius: 8px; background: #D7E5F4; border: 1px solid #4A7CB5; transition: all 0.3s; animation: fadeIn 0.4s; }
+  .ref-name { font-weight: 700; color: #0F4C81; font-size: 15px; min-width: 60px; }
+  .ref-arrow { color: #C46B5C; font-weight: 700; font-size: 14px; }
+  .ref-target { font-size: 14px; color: #5a5a5a; font-style: italic; }
+
+  .pool-obj { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; margin: 4px 6px; border-radius: 8px; font-size: 14px; font-weight: 600; transition: all 0.4s; animation: fadeIn 0.4s; }
+  .pool-obj.alive { background: #D4EBDC; border: 1.5px solid #5BA678; color: #1B5E20; }
+  .pool-obj.orphan { background: #F5D5CE; border: 1.5px solid #C46B5C; color: #8B2E1F; opacity: 0.6; text-decoration: line-through; }
+  .pool-obj .ref-count { font-size: 11px; background: white; border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .btn { padding: 8px 16px; border-radius: 8px; border: 1.5px solid; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: scale(0.97); }
+  .btn-step { background: #D7E5F4; border-color: #4A7CB5; color: #0F4C81; }
+  .btn-reset { background: #F5D5CE; border-color: #C46B5C; color: #8B2E1F; }
+  .btn-auto { background: #D4EBDC; border-color: #5BA678; color: #1B5E20; }
+
+  .step-info { background: white; border: 1.5px solid #C8924A; border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 14px; min-height: 48px; }
+  .step-info .code { font-family: 'Courier New', monospace; background: #F8E4C7; padding: 2px 8px; border-radius: 4px; color: #7A4A1F; font-weight: 600; }
+  .step-info .explain { color: #5a5a5a; margin-top: 4px; }
+
+  .log-area { background: white; border-radius: 12px; border: 1.5px solid #A89F8E; padding: 12px; max-height: 300px; overflow-y: auto; font-size: 12px; font-family: 'Courier New', monospace; }
+  .log-line { padding: 3px 0; border-bottom: 0.5px solid #E8E4DC; color: #5a5a5a; }
+  .log-line .log-step { color: #C8924A; font-weight: 700; }
+
+  .step-counter { font-size: 13px; color: #5a5a5a; margin-bottom: 8px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px; border: 1px solid #A89F8E; }
+  .dot.done { background: #5BA678; border-color: #5BA678; }
+  .dot.current { background: #C8924A; border-color: #C8924A; transform: scale(1.3); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<h1>String immutability — live memory simulator</h1>
+<p class="subtitle">Watch how Java's string pool and stack references change with each operation</p>
+
+<div class="step-info" id="stepInfo">
+  <span>Click <b>Next step</b> to begin the simulation</span>
+</div>
+
+<div class="controls">
+  <button class="btn btn-step" onclick="nextStep()">Next step</button>
+  <button class="btn btn-step" onclick="prevStep()">Prev step</button>
+  <button class="btn btn-auto" id="autoBtn" onclick="toggleAuto()">Auto-play</button>
+  <button class="btn btn-reset" onclick="resetAll()">Reset</button>
+  <div class="step-counter" id="stepCounter"></div>
+</div>
+
+<div id="dots" style="margin-bottom: 12px;"></div>
+
+<div class="container">
+  <div class="panel">
+    <div class="panel-title stack-title">Stack (references)</div>
+    <div class="stack-area" id="stackArea"></div>
+  </div>
+  <div class="panel" style="flex: 1.4;">
+    <div class="panel-title pool-title">String pool (heap memory)</div>
+    <div class="pool-area" id="poolArea"></div>
+  </div>
+  <div class="panel" style="flex: 0.8;">
+    <div class="panel-title log-title">Execution log</div>
+    <div class="log-area" id="logArea"></div>
+  </div>
+</div>
+
+<script>
+const steps = [
+  {
+    code: 'String s1 = "Hello";',
+    explain: 'Create "Hello" in string pool. s1 points to it.',
+    refs: { s1: "Hello" },
+    pool: { "Hello": { refs: 1, orphan: false } }
+  },
+  {
+    code: 'String s2 = "Hello";',
+    explain: '"Hello" already exists in pool — no new object! s2 reuses the same object.',
+    refs: { s1: "Hello", s2: "Hello" },
+    pool: { "Hello": { refs: 2, orphan: false } }
+  },
+  {
+    code: 'String s3 = s1;',
+    explain: 's3 gets the same reference as s1. Still 1 object in pool, now with 3 references.',
+    refs: { s1: "Hello", s2: "Hello", s3: "Hello" },
+    pool: { "Hello": { refs: 3, orphan: false } }
+  },
+  {
+    code: 's1 = "Java";',
+    explain: 's1 now points to NEW object "Java". "Hello" still has s2, s3. String was NOT modified — reference changed!',
+    refs: { s1: "Java", s2: "Hello", s3: "Hello" },
+    pool: { "Hello": { refs: 2, orphan: false }, "Java": { refs: 1, orphan: false } }
+  },
+  {
+    code: 's2.concat(" World");',
+    explain: 'concat() creates "Hello World" but result is NOT assigned to anything! s2 still points to "Hello". The new string is orphaned.',
+    refs: { s1: "Java", s2: "Hello", s3: "Hello" },
+    pool: { "Hello": { refs: 2, orphan: false }, "Java": { refs: 1, orphan: false }, "Hello World": { refs: 0, orphan: true } }
+  },
+  {
+    code: 'String newS3 = s3.concat(" Scaler");',
+    explain: 'concat() creates "Hello Scaler" and newS3 captures the reference. s3 still points to "Hello" — unchanged!',
+    refs: { s1: "Java", s2: "Hello", s3: "Hello", newS3: "Hello Scaler" },
+    pool: { "Hello": { refs: 2, orphan: false }, "Java": { refs: 1, orphan: false }, "Hello World": { refs: 0, orphan: true }, "Hello Scaler": { refs: 1, orphan: false } }
+  },
+  {
+    code: '// Final state — print all',
+    explain: 's1→"Java", s2→"Hello", s3→"Hello", newS3→"Hello Scaler". "Hello World" is garbage — nobody references it!',
+    refs: { s1: "Java", s2: "Hello", s3: "Hello", newS3: "Hello Scaler" },
+    pool: { "Hello": { refs: 2, orphan: false }, "Java": { refs: 1, orphan: false }, "Hello World": { refs: 0, orphan: true }, "Hello Scaler": { refs: 1, orphan: false } }
+  }
+];
+
+let currentStep = -1;
+let autoInterval = null;
+
+function renderDots() {
+  const d = document.getElementById('dots');
+  d.innerHTML = steps.map((_, i) => {
+    let cls = 'dot';
+    if (i < currentStep) cls += ' done';
+    if (i === currentStep) cls += ' current';
+    return `<span class="${cls}"></span>`;
+  }).join('');
+}
+
+function renderStep() {
+  const info = document.getElementById('stepInfo');
+  const stack = document.getElementById('stackArea');
+  const pool = document.getElementById('poolArea');
+  const log = document.getElementById('logArea');
+  const counter = document.getElementById('stepCounter');
+
+  if (currentStep < 0) {
+    info.innerHTML = '<span>Click <b>Next step</b> to begin the simulation</span>';
+    stack.innerHTML = '<div style="color:#A89F8E;font-style:italic;padding:20px;">Empty</div>';
+    pool.innerHTML = '<div style="color:#A89F8E;font-style:italic;padding:20px;">Empty</div>';
+    log.innerHTML = '';
+    counter.textContent = 'Step 0 / ' + steps.length;
+    renderDots();
+    return;
+  }
+
+  const s = steps[currentStep];
+  info.innerHTML = `<span class="code">${s.code}</span><div class="explain">${s.explain}</div>`;
+  counter.textContent = `Step ${currentStep + 1} / ${steps.length}`;
+
+  // Render stack
+  stack.innerHTML = Object.entries(s.refs).map(([name, target]) =>
+    `<div class="ref-row"><span class="ref-name">${name}</span><span class="ref-arrow">→</span><span class="ref-target">"${target}"</span></div>`
+  ).join('');
+
+  // Render pool
+  pool.innerHTML = Object.entries(s.pool).map(([val, info]) =>
+    `<span class="pool-obj ${info.orphan ? 'orphan' : 'alive'}">"${val}"<span class="ref-count">${info.orphan ? 'orphaned' : info.refs + ' ref' + (info.refs > 1 ? 's' : '')}</span></span>`
+  ).join('');
+
+  // Render log
+  let logHtml = '';
+  for (let i = 0; i <= currentStep; i++) {
+    logHtml += `<div class="log-line"><span class="log-step">Step ${i+1}:</span> ${steps[i].code}</div>`;
+  }
+  log.innerHTML = logHtml;
+  log.scrollTop = log.scrollHeight;
+
+  renderDots();
+}
+
+function nextStep() {
+  if (currentStep < steps.length - 1) { currentStep++; renderStep(); }
+}
+function prevStep() {
+  if (currentStep >= 0) { currentStep--; renderStep(); }
+}
+function resetAll() {
+  currentStep = -1;
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('autoBtn').textContent = 'Auto-play'; }
+  renderStep();
+}
+function toggleAuto() {
+  const btn = document.getElementById('autoBtn');
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; btn.textContent = 'Auto-play'; }
+  else { autoInterval = setInterval(() => { if (currentStep >= steps.length - 1) { clearInterval(autoInterval); autoInterval = null; btn.textContent = 'Auto-play'; } else nextStep(); }, 2000); btn.textContent = 'Pause'; }
+}
+
+renderStep();
+</script>
+</body>
+</html>
