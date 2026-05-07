@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 2 — Bitwise XOR Walkthrough</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px;
+           margin-bottom: 16px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  .bit-row {
+    display: flex; gap: 0; align-items: center;
+    font-family: 'SF Mono', monospace;
+    margin: 4px 0;
+  }
+  .bit-row > div:not(.label):not(.bit-cell) {
+    display: flex; gap: 0;
+  }
+  .label { width: 110px; font-size: 12px; color: #555; font-weight: 700;
+           font-family: -apple-system, system-ui, sans-serif;
+           text-transform: uppercase; letter-spacing: 0.5px; }
+  .bit-cell {
+    width: 56px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid #ddd; background: #fff;
+    font-size: 22px; font-weight: 700; color: #555;
+    transition: all 0.3s;
+  }
+  .bit-cell.dim { background: #f9f9f9; color: #ccc; }
+  .bit-cell.A-set { background: #D7E5F4; border-color: #4A7CB5; color: #0F4C81; }
+  .bit-cell.B-set { background: #FFF8E8; border-color: #D4B870; color: #5D4037; }
+  .bit-cell.differ {
+    background: #E8F5E9; border-color: #43A047; color: #1B5E20;
+    animation: pulse 0.4s ease-out;
+  }
+  .bit-cell.same {
+    background: #f9f9f9; color: #aaa;
+    animation: pulse 0.4s ease-out;
+  }
+  .bit-cell.checking { box-shadow: 0 0 0 3px #FFF9C4, 0 0 0 5px #F9A825; transform: translateY(-3px); }
+  @keyframes pulse {
+    0% { transform: scale(0.85); opacity: 0.5; }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .index-label { width: 56px; text-align: center; font-size: 10px; color: #888;
+                 font-family: 'SF Mono', monospace; margin-top: 2px; }
+  .separator-line {
+    border-top: 2px solid #aaa; margin: 8px 0 8px 110px; width: calc(8 * 56px);
+  }
+  .narration { padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; margin-bottom: 12px; }
+  .vars-row {
+    display: flex; gap: 16px; margin-bottom: 12px;
+  }
+  .var-pill {
+    padding: 8px 14px; border-radius: 6px; flex: 1;
+    background: #f9f9f9; border: 1px solid #ddd;
+    font-family: 'SF Mono', monospace;
+  }
+  .var-pill .lab { font-size: 10px; color: #888; text-transform: uppercase;
+                   letter-spacing: 0.5px; font-family: -apple-system, system-ui, sans-serif; }
+  .var-pill .val { font-size: 16px; font-weight: 700; color: #185FA5; margin-top: 2px; }
+  .controls { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .col-explanation {
+    margin-top: 14px; padding: 10px 14px;
+    background: #FFFEF8; border: 1px solid #A89F8E; border-radius: 6px;
+    font-family: 'SF Mono', monospace; font-size: 13px;
+    min-height: 24px;
+  }
+  .legend {
+    display: flex; gap: 12px; margin-top: 12px;
+    font-size: 11px;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  .legend-pill {
+    padding: 4px 10px; border-radius: 12px; font-weight: 600;
+  }
+  .legend-pill.A { background: #D7E5F4; color: #0F4C81; border: 1px solid #4A7CB5; }
+  .legend-pill.B { background: #FFF8E8; color: #5D4037; border: 1px solid #D4B870; }
+  .legend-pill.differ { background: #E8F5E9; color: #1B5E20; border: 1px solid #43A047; }
+  .legend-pill.same { background: #f9f9f9; color: #888; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 2 · Bitwise XOR — compute 92 ^ 154</h1>
+  <div class="subtitle">XOR is "exclusive OR": result bit is 1 only when the two input bits DIFFER. Walk column by column from the right.</div>
+
+  <div class="panel">
+    <div class="vars-row">
+      <div class="var-pill">
+        <div class="lab">A (decimal)</div>
+        <div class="val" style="color:#0F4C81;">92</div>
+      </div>
+      <div class="var-pill">
+        <div class="lab">B (decimal)</div>
+        <div class="val" style="color:#5D4037;">154</div>
+      </div>
+      <div class="var-pill">
+        <div class="lab">A ^ B (decimal)</div>
+        <div class="val" id="varResult" style="color:#1B5E20;">—</div>
+      </div>
+    </div>
+
+    <div class="bit-row">
+      <div class="label" style="color:#0F4C81;">A = 92</div>
+      <div id="rowA"></div>
+    </div>
+
+    <div class="bit-row">
+      <div class="label" style="color:#5D4037;">B = 154</div>
+      <div id="rowB"></div>
+    </div>
+
+    <div class="separator-line"></div>
+
+    <div class="bit-row">
+      <div class="label" style="color:#1B5E20;">A ^ B</div>
+      <div id="rowR"></div>
+    </div>
+
+    <div class="bit-row" style="margin-top:4px;">
+      <div class="label" style="color:#888;">column</div>
+      <div id="rowIdx" style="display:flex;"></div>
+    </div>
+
+    <div class="col-explanation" id="colExp">— click step to begin —</div>
+
+    <div class="legend">
+      <div class="legend-pill A">A = 1</div>
+      <div class="legend-pill B">B = 1</div>
+      <div class="legend-pill differ">bits differ → result 1</div>
+      <div class="legend-pill same">bits same → result 0</div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.</div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const A = 92;   // 01011100
+const B = 154;  // 10011010
+const N = 8;
+
+const aBits = [];  // displayed left-to-right (msb at index 0)
+const bBits = [];
+for (let i = N - 1; i >= 0; i--) {
+  aBits.push((A >> i) & 1);
+  bBits.push((B >> i) & 1);
+}
+
+// Build cells
+const rowA = document.getElementById('rowA');
+const rowB = document.getElementById('rowB');
+const rowR = document.getElementById('rowR');
+const rowIdx = document.getElementById('rowIdx');
+
+for (let displayIdx = 0; displayIdx < N; displayIdx++) {
+  const i = N - 1 - displayIdx;  // bit position (msb=7 down to lsb=0)
+
+  const ca = document.createElement('div');
+  ca.className = 'bit-cell';
+  ca.id = 'a-' + i;
+  ca.textContent = aBits[displayIdx];
+  rowA.appendChild(ca);
+
+  const cb = document.createElement('div');
+  cb.className = 'bit-cell';
+  cb.id = 'b-' + i;
+  cb.textContent = bBits[displayIdx];
+  rowB.appendChild(cb);
+
+  const cr = document.createElement('div');
+  cr.className = 'bit-cell dim';
+  cr.id = 'r-' + i;
+  cr.textContent = '?';
+  rowR.appendChild(cr);
+
+  const idx = document.createElement('div');
+  idx.className = 'index-label';
+  idx.textContent = i;
+  rowIdx.appendChild(idx);
+}
+
+// Initial state for A and B rows: highlight 1s
+function colorAB() {
+  for (let i = 0; i < N; i++) {
+    const ca = document.getElementById('a-' + i);
+    const cb = document.getElementById('b-' + i);
+    if (((A >> i) & 1) === 1) ca.className = 'bit-cell A-set';
+    else ca.className = 'bit-cell dim';
+    if (((B >> i) & 1) === 1) cb.className = 'bit-cell B-set';
+    else cb.className = 'bit-cell dim';
+  }
+}
+
+// Build steps - process from i=0 (rightmost/lsb) up to N-1
+const steps = [];
+let runningResult = 0;
+for (let i = 0; i < N; i++) {
+  const aBit = (A >> i) & 1;
+  const bBit = (B >> i) & 1;
+  const xor = aBit ^ bBit;
+  if (xor === 1) runningResult |= (1 << i);
+  steps.push({
+    i, aBit, bBit, xor, runningResult,
+    differs: xor === 1,
+    narration: `Column i = ${i}: A bit = ${aBit}, B bit = ${bBit}. They ${xor === 1 ? '<b>differ</b> → result bit is 1' : 'are <b>the same</b> → result bit is 0'}. Running result = ${runningResult}.`
+  });
+}
+steps.push({
+  final: true, runningResult,
+  narration: `Done. 92 ^ 154 = <b>${runningResult}</b>. Binary: ${runningResult.toString(2).padStart(8, '0')}.`
+});
+
+let cursor = 0, playing = false, timer = null;
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  if (cursor === 0) {
+    colorAB();
+    for (let i = 0; i < N; i++) {
+      const cr = document.getElementById('r-' + i);
+      cr.className = 'bit-cell dim';
+      cr.textContent = '?';
+    }
+    document.getElementById('varResult').textContent = '—';
+    document.getElementById('colExp').innerHTML = '— click step to begin —';
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.`;
+    return;
+  }
+  const s = steps[cursor - 1];
+
+  if (s.final) {
+    // Reset all checking effects
+    colorAB();
+    for (let i = 0; i < N; i++) {
+      const cr = document.getElementById('r-' + i);
+      const aBit = (A >> i) & 1;
+      const bBit = (B >> i) & 1;
+      cr.textContent = aBit ^ bBit;
+      cr.className = (aBit ^ bBit) === 1 ? 'bit-cell differ' : 'bit-cell same';
+    }
+    document.getElementById('varResult').textContent = s.runningResult;
+    document.getElementById('colExp').innerHTML = `Result in binary: <b>${s.runningResult.toString(2).padStart(8, '0')}</b>  =  <b>${s.runningResult}</b> in decimal.`;
+    document.getElementById('narration').innerHTML = s.narration;
+    return;
+  }
+
+  colorAB();
+
+  // Highlight A and B at current column with checking ring
+  document.getElementById('a-' + s.i).classList.add('checking');
+  document.getElementById('b-' + s.i).classList.add('checking');
+
+  // Show result for all columns processed so far
+  for (let i = 0; i < N; i++) {
+    const cr = document.getElementById('r-' + i);
+    if (i <= s.i) {
+      const aBit = (A >> i) & 1;
+      const bBit = (B >> i) & 1;
+      cr.textContent = aBit ^ bBit;
+      cr.className = (aBit ^ bBit) === 1 ? 'bit-cell differ' : 'bit-cell same';
+      if (i === s.i) cr.classList.add('checking');
+    } else {
+      cr.textContent = '?';
+      cr.className = 'bit-cell dim';
+    }
+  }
+
+  document.getElementById('varResult').textContent = s.runningResult;
+  document.getElementById('narration').innerHTML = s.narration;
+
+  if (s.differs) {
+    document.getElementById('colExp').innerHTML = `<b>${s.aBit} ^ ${s.bBit} = 1</b>  (bits differ)`;
+  } else {
+    document.getElementById('colExp').innerHTML = `<b>${s.aBit} ^ ${s.bBit} = 0</b>  (bits are the same)`;
+  }
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 1100);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+reset();
+</script>
+</body>
+</html>

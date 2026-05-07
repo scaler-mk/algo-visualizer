@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 1 — Binary to Decimal Conversion</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  pre.code { font-size: 14px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vars-table td { padding: 8px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 110px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 12px;
+                       text-transform: uppercase; letter-spacing: 0.5px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; font-size: 16px;
+                       font-family: 'SF Mono', monospace; }
+  .check-row { margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 14px;
+               line-height: 1.6; background: #E6F1FB; border: 1px solid #ddd; }
+  .check-row.hit { background: #E8F5E9; border-color: #43A047; color: #1B5E20; font-weight: 600; }
+  .check-row.skip { background: #f9f9f9; border-color: #ddd; color: #888; font-style: italic; }
+  .check-row.stop { background: #FFF9C4; border-color: #F9A825; color: #5D4037; font-weight: 600; }
+  .bits-row { display: flex; gap: 0; margin-top: 8px; justify-content: center; }
+  .bit-cell {
+    width: 70px; height: 70px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 1.5px solid #ddd;
+    background: #fff; color: #555; transition: all 0.3s;
+    font-family: 'SF Mono', monospace;
+  }
+  .bit-cell .bit-val { font-size: 28px; font-weight: 700; }
+  .bit-cell .bit-power { font-size: 10px; color: #888; margin-top: 2px; }
+  .bit-cell.dim { background: #f9f9f9; color: #ccc; }
+  .bit-cell.dim .bit-power { color: #ccc; }
+  .bit-cell.checking {
+    background: #FFF9C4; border-color: #F9A825; color: #5D4037; border-width: 2.5px;
+    transform: translateY(-3px);
+  }
+  .bit-cell.checking .bit-power { color: #5D4037; }
+  .bit-cell.contributed {
+    background: #E8F5E9; border-color: #43A047; color: #1B5E20;
+  }
+  .bit-cell.contributed .bit-power { color: #1B5E20; }
+  .bit-cell.zero-skip {
+    background: #FFFFFF; border-color: #ddd; color: #aaa;
+    border-style: dashed;
+  }
+  .index-row { display: flex; gap: 0; margin-top: 4px; justify-content: center; }
+  .idx-label {
+    width: 70px; text-align: center; font-size: 11px; color: #888;
+    font-family: 'SF Mono', monospace;
+  }
+  .controls { margin-top: 20px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 16px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+  .running-sum {
+    margin-top: 14px; padding: 12px 14px;
+    background: #FFFEF8; border: 1.5px solid #A89F8E; border-radius: 6px;
+    font-family: 'SF Mono', monospace; font-size: 14px;
+    color: #3a3a3a;
+  }
+  .running-sum .label { color: #888; font-size: 11px; text-transform: uppercase;
+                       letter-spacing: 0.5px; margin-bottom: 4px;
+                       font-family: -apple-system, system-ui, sans-serif; }
+  .running-sum .formula { font-size: 14px; font-weight: 700; }
+  .running-sum .total { font-size: 18px; color: #1B5E20; font-weight: 700; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 1 · Binary to Decimal — convert 1101</h1>
+  <div class="subtitle">Walk left to right (or right to left, doesn't matter). For each bit that's 1, add its place value (2^position) to the running total.</div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Algorithm</div>
+      <pre class="code"><span class="line" data-line="1"><span class="keyword">function</span> binaryToDecimal(bits) {</span><span class="line" data-line="2">    total = 0</span><span class="line" data-line="3">    n = bits.length</span><span class="line" data-line="4">    <span class="keyword">for</span> (i = 0 <span class="keyword">to</span> n − 1) {</span><span class="line" data-line="5">        bit = bits[n − 1 − i]   <span class="keyword">// rightmost first</span></span><span class="line" data-line="6">        <span class="keyword">if</span> (bit == 1)</span><span class="line" data-line="7">            total += 2^i</span><span class="line" data-line="8">    }</span><span class="line" data-line="9">    <span class="keyword">return</span> total</span><span class="line" data-line="10">}</span></pre>
+      <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Variables</div>
+      <table class="vars-table">
+        <tr><td class="label">i (position)</td><td class="value" id="varI">—</td></tr>
+        <tr><td class="label">2^i (place value)</td><td class="value" id="varPow" style="color:#5D4037;">—</td></tr>
+        <tr><td class="label">bit at position i</td><td class="value" id="varBit">—</td></tr>
+        <tr><td class="label">total</td><td class="value" id="varTotal" style="color:#1B5E20;">0</td></tr>
+      </table>
+
+      <div class="check-row" id="checkRow">Click STEP to begin.</div>
+
+      <div class="panel-title" style="margin-top:18px;">bits = 1101</div>
+      <div class="bits-row" id="bitsRow"></div>
+      <div class="index-row" id="bitsIdx"></div>
+
+      <div class="running-sum">
+        <div class="label">Running formula</div>
+        <div class="formula" id="formula">— click step to begin —</div>
+        <div class="total" id="totalDisplay">total = 0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const bits = [1, 1, 0, 1];  // displayed left-to-right (msb first)
+const N = bits.length;
+
+// Build cells (left to right)
+const bitsRow = document.getElementById('bitsRow');
+const bitsIdx = document.getElementById('bitsIdx');
+bits.forEach((b, displayIdx) => {
+  const i = N - 1 - displayIdx;  // power position
+  const c = document.createElement('div');
+  c.className = 'bit-cell';
+  c.id = 'b-' + i;
+  c.innerHTML = `<div class="bit-val">${b}</div><div class="bit-power">2<sup>${i}</sup> = ${1 << i}</div>`;
+  bitsRow.appendChild(c);
+
+  const lbl = document.createElement('div');
+  lbl.className = 'idx-label';
+  lbl.textContent = `i=${i}`;
+  bitsIdx.appendChild(lbl);
+});
+
+// Build steps - process from i=0 (rightmost) up to i=N-1
+const steps = [];
+let total = 0;
+let formulaParts = [];
+for (let i = 0; i < N; i++) {
+  const bitVal = bits[N - 1 - i];  // rightmost first
+  const powVal = 1 << i;
+
+  if (bitVal === 1) {
+    total += powVal;
+    formulaParts.push(`${powVal}`);
+    steps.push({
+      type: 'add', i, bitVal, powVal, total,
+      formula: formulaParts.join(' + '),
+      line: 7,
+      narration: `i = ${i}: bit is <b>1</b>. Add 2<sup>${i}</sup> = <b>${powVal}</b> to total. Running total = ${total}.`
+    });
+  } else {
+    steps.push({
+      type: 'skip', i, bitVal, powVal, total,
+      formula: formulaParts.length ? formulaParts.join(' + ') : '0',
+      line: 6,
+      narration: `i = ${i}: bit is <b>0</b>. Skip — no contribution.`
+    });
+  }
+}
+steps.push({
+  final: true, total,
+  formula: formulaParts.length ? formulaParts.join(' + ') : '0',
+  line: 9,
+  narration: `Done. Final answer: 1101₂ = <b>${total}</b>.`
+});
+
+let cursor = 0, playing = false, timer = null;
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  if (cursor === 0) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varPow').textContent = '—';
+    document.getElementById('varBit').textContent = '—';
+    document.getElementById('varTotal').textContent = '0';
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').textContent = 'Click STEP to begin.';
+    setLine(null);
+    document.querySelectorAll('.bit-cell').forEach(c => { c.className = 'bit-cell dim'; });
+    document.getElementById('formula').textContent = '— click step to begin —';
+    document.getElementById('totalDisplay').textContent = 'total = 0';
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.`;
+    return;
+  }
+  const s = steps[cursor - 1];
+  setLine(s.line);
+  document.getElementById('narration').innerHTML = s.narration;
+
+  if (s.final) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varPow').textContent = '—';
+    document.getElementById('varBit').textContent = '—';
+    document.getElementById('varTotal').textContent = s.total;
+    document.getElementById('checkRow').className = 'check-row stop';
+    document.getElementById('checkRow').innerHTML = `Conversion complete. 1101₂ = ${s.total}₁₀.`;
+    document.getElementById('formula').innerHTML = s.formula;
+    document.getElementById('totalDisplay').textContent = `total = ${s.total}`;
+    return;
+  }
+
+  document.getElementById('varI').textContent = s.i;
+  document.getElementById('varPow').innerHTML = `2<sup>${s.i}</sup> = ${s.powVal}`;
+  document.getElementById('varBit').textContent = s.bitVal;
+  document.getElementById('varTotal').textContent = s.total;
+
+  // Update cell states based on what's been processed so far
+  document.querySelectorAll('.bit-cell').forEach(c => { c.className = 'bit-cell dim'; });
+
+  // For each previously-processed step (cursor 1 to cursor-1), set the contributed/skip class
+  for (let k = 0; k < cursor; k++) {
+    const ps = steps[k];
+    if (ps.final) continue;
+    const cell = document.getElementById('b-' + ps.i);
+    if (!cell) continue;
+    if (k === cursor - 1) {
+      // current step
+      if (ps.type === 'add') cell.className = 'bit-cell checking';
+      else cell.className = 'bit-cell zero-skip';
+    } else {
+      if (ps.type === 'add') cell.className = 'bit-cell contributed';
+      else cell.className = 'bit-cell zero-skip';
+    }
+  }
+
+  if (s.type === 'add') {
+    document.getElementById('checkRow').className = 'check-row hit';
+    document.getElementById('checkRow').innerHTML = `bit = 1 → add 2<sup>${s.i}</sup> = ${s.powVal}.`;
+  } else {
+    document.getElementById('checkRow').className = 'check-row skip';
+    document.getElementById('checkRow').innerHTML = `bit = 0 → skip.`;
+  }
+  document.getElementById('formula').innerHTML = s.formula;
+  document.getElementById('totalDisplay').textContent = `total = ${s.total}`;
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 1300);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+reset();
+</script>
+</body>
+</html>
