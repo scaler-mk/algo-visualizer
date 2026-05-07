@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Max Consecutive 1s — Dry Run</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#F5F2EC;color:#1a1a1a;padding:24px}
+h1{font-family:Georgia,serif;font-size:22px;font-weight:700;margin-bottom:6px}
+.sub{font-size:14px;color:#5a5a5a;margin-bottom:16px}
+.arr-row{display:flex;gap:4px;margin:12px 0;justify-content:center}
+.cell{width:56px;height:58px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .35s;border:2px solid #A89F8E;background:white}
+.cell .v{font-size:20px;font-weight:700}.cell .i{font-size:10px;color:#5a5a5a}
+.cell.zero{background:#F5D5CE;border-color:#C46B5C}
+.cell.zero .v{color:#8B2E1F}
+.cell.one{background:white;border-color:#A89F8E}
+.cell.one .v{color:#1a1a1a}
+.cell.active-zero{background:#F8E4C7;border-color:#C8924A;transform:scale(1.12);box-shadow:0 3px 12px rgba(200,146,74,.3)}
+.cell.left-count{background:#D7E5F4;border-color:#4A7CB5}
+.cell.left-count .v{color:#0F4C81}
+.cell.right-count{background:#D4EBDC;border-color:#5BA678}
+.cell.right-count .v{color:#1B5E20}
+.cell.best{background:#D4EBDC;border-color:#1B5E20;box-shadow:0 2px 8px rgba(91,166,120,.3)}
+
+.info{background:white;border:1.5px solid #C8924A;border-radius:10px;padding:12px 16px;margin:10px 0;font-size:14px;min-height:48px}
+.info .code{font-family:'Courier New',monospace;background:#F8E4C7;padding:2px 8px;border-radius:4px;color:#7A4A1F;font-weight:600}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+.chip{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600}
+.chip-l{background:#D7E5F4;color:#0F4C81;border:1px solid #4A7CB5}
+.chip-r{background:#D4EBDC;color:#1B5E20;border:1px solid #5BA678}
+.chip-ans{background:#F8E4C7;color:#7A4A1F;border:1px solid #C8924A}
+.chip-best{background:#F5D5CE;color:#8B2E1F;border:1px solid #C46B5C}
+.controls{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+.btn{padding:7px 14px;border-radius:8px;border:1.5px solid;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn-step{background:#D7E5F4;border-color:#4A7CB5;color:#0F4C81}
+.btn-reset{background:#F5D5CE;border-color:#C46B5C;color:#8B2E1F}
+.btn-auto{background:#D4EBDC;border-color:#5BA678;color:#1B5E20}
+</style>
+</head>
+<body>
+<h1>Max consecutive 1s after one replacement — dry run</h1>
+<p class="sub">Array: [1, 1, 0, 1, 1, 0, 1, 1, 1] — for each 0, count left 1s + right 1s + 1</p>
+
+<div class="controls">
+  <button class="btn btn-step" onclick="next()">Next step</button>
+  <button class="btn btn-step" onclick="prev()">Prev step</button>
+  <button class="btn btn-auto" id="autoBtn" onclick="toggleAuto()">Auto-play</button>
+  <button class="btn btn-reset" onclick="reset()">Reset</button>
+  <span style="font-size:13px;color:#5a5a5a;align-self:center" id="cnt"></span>
+</div>
+
+<div class="arr-row" id="arrRow"></div>
+<div class="chips" id="chips"></div>
+<div class="info" id="info">Click <b>Next step</b> to begin</div>
+
+<script>
+const A=[1,1,0,1,1,0,1,1,1];
+const N=A.length;
+
+const steps=[
+  {z:-1,l:-1,r:-1,ans:0,hl:[],explain:'Array has zeros at index 2 and 5. We try replacing each zero and count consecutive 1s.'},
+  {z:2,l:-1,r:-1,ans:0,hl:[{i:2,c:'active-zero'}],explain:'Found zero at index 2. Now count left 1s and right 1s.'},
+  {z:2,l:2,r:-1,ans:0,hl:[{i:0,c:'left-count'},{i:1,c:'left-count'},{i:2,c:'active-zero'}],explain:'Left 1s of index 2: indices 1,0 → l = 2'},
+  {z:2,l:2,r:2,ans:0,hl:[{i:0,c:'left-count'},{i:1,c:'left-count'},{i:2,c:'active-zero'},{i:3,c:'right-count'},{i:4,c:'right-count'}],explain:'Right 1s of index 2: indices 3,4 → r = 2'},
+  {z:2,l:2,r:2,ans:5,hl:[{i:0,c:'best'},{i:1,c:'best'},{i:2,c:'best'},{i:3,c:'best'},{i:4,c:'best'}],explain:'Replace index 2: l+r+1 = 2+2+1 = 5 consecutive 1s. ans = max(0, 5) = 5'},
+  {z:5,l:-1,r:-1,ans:5,hl:[{i:5,c:'active-zero'}],explain:'Found zero at index 5. Now count left 1s and right 1s.'},
+  {z:5,l:2,r:-1,ans:5,hl:[{i:3,c:'left-count'},{i:4,c:'left-count'},{i:5,c:'active-zero'}],explain:'Left 1s of index 5: indices 4,3 → l = 2'},
+  {z:5,l:2,r:3,ans:5,hl:[{i:3,c:'left-count'},{i:4,c:'left-count'},{i:5,c:'active-zero'},{i:6,c:'right-count'},{i:7,c:'right-count'},{i:8,c:'right-count'}],explain:'Right 1s of index 5: indices 6,7,8 → r = 3'},
+  {z:5,l:2,r:3,ans:6,hl:[{i:3,c:'best'},{i:4,c:'best'},{i:5,c:'best'},{i:6,c:'best'},{i:7,c:'best'},{i:8,c:'best'}],explain:'Replace index 5: l+r+1 = 2+3+1 = 6 consecutive 1s. ans = max(5, 6) = 6'},
+  {z:-1,l:-1,r:-1,ans:6,hl:[{i:3,c:'best'},{i:4,c:'best'},{i:5,c:'best'},{i:6,c:'best'},{i:7,c:'best'},{i:8,c:'best'}],explain:'DONE! Maximum consecutive 1s after one replacement = 6 (replace index 5)'}
+];
+
+let cur=-1,autoI=null;
+
+function render(){
+  const row=document.getElementById('arrRow');
+  const chips=document.getElementById('chips');
+  const info=document.getElementById('info');
+  document.getElementById('cnt').textContent=`Step ${cur+1} / ${steps.length}`;
+
+  if(cur<0){
+    row.innerHTML=A.map((v,i)=>`<div class="cell ${v===0?'zero':'one'}"><span class="v">${v}</span><span class="i">${i}</span></div>`).join('');
+    chips.innerHTML='';
+    info.innerHTML='Click <b>Next step</b> to begin';
+    return;
+  }
+
+  const s=steps[cur];
+  const hlMap={};
+  (s.hl||[]).forEach(h=>hlMap[h.i]=h.c);
+
+  row.innerHTML=A.map((v,i)=>{
+    const cls=hlMap[i]||( v===0?'zero':'one');
+    return `<div class="cell ${cls}"><span class="v">${v}</span><span class="i">${i}</span></div>`;
+  }).join('');
+
+  let ch='';
+  if(s.z>=0) ch+=`<span class="chip chip-best">Zero at: ${s.z}</span>`;
+  if(s.l>=0) ch+=`<span class="chip chip-l">Left 1s (l): ${s.l}</span>`;
+  if(s.r>=0) ch+=`<span class="chip chip-r">Right 1s (r): ${s.r}</span>`;
+  ch+=`<span class="chip chip-ans">Best answer: ${s.ans}</span>`;
+  chips.innerHTML=ch;
+  info.textContent=s.explain;
+}
+
+function next(){if(cur<steps.length-1){cur++;render()}}
+function prev(){if(cur>=0){cur--;render()}}
+function reset(){cur=-1;if(autoI){clearInterval(autoI);autoI=null;document.getElementById('autoBtn').textContent='Auto-play'}render()}
+function toggleAuto(){const b=document.getElementById('autoBtn');if(autoI){clearInterval(autoI);autoI=null;b.textContent='Auto-play'}else{autoI=setInterval(()=>{if(cur>=steps.length-1){clearInterval(autoI);autoI=null;b.textContent='Auto-play'}else next()},2000);b.textContent='Pause'}}
+render();
+</script>
+</body>
+</html>

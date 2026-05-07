@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Reverse Words — Step-by-Step</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#F5F2EC;color:#1a1a1a;padding:24px}
+h1{font-family:Georgia,serif;font-size:22px;font-weight:700;margin-bottom:6px}
+.sub{font-size:14px;color:#5a5a5a;margin-bottom:16px}
+.str-row{display:flex;gap:3px;margin:10px 0;justify-content:center;flex-wrap:wrap}
+.ch{width:36px;height:46px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid #A89F8E;background:white;transition:all .4s}
+.ch .c{font-size:18px;font-weight:700}.ch .idx{font-size:9px;color:#999}
+.ch.space{background:#E8E4DC;border-color:#A89F8E}.ch.space .c{color:#A89F8E}
+.ch.w1{background:#D7E5F4;border-color:#4A7CB5}.ch.w1 .c{color:#0F4C81}
+.ch.w2{background:#D4EBDC;border-color:#5BA678}.ch.w2 .c{color:#1B5E20}
+.ch.w3{background:#F8E4C7;border-color:#C8924A}.ch.w3 .c{color:#7A4A1F}
+.ch.active{transform:scale(1.1);box-shadow:0 3px 10px rgba(0,0,0,.15)}
+.info{background:white;border:1.5px solid #C8924A;border-radius:10px;padding:12px 16px;margin:10px 0;font-size:15px;min-height:48px}
+.label{font-size:13px;font-weight:700;color:#5a5a5a;margin-bottom:4px}
+.controls{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+.btn{padding:7px 14px;border-radius:8px;border:1.5px solid;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn-step{background:#D7E5F4;border-color:#4A7CB5;color:#0F4C81}
+.btn-reset{background:#F5D5CE;border-color:#C46B5C;color:#8B2E1F}
+.btn-auto{background:#D4EBDC;border-color:#5BA678;color:#1B5E20}
+.step-dots{margin:8px 0}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin:0 3px;border:1.5px solid #A89F8E;transition:all .3s}
+.dot.done{background:#5BA678;border-color:#5BA678}.dot.cur{background:#C8924A;border-color:#C8924A;transform:scale(1.3)}
+</style>
+</head>
+<body>
+<h1>Reverse words in a string — approach 2 dry run</h1>
+<p class="sub">"I like Scaler" → reverse each word → reverse entire string → "Scaler like I"</p>
+
+<div class="controls">
+  <button class="btn btn-step" onclick="next()">Next step</button>
+  <button class="btn btn-step" onclick="prev()">Prev step</button>
+  <button class="btn btn-auto" id="autoBtn" onclick="toggleAuto()">Auto-play</button>
+  <button class="btn btn-reset" onclick="reset()">Reset</button>
+  <span style="font-size:13px;color:#5a5a5a;align-self:center" id="cnt"></span>
+</div>
+<div class="step-dots" id="dots"></div>
+
+<div class="info" id="info">Click <b>Next step</b> to begin</div>
+
+<div class="label" id="lbl">String:</div>
+<div class="str-row" id="strRow"></div>
+
+<script>
+// Word colors: w1=blue(I), w2=green(like), w3=peach(Scaler)
+const steps=[
+  {chars:'I like Scaler'.split(''),colors:['w1','space','w2','w2','w2','w2','space','w3','w3','w3','w3','w3','w3'],explain:'Original string: "I like Scaler". We have 3 words.',label:'Step 0: Original'},
+  {chars:'I like Scaler'.split(''),colors:['w1','space','w2','w2','w2','w2','space','w3','w3','w3','w3','w3','w3'],explain:'Step 1: Reverse each word individually. Start with "I" — only 1 char, stays the same.',label:'Step 1: Reverse word "I"',active:[0]},
+  {chars:'I ekil Scaler'.split(''),colors:['w1','space','w2','w2','w2','w2','space','w3','w3','w3','w3','w3','w3'],explain:'Reverse "like" → "ekil". Characters at indices 2-5 are reversed.',label:'Step 2: Reverse word "like" → "ekil"',active:[2,3,4,5]},
+  {chars:'I ekil relacS'.split(''),colors:['w1','space','w2','w2','w2','w2','space','w3','w3','w3','w3','w3','w3'],explain:'Reverse "Scaler" → "relacS". Characters at indices 7-12 are reversed.',label:'Step 3: Reverse word "Scaler" → "relacS"',active:[7,8,9,10,11,12]},
+  {chars:'I ekil relacS'.split(''),colors:['w1','space','w2','w2','w2','w2','space','w3','w3','w3','w3','w3','w3'],explain:'Now we have "I ekil relacS". Next: reverse the ENTIRE string.',label:'Step 4: All words reversed individually'},
+  {chars:'Scaler like I'.split(''),colors:['w3','w3','w3','w3','w3','w3','space','w2','w2','w2','w2','space','w1'],explain:'Reverse entire string → "Scaler like I". Done! Words are now in reverse order.',label:'Step 5: Reverse entire string → DONE!',active:[0,1,2,3,4,5,6,7,8,9,10,11,12]}
+];
+
+let cur=-1,autoI=null;
+
+function render(){
+  document.getElementById('cnt').textContent=`Step ${cur+1} / ${steps.length}`;
+  document.getElementById('dots').innerHTML=steps.map((_,i)=>{
+    let c='dot';if(i<cur)c+=' done';if(i===cur)c+=' cur';
+    return `<span class="${c}"></span>`;
+  }).join('');
+
+  if(cur<0){
+    document.getElementById('info').innerHTML='Click <b>Next step</b> to begin';
+    document.getElementById('lbl').textContent='String:';
+    const ch='I like Scaler'.split('');
+    const co=['w1','space','w2','w2','w2','w2','space','w3','w3','w3','w3','w3','w3'];
+    document.getElementById('strRow').innerHTML=ch.map((c,i)=>
+      `<div class="ch ${co[i]}"><span class="c">${c===' '?'_':c}</span><span class="idx">${i}</span></div>`
+    ).join('');
+    return;
+  }
+  const s=steps[cur];
+  document.getElementById('info').textContent=s.explain;
+  document.getElementById('lbl').textContent=s.label;
+  const act=new Set(s.active||[]);
+  document.getElementById('strRow').innerHTML=s.chars.map((c,i)=>{
+    let cls=s.colors[i]+(act.has(i)?' active':'');
+    return `<div class="ch ${cls}"><span class="c">${c===' '?'_':c}</span><span class="idx">${i}</span></div>`;
+  }).join('');
+}
+
+function next(){if(cur<steps.length-1){cur++;render()}}
+function prev(){if(cur>=0){cur--;render()}}
+function reset(){cur=-1;if(autoI){clearInterval(autoI);autoI=null;document.getElementById('autoBtn').textContent='Auto-play'}render()}
+function toggleAuto(){const b=document.getElementById('autoBtn');if(autoI){clearInterval(autoI);autoI=null;b.textContent='Auto-play'}else{autoI=setInterval(()=>{if(cur>=steps.length-1){clearInterval(autoI);autoI=null;b.textContent='Auto-play'}else next()},2500);b.textContent='Pause'}}
+render();
+</script>
+</body>
+</html>
