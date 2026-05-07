@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 2 — Rectangular Diagonal Traversal</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+
+  pre.code { font-size: 13px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .comment { color: #888; font-style: italic; }
+
+  .matrix { display: inline-block; margin: 12px 0 8px; }
+  .mrow { display: flex; }
+  .cell {
+    width: 56px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.2px solid #ddd; background: #fff;
+    font-size: 16px; font-weight: 700; color: #555;
+    transition: all 0.25s;
+    font-family: 'SF Mono', monospace;
+  }
+  .cell.scanning {
+    background: #FFF9C4; border-color: #F9A825; border-width: 2.5px;
+    color: #5D4037; transform: scale(1.05); z-index: 2;
+  }
+  .cell.printed-fam1 { background: #D4EBDC; border-color: #5BA678; color: #1B5E20; }
+  .cell.printed-fam2 { background: #D7E5F4; border-color: #4A7CB5; color: #0F4C81; }
+  .cell.start-fam1 { background: #FFFEF8; border-color: #5BA678; border-width: 2px; }
+  .cell.start-fam2 { background: #FFFEF8; border-color: #4A7CB5; border-width: 2px; }
+
+  .col-header { font-size: 10px; color: #888; text-align: center; padding: 2px 0;
+                font-family: 'SF Mono', monospace; width: 56px; }
+
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  .vars-table td { padding: 6px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 90px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 11px;
+                       text-transform: uppercase; letter-spacing: 0.4px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; font-family: 'SF Mono', monospace; }
+  .vars-table .value.fam1 { color: #1B5E20; }
+  .vars-table .value.fam2 { color: #0F4C81; }
+
+  .output-box {
+    margin-top: 12px; padding: 10px 12px; border-radius: 4px;
+    font-family: 'SF Mono', monospace; font-size: 13px; line-height: 1.6;
+    min-height: 110px;
+    background: #FFFEF8; border: 1px solid #A89F8E;
+  }
+  .output-box .ohead { font-size: 10px; color: #888;
+                       font-family: -apple-system, system-ui, sans-serif;
+                       text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .output-line { font-weight: 600; }
+  .output-line.fam1 { color: #1B5E20; }
+  .output-line.fam2 { color: #0F4C81; }
+
+  .controls { margin-top: 18px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 14px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 13px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+  .family-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  .family-badge.fam1 { background: #D4EBDC; color: #1B5E20; border: 1px solid #5BA678; }
+  .family-badge.fam2 { background: #D7E5F4; color: #0F4C81; border: 1px solid #4A7CB5; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 2 · Walking every diagonal of a 3 × 4 matrix</h1>
+  <div class="subtitle">Family 1 starts on the top row (M = 4 starts). Family 2 starts on the rightmost column, skipping [0][3] (N − 1 = 2 starts). Total = 6 diagonals.</div>
+
+  <div class="grid">
+    <!-- LEFT: code + matrix -->
+    <div class="panel">
+      <div class="panel-title">Algorithm</div>
+      <pre class="code"><span class="line" data-line="1"><span class="comment">// Family 1: starts from row 0</span></span><span class="line" data-line="2">i = 0</span><span class="line" data-line="3"><span class="keyword">for</span> (j = 0 <span class="keyword">to</span> M − 1) {</span><span class="line" data-line="4">    s = i; e = j</span><span class="line" data-line="5">    <span class="keyword">while</span> (s &lt; N &amp;&amp; e &gt;= 0) {</span><span class="line" data-line="6">        print(A[s][e]); s++; e--</span><span class="line" data-line="7">    }</span><span class="line" data-line="8">    print(newline)</span><span class="line" data-line="9">}</span><span class="line" data-line="10"><span class="comment">// Family 2: starts from last column</span></span><span class="line" data-line="11">j = M − 1</span><span class="line" data-line="12"><span class="keyword">for</span> (i = 1 <span class="keyword">to</span> N − 1) {</span><span class="line" data-line="13">    s = i; e = j</span><span class="line" data-line="14">    <span class="keyword">while</span> (s &lt; N &amp;&amp; e &gt;= 0) {</span><span class="line" data-line="15">        print(A[s][e]); s++; e--</span><span class="line" data-line="16">    }</span><span class="line" data-line="17">    print(newline)</span><span class="line" data-line="18">}</span></pre>
+
+      <div class="panel-title" style="margin-top:14px;">Matrix mat[3][4]</div>
+      <div class="matrix" id="matrix">
+        <div class="mrow">
+          <div class="col-header">j=0</div><div class="col-header">j=1</div><div class="col-header">j=2</div><div class="col-header">j=3</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: state -->
+    <div class="panel">
+      <div class="panel-title">State</div>
+      <table class="vars-table">
+        <tr><td class="label">Family</td><td class="value" id="varFamily" colspan="3">—</td></tr>
+        <tr><td class="label">start (i, j)</td><td class="value" id="varStart">—</td>
+            <td class="label">cur (s, e)</td><td class="value" id="varCur">—</td></tr>
+        <tr><td class="label">A[s][e]</td><td class="value" id="varVal" colspan="3">—</td></tr>
+      </table>
+
+      <div class="output-box">
+        <div class="ohead">Output (one line per diagonal)</div>
+        <div id="output"></div>
+      </div>
+
+      <div class="narration" id="narration" style="margin-top:14px;">Click <strong>STEP</strong> or <strong>PLAY</strong> to walk through all 6 diagonals.</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const mat = [
+  [1, 2, 3, 4],
+  [5, 6, 7, 8],
+  [9, 10, 11, 12]
+];
+const N = 3, M = 4;
+
+// Build matrix DOM
+const matrixDiv = document.getElementById('matrix');
+for (let i = 0; i < N; i++) {
+  const row = document.createElement('div');
+  row.className = 'mrow';
+  for (let j = 0; j < M; j++) {
+    const c = document.createElement('div');
+    c.className = 'cell';
+    c.id = `m-${i}-${j}`;
+    c.textContent = mat[i][j];
+    row.appendChild(c);
+  }
+  matrixDiv.appendChild(row);
+}
+
+// Build steps. For each diagonal: a "start" event then walk events ending with newline.
+const steps = [];
+
+// Family 1
+for (let j = 0; j < M; j++) {
+  const startI = 0, startJ = j;
+  steps.push({
+    type: 'start', family: 1, startI, startJ,
+    line: 4, narration: `<span class="family-badge fam1">FAMILY 1</span> Start a new diagonal at <b>(${startI}, ${startJ})</b>.`
+  });
+  let s = startI, e = startJ;
+  while (s < N && e >= 0) {
+    steps.push({
+      type: 'visit', family: 1, startI, startJ, s, e, val: mat[s][e],
+      line: 6,
+      narration: `<span class="family-badge fam1">FAMILY 1</span> Print A[${s}][${e}] = <b>${mat[s][e]}</b>. Then s++, e--.`
+    });
+    s++; e--;
+  }
+  steps.push({
+    type: 'newline', family: 1, startI, startJ,
+    line: 8,
+    narration: `<span class="family-badge fam1">FAMILY 1</span> Diagonal ended (s = ${s} or e = ${e}). Newline, move to next start.`
+  });
+}
+
+// Family 2
+for (let i = 1; i < N; i++) {
+  const startI = i, startJ = M - 1;
+  steps.push({
+    type: 'start', family: 2, startI, startJ,
+    line: 13, narration: `<span class="family-badge fam2">FAMILY 2</span> Start a new diagonal at <b>(${startI}, ${startJ})</b>.`
+  });
+  let s = startI, e = startJ;
+  while (s < N && e >= 0) {
+    steps.push({
+      type: 'visit', family: 2, startI, startJ, s, e, val: mat[s][e],
+      line: 15,
+      narration: `<span class="family-badge fam2">FAMILY 2</span> Print A[${s}][${e}] = <b>${mat[s][e]}</b>. Then s++, e--.`
+    });
+    s++; e--;
+  }
+  steps.push({
+    type: 'newline', family: 2, startI, startJ,
+    line: 17,
+    narration: `<span class="family-badge fam2">FAMILY 2</span> Diagonal ended (s = ${s} or e = ${e}). Newline, move to next start.`
+  });
+}
+
+// Final
+steps.push({
+  type: 'done',
+  line: null,
+  narration: `Done. Printed all 6 diagonals (M + N − 1 = 4 + 3 − 1 = 6).`
+});
+
+const TOTAL = steps.length;
+
+let cursor = 0, playing = false, timer = null;
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+
+function clearMatrix() {
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < M; j++)
+      document.getElementById(`m-${i}-${j}`).className = 'cell';
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${TOTAL}`;
+  clearMatrix();
+
+  if (cursor === 0) {
+    document.getElementById('varFamily').textContent = '—';
+    document.getElementById('varStart').textContent = '—';
+    document.getElementById('varCur').textContent = '—';
+    document.getElementById('varVal').textContent = '—';
+    document.getElementById('output').innerHTML = '';
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to walk through all 6 diagonals.`;
+    setLine(null);
+    return;
+  }
+
+  const s = steps[cursor - 1];
+  setLine(s.line);
+  document.getElementById('narration').innerHTML = s.narration;
+
+  // Reconstruct: which cells have been visited so far, and what each diagonal's output is.
+  const visitedByDiag = []; // array of { family, cells: [[s,e,val]], printed }
+  let cur = null;
+  for (let k = 0; k < cursor; k++) {
+    const ps = steps[k];
+    if (ps.type === 'start') {
+      cur = { family: ps.family, startI: ps.startI, startJ: ps.startJ, cells: [], printed: false };
+      visitedByDiag.push(cur);
+    } else if (ps.type === 'visit') {
+      cur.cells.push({ s: ps.s, e: ps.e, val: ps.val });
+    } else if (ps.type === 'newline') {
+      cur.printed = true;
+    }
+  }
+
+  // Color all visited cells in their family color (consumed). The CURRENT cell gets 'scanning'.
+  for (let d = 0; d < visitedByDiag.length; d++) {
+    const diag = visitedByDiag[d];
+    const cls = diag.family === 1 ? 'printed-fam1' : 'printed-fam2';
+    for (let k = 0; k < diag.cells.length; k++) {
+      const c = diag.cells[k];
+      const cell = document.getElementById(`m-${c.s}-${c.e}`);
+      cell.className = 'cell ' + cls;
+    }
+  }
+  if (s.type === 'visit') {
+    document.getElementById(`m-${s.s}-${s.e}`).className = 'cell scanning';
+  }
+
+  // Update vars
+  if (s.type === 'start') {
+    document.getElementById('varFamily').textContent = `Family ${s.family}`;
+    document.getElementById('varFamily').className = 'value fam' + s.family;
+    document.getElementById('varStart').textContent = `(${s.startI}, ${s.startJ})`;
+    document.getElementById('varCur').textContent = `(${s.startI}, ${s.startJ})`;
+    document.getElementById('varVal').textContent = '—';
+  } else if (s.type === 'visit') {
+    document.getElementById('varFamily').textContent = `Family ${s.family}`;
+    document.getElementById('varFamily').className = 'value fam' + s.family;
+    document.getElementById('varStart').textContent = `(${s.startI}, ${s.startJ})`;
+    document.getElementById('varCur').textContent = `(${s.s}, ${s.e})`;
+    document.getElementById('varVal').textContent = `A[${s.s}][${s.e}] = ${s.val}`;
+  } else if (s.type === 'newline') {
+    document.getElementById('varFamily').textContent = `Family ${s.family}`;
+    document.getElementById('varFamily').className = 'value fam' + s.family;
+    document.getElementById('varStart').textContent = `(${s.startI}, ${s.startJ})`;
+    document.getElementById('varCur').textContent = `out of bounds`;
+    document.getElementById('varVal').textContent = '—';
+  } else if (s.type === 'done') {
+    document.getElementById('varFamily').textContent = 'done';
+    document.getElementById('varFamily').className = 'value';
+    document.getElementById('varStart').textContent = '—';
+    document.getElementById('varCur').textContent = '—';
+    document.getElementById('varVal').textContent = '—';
+  }
+
+  // Render output
+  const lines = visitedByDiag.map(d => {
+    const cls = d.family === 1 ? 'fam1' : 'fam2';
+    const vals = d.cells.map(c => c.val).join(' ');
+    return `<div class="output-line ${cls}">${vals}</div>`;
+  });
+  document.getElementById('output').innerHTML = lines.join('');
+}
+
+function step() { if (cursor < TOTAL) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= TOTAL) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= TOTAL) { pause(); return; } step(); }, 700);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${TOTAL}`;
+reset();
+</script>
+</body>
+</html>

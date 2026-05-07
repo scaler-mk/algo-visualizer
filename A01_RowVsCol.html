@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 1 — Row-wise vs Column-wise Sum</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 13px; font-weight: 700; text-transform: uppercase;
+                 letter-spacing: 0.5px; margin-bottom: 12px; padding-bottom: 8px;
+                 border-bottom: 2px solid;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  .panel.row .panel-title { color: #0F4C81; border-color: #4A7CB5; }
+  .panel.col .panel-title { color: #1B5E20; border-color: #5BA678; }
+
+  .matrix { display: inline-block; margin: 8px 0; }
+  .mrow { display: flex; }
+  .cell {
+    width: 48px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.2px solid #ddd; background: #fff;
+    font-size: 16px; font-weight: 700; color: #555;
+    transition: all 0.25s;
+    font-family: 'SF Mono', monospace;
+  }
+  .cell.scanning {
+    background: #FFF9C4; border-color: #F9A825; border-width: 2px;
+    color: #5D4037; transform: scale(1.05); z-index: 2;
+  }
+  .panel.row .cell.consumed { background: #D7E5F4; border-color: #4A7CB5; color: #0F4C81; }
+  .panel.col .cell.consumed { background: #D4EBDC; border-color: #5BA678; color: #1B5E20; }
+  .cell.done { background: #f9f9f9; color: #aaa; }
+
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+  .vars-table td { padding: 6px 8px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 80px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 11px;
+                       text-transform: uppercase; letter-spacing: 0.4px; }
+  .panel.row .vars-table .value { color: #0F4C81; font-weight: 700; font-family: 'SF Mono', monospace; }
+  .panel.col .vars-table .value { color: #1B5E20; font-weight: 700; font-family: 'SF Mono', monospace; }
+
+  .output-box {
+    margin-top: 12px; padding: 10px 12px; border-radius: 4px;
+    font-family: 'SF Mono', monospace; font-size: 13px; line-height: 1.7;
+    min-height: 90px;
+    background: #FFFEF8; border: 1px solid #A89F8E;
+  }
+  .output-box .ohead { font-size: 10px; color: #888;
+                       font-family: -apple-system, system-ui, sans-serif;
+                       text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .output-line { font-weight: 600; }
+  .panel.row .output-line { color: #0F4C81; }
+  .panel.col .output-line { color: #1B5E20; }
+
+  .formula {
+    margin-top: 8px; padding: 8px 10px;
+    font-family: 'SF Mono', monospace; font-size: 12px;
+    background: #f9f9f9; border-radius: 4px; min-height: 30px;
+  }
+
+  .controls { margin-top: 18px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 14px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #5a5a5a; font-size: 13px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+  .narration .row-tag { color: #0F4C81; font-weight: 700; }
+  .narration .col-tag { color: #1B5E20; font-weight: 700; }
+  .col-header { font-size: 10px; color: #888; text-align: center; padding: 2px 0;
+                font-family: 'SF Mono', monospace; width: 48px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 1 · Row-wise vs Column-wise sum on the same matrix</h1>
+  <div class="subtitle">Both algorithms visit every cell exactly once. The only difference is the order. Watch the two scan patterns side-by-side.</div>
+
+  <div class="grid">
+    <!-- LEFT: row-wise -->
+    <div class="panel row">
+      <div class="panel-title">Row-wise sum &nbsp; (outer i, inner j)</div>
+
+      <div class="matrix" id="matRow">
+        <div class="mrow">
+          <div class="col-header">j=0</div><div class="col-header">j=1</div><div class="col-header">j=2</div><div class="col-header">j=3</div>
+        </div>
+        <!-- rows generated by JS -->
+      </div>
+
+      <table class="vars-table">
+        <tr><td class="label">i</td><td class="value" id="rowI">—</td>
+            <td class="label">j</td><td class="value" id="rowJ">—</td></tr>
+        <tr><td class="label">sum</td><td class="value" id="rowSum">0</td>
+            <td class="label">cell</td><td class="value" id="rowCell">—</td></tr>
+      </table>
+
+      <div class="formula" id="rowFormula">— click step to begin —</div>
+
+      <div class="output-box">
+        <div class="ohead">Output</div>
+        <div id="rowOutput"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: col-wise -->
+    <div class="panel col">
+      <div class="panel-title">Column-wise sum &nbsp; (outer j, inner i)</div>
+
+      <div class="matrix" id="matCol">
+        <div class="mrow">
+          <div class="col-header">j=0</div><div class="col-header">j=1</div><div class="col-header">j=2</div><div class="col-header">j=3</div>
+        </div>
+      </div>
+
+      <table class="vars-table">
+        <tr><td class="label">j</td><td class="value" id="colJ">—</td>
+            <td class="label">i</td><td class="value" id="colI">—</td></tr>
+        <tr><td class="label">sum</td><td class="value" id="colSum">0</td>
+            <td class="label">cell</td><td class="value" id="colCell">—</td></tr>
+      </table>
+
+      <div class="formula" id="colFormula">— click step to begin —</div>
+
+      <div class="output-box">
+        <div class="ohead">Output</div>
+        <div id="colOutput"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to compare both scan orders. Both will visit all 12 cells, but in different orders.</div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const mat = [
+  [1, 2, 3, 4],
+  [5, 6, 7, 8],
+  [9, 10, 11, 12]
+];
+const N = 3, M = 4;
+
+// Build matrix DOMs
+function buildMatrix(parentId, prefix) {
+  const parent = document.getElementById(parentId);
+  for (let i = 0; i < N; i++) {
+    const row = document.createElement('div');
+    row.className = 'mrow';
+    for (let j = 0; j < M; j++) {
+      const c = document.createElement('div');
+      c.className = 'cell';
+      c.id = `${prefix}-${i}-${j}`;
+      c.textContent = mat[i][j];
+      row.appendChild(c);
+    }
+    parent.appendChild(row);
+  }
+}
+buildMatrix('matRow', 'r');
+buildMatrix('matCol', 'c');
+
+// Build row-wise step list
+const rowSteps = [];
+{
+  let outputs = [];
+  for (let i = 0; i < N; i++) {
+    let runningSum = 0;
+    let parts = [];
+    for (let j = 0; j < M; j++) {
+      runningSum += mat[i][j];
+      parts.push(mat[i][j].toString());
+      rowSteps.push({
+        type: 'visit', i, j, val: mat[i][j], sum: runningSum,
+        formula: parts.join(' + '),
+        outputsSoFar: outputs.slice()
+      });
+    }
+    // After completing the row, push a "print" step
+    outputs.push(runningSum);
+    rowSteps.push({
+      type: 'print', i, finalSum: runningSum,
+      formula: parts.join(' + ') + ' = ' + runningSum,
+      outputsSoFar: outputs.slice()
+    });
+  }
+}
+
+// Build col-wise step list
+const colSteps = [];
+{
+  let outputs = [];
+  for (let j = 0; j < M; j++) {
+    let runningSum = 0;
+    let parts = [];
+    for (let i = 0; i < N; i++) {
+      runningSum += mat[i][j];
+      parts.push(mat[i][j].toString());
+      colSteps.push({
+        type: 'visit', i, j, val: mat[i][j], sum: runningSum,
+        formula: parts.join(' + '),
+        outputsSoFar: outputs.slice()
+      });
+    }
+    outputs.push(runningSum);
+    colSteps.push({
+      type: 'print', j, finalSum: runningSum,
+      formula: parts.join(' + ') + ' = ' + runningSum,
+      outputsSoFar: outputs.slice()
+    });
+  }
+}
+
+// We step both side by side. The total step count = max(rowSteps.length, colSteps.length).
+// Actually they're equal: 12 visits + N rows of print = 15, vs 12 visits + M col of print = 16. They differ.
+// To keep them in sync, we'll just step them independently and use max length.
+const TOTAL = Math.max(rowSteps.length, colSteps.length);
+
+let cursor = 0, playing = false, timer = null;
+
+function clearMatrix(prefix) {
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < M; j++)
+      document.getElementById(`${prefix}-${i}-${j}`).className = 'cell';
+}
+
+function renderRowSide() {
+  clearMatrix('r');
+  if (cursor === 0) {
+    document.getElementById('rowI').textContent = '—';
+    document.getElementById('rowJ').textContent = '—';
+    document.getElementById('rowSum').textContent = '0';
+    document.getElementById('rowCell').textContent = '—';
+    document.getElementById('rowFormula').textContent = '— click step to begin —';
+    document.getElementById('rowOutput').innerHTML = '';
+    return;
+  }
+  const idx = Math.min(cursor - 1, rowSteps.length - 1);
+  const s = rowSteps[idx];
+
+  // Highlight all cells visited so far up to and including this step
+  for (let k = 0; k <= idx; k++) {
+    const ps = rowSteps[k];
+    if (ps.type === 'visit') {
+      const cell = document.getElementById(`r-${ps.i}-${ps.j}`);
+      if (k === idx) cell.className = 'cell scanning';
+      else cell.className = 'cell consumed';
+    }
+  }
+  // If current step is a print, leave row dimmed and don't show scanning
+  if (s.type === 'print') {
+    for (let j = 0; j < M; j++) {
+      document.getElementById(`r-${s.i}-${j}`).className = 'cell consumed';
+    }
+  }
+
+  if (s.type === 'visit') {
+    document.getElementById('rowI').textContent = s.i;
+    document.getElementById('rowJ').textContent = s.j;
+    document.getElementById('rowSum').textContent = s.sum;
+    document.getElementById('rowCell').textContent = `mat[${s.i}][${s.j}] = ${s.val}`;
+    document.getElementById('rowFormula').textContent = `sum = ${s.formula} = ${s.sum}`;
+  } else {
+    document.getElementById('rowI').textContent = s.i;
+    document.getElementById('rowJ').textContent = '—';
+    document.getElementById('rowSum').textContent = s.finalSum;
+    document.getElementById('rowCell').textContent = `print(${s.finalSum})`;
+    document.getElementById('rowFormula').textContent = `print: ${s.formula}`;
+  }
+
+  document.getElementById('rowOutput').innerHTML = s.outputsSoFar.map(v => `<div class="output-line">${v}</div>`).join('');
+}
+
+function renderColSide() {
+  clearMatrix('c');
+  if (cursor === 0) {
+    document.getElementById('colI').textContent = '—';
+    document.getElementById('colJ').textContent = '—';
+    document.getElementById('colSum').textContent = '0';
+    document.getElementById('colCell').textContent = '—';
+    document.getElementById('colFormula').textContent = '— click step to begin —';
+    document.getElementById('colOutput').innerHTML = '';
+    return;
+  }
+  const idx = Math.min(cursor - 1, colSteps.length - 1);
+  const s = colSteps[idx];
+
+  for (let k = 0; k <= idx; k++) {
+    const ps = colSteps[k];
+    if (ps.type === 'visit') {
+      const cell = document.getElementById(`c-${ps.i}-${ps.j}`);
+      if (k === idx) cell.className = 'cell scanning';
+      else cell.className = 'cell consumed';
+    }
+  }
+  if (s.type === 'print') {
+    for (let i = 0; i < N; i++) {
+      document.getElementById(`c-${i}-${s.j}`).className = 'cell consumed';
+    }
+  }
+
+  if (s.type === 'visit') {
+    document.getElementById('colJ').textContent = s.j;
+    document.getElementById('colI').textContent = s.i;
+    document.getElementById('colSum').textContent = s.sum;
+    document.getElementById('colCell').textContent = `mat[${s.i}][${s.j}] = ${s.val}`;
+    document.getElementById('colFormula').textContent = `sum = ${s.formula} = ${s.sum}`;
+  } else {
+    document.getElementById('colJ').textContent = s.j;
+    document.getElementById('colI').textContent = '—';
+    document.getElementById('colSum').textContent = s.finalSum;
+    document.getElementById('colCell').textContent = `print(${s.finalSum})`;
+    document.getElementById('colFormula').textContent = `print: ${s.formula}`;
+  }
+
+  document.getElementById('colOutput').innerHTML = s.outputsSoFar.map(v => `<div class="output-line">${v}</div>`).join('');
+}
+
+function updateNarration() {
+  if (cursor === 0) {
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to compare both scan orders. Both will visit all 12 cells, but in different orders.`;
+    return;
+  }
+  const rIdx = Math.min(cursor - 1, rowSteps.length - 1);
+  const cIdx = Math.min(cursor - 1, colSteps.length - 1);
+  const rs = rowSteps[rIdx];
+  const cs = colSteps[cIdx];
+
+  const left = rs.type === 'visit'
+    ? `<span class="row-tag">Row-wise:</span> at mat[${rs.i}][${rs.j}] = ${rs.val}, sum so far = ${rs.sum}`
+    : `<span class="row-tag">Row-wise:</span> finished row ${rs.i}, printed ${rs.finalSum}`;
+  const right = cs.type === 'visit'
+    ? `<span class="col-tag">Col-wise:</span> at mat[${cs.i}][${cs.j}] = ${cs.val}, sum so far = ${cs.sum}`
+    : `<span class="col-tag">Col-wise:</span> finished col ${cs.j}, printed ${cs.finalSum}`;
+
+  document.getElementById('narration').innerHTML = `${left}<br>${right}`;
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${TOTAL}`;
+  renderRowSide();
+  renderColSide();
+  updateNarration();
+}
+
+function step() { if (cursor < TOTAL) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= TOTAL) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= TOTAL) { pause(); return; } step(); }, 800);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${TOTAL}`;
+reset();
+</script>
+</body>
+</html>

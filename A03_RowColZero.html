@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 3 — Row to Column Zero</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+
+  pre.code { font-size: 13px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .comment { color: #888; font-style: italic; }
+
+  .matrix { display: inline-block; margin: 12px 0 8px; }
+  .mrow { display: flex; }
+  .cell {
+    width: 64px; height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.2px solid #ddd; background: #fff;
+    font-size: 17px; font-weight: 700; color: #555;
+    transition: all 0.3s;
+    font-family: 'SF Mono', monospace;
+  }
+  .cell.zero { background: #FFEBEE; border-color: #E53935; color: #B71C1C; border-width: 2px; }
+  .cell.marker { background: #FFF8E8; border-color: #D4B870; color: #5D4037; border-width: 2px; }
+  .cell.scanning {
+    background: #FFF9C4; border-color: #F9A825; border-width: 2.5px;
+    color: #5D4037; transform: scale(1.07); z-index: 2;
+  }
+  .cell.row-flag {
+    box-shadow: inset 0 0 0 1.5px #4A7CB5;
+  }
+  .cell.col-flag {
+    box-shadow: inset 0 0 0 1.5px #4A7CB5;
+  }
+  .cell.final-zero { background: #D4EBDC; border-color: #5BA678; color: #1B5E20; border-width: 2px; }
+
+  .col-header { font-size: 11px; color: #888; text-align: center; padding: 2px 0;
+                font-family: 'SF Mono', monospace; width: 64px; font-weight: 600; }
+  .row-header { width: 36px; font-size: 11px; color: #888;
+                display: flex; align-items: center; justify-content: center;
+                font-family: 'SF Mono', monospace; font-weight: 600; }
+
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  .vars-table td { padding: 6px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 100px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 11px;
+                       text-transform: uppercase; letter-spacing: 0.4px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; font-family: 'SF Mono', monospace; }
+
+  .pass-banner {
+    margin-top: 12px; padding: 10px 14px;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 13px; font-weight: 700;
+    border-radius: 4px;
+    border-left: 4px solid;
+  }
+  .pass-banner.p0 { background: #f9f9f9; border-color: #888; color: #555; }
+  .pass-banner.p1 { background: #FFF8E8; border-color: #D4B870; color: #5D4037; }
+  .pass-banner.p2 { background: #FFF8E8; border-color: #D4B870; color: #5D4037; }
+  .pass-banner.p3 { background: #D4EBDC; border-color: #5BA678; color: #1B5E20; }
+
+  .controls { margin-top: 18px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 14px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 13px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 3 · Row to Column Zero — the 3-pass marker trick</h1>
+  <div class="subtitle">Use −1 as a temporary marker. Pass 1 marks rows containing 0, Pass 2 marks columns containing 0, Pass 3 converts every −1 to 0.</div>
+
+  <div class="grid">
+    <!-- LEFT: code -->
+    <div class="panel">
+      <div class="panel-title">Algorithm</div>
+      <pre class="code"><span class="line" data-line="1"><span class="comment"># Pass 1: mark rows that contain 0</span></span><span class="line" data-line="2"><span class="keyword">for</span> i <span class="keyword">in</span> range(N):</span><span class="line" data-line="3">    flag = (any zero in row i)</span><span class="line" data-line="4">    <span class="keyword">if</span> flag:</span><span class="line" data-line="5">        <span class="keyword">for</span> j <span class="keyword">in</span> range(M):</span><span class="line" data-line="6">            <span class="keyword">if</span> A[i][j] != 0: A[i][j] = -1</span><span class="line" data-line="7"><span class="comment"># Pass 2: mark cols that contain 0</span></span><span class="line" data-line="8"><span class="keyword">for</span> j <span class="keyword">in</span> range(M):</span><span class="line" data-line="9">    flag = (any zero in col j)</span><span class="line" data-line="10">    <span class="keyword">if</span> flag:</span><span class="line" data-line="11">        <span class="keyword">for</span> i <span class="keyword">in</span> range(N):</span><span class="line" data-line="12">            <span class="keyword">if</span> A[i][j] != 0: A[i][j] = -1</span><span class="line" data-line="13"><span class="comment"># Pass 3: convert markers to 0</span></span><span class="line" data-line="14"><span class="keyword">for</span> i <span class="keyword">in</span> range(N):</span><span class="line" data-line="15">    <span class="keyword">for</span> j <span class="keyword">in</span> range(M):</span><span class="line" data-line="16">        <span class="keyword">if</span> A[i][j] == -1: A[i][j] = 0</span></pre>
+    </div>
+
+    <!-- RIGHT: state + matrix -->
+    <div class="panel">
+      <div class="panel-title">State</div>
+
+      <div class="pass-banner p0" id="passBanner">Click STEP to begin</div>
+
+      <div class="matrix" id="matrix">
+        <div class="mrow">
+          <div class="row-header"></div>
+          <div class="col-header">j=0</div><div class="col-header">j=1</div><div class="col-header">j=2</div><div class="col-header">j=3</div>
+        </div>
+      </div>
+
+      <table class="vars-table">
+        <tr><td class="label">Pass</td><td class="value" id="varPass">—</td>
+            <td class="label">i, j</td><td class="value" id="varIJ">—</td></tr>
+        <tr><td class="label">Action</td><td class="value" id="varAction" colspan="3" style="font-size:11px;">—</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to watch the 3-pass algorithm transform the matrix.</div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+// Initial matrix from script's example
+const initial = [
+  [1, 2, 3, 4],
+  [5, 6, 7, 0],
+  [9, 2, 0, 4]
+];
+const N = 3, M = 4;
+
+// Build matrix DOM with row labels
+const matrixDiv = document.getElementById('matrix');
+for (let i = 0; i < N; i++) {
+  const row = document.createElement('div');
+  row.className = 'mrow';
+  const lbl = document.createElement('div');
+  lbl.className = 'row-header';
+  lbl.textContent = `i=${i}`;
+  row.appendChild(lbl);
+  for (let j = 0; j < M; j++) {
+    const c = document.createElement('div');
+    c.className = 'cell';
+    c.id = `m-${i}-${j}`;
+    c.textContent = initial[i][j];
+    row.appendChild(c);
+  }
+  matrixDiv.appendChild(row);
+}
+
+// Build steps. We'll track state of the matrix at each step.
+// Step types:
+//   - {pass: 1, type: 'check_row', i}  // examining row i for zero
+//   - {pass: 1, type: 'mark_row', i, j} // setting cell (i,j) to -1
+//   - {pass: 1, type: 'skip_row', i}    // no zero in this row
+//   - similar for pass 2 (check_col, mark_col, skip_col)
+//   - {pass: 3, type: 'convert', i, j}  // -1 -> 0
+//   - {type: 'done'}
+
+const steps = [];
+
+// Helper: deep copy matrix
+function copyMat(m) { return m.map(r => r.slice()); }
+let mat = copyMat(initial);
+
+// Pass 1
+for (let i = 0; i < N; i++) {
+  let rowHasZero = false;
+  for (let j = 0; j < M; j++) {
+    if (mat[i][j] === 0) { rowHasZero = true; break; }
+  }
+  steps.push({
+    pass: 1, type: 'check_row', i, rowHasZero,
+    matSnapshot: copyMat(mat),
+    line: 3,
+    narration: `<b>Pass 1</b> · row i = ${i}: ${rowHasZero ? 'contains a 0 — will mark' : 'no 0 found — leave alone'}.`
+  });
+  if (rowHasZero) {
+    for (let j = 0; j < M; j++) {
+      if (mat[i][j] !== 0) {
+        mat[i][j] = -1;
+        steps.push({
+          pass: 1, type: 'mark_row', i, j,
+          matSnapshot: copyMat(mat),
+          line: 6,
+          narration: `<b>Pass 1</b> · row ${i}: mark non-zero cell A[${i}][${j}] as −1.`
+        });
+      }
+    }
+  }
+}
+
+// Pass 2
+for (let j = 0; j < M; j++) {
+  let colHasZero = false;
+  for (let i = 0; i < N; i++) {
+    if (mat[i][j] === 0) { colHasZero = true; break; }
+  }
+  steps.push({
+    pass: 2, type: 'check_col', j, colHasZero,
+    matSnapshot: copyMat(mat),
+    line: 9,
+    narration: `<b>Pass 2</b> · col j = ${j}: ${colHasZero ? 'contains a 0 — will mark' : 'no 0 found — leave alone'}.`
+  });
+  if (colHasZero) {
+    for (let i = 0; i < N; i++) {
+      if (mat[i][j] !== 0 && mat[i][j] !== -1) {
+        mat[i][j] = -1;
+        steps.push({
+          pass: 2, type: 'mark_col', i, j,
+          matSnapshot: copyMat(mat),
+          line: 12,
+          narration: `<b>Pass 2</b> · col ${j}: mark non-zero cell A[${i}][${j}] as −1.`
+        });
+      } else if (mat[i][j] === -1) {
+        // Already marked; skip silently (no step) - this keeps things tighter
+      }
+    }
+  }
+}
+
+// Pass 3
+for (let i = 0; i < N; i++) {
+  for (let j = 0; j < M; j++) {
+    if (mat[i][j] === -1) {
+      mat[i][j] = 0;
+      steps.push({
+        pass: 3, type: 'convert', i, j,
+        matSnapshot: copyMat(mat),
+        line: 16,
+        narration: `<b>Pass 3</b> · convert marker A[${i}][${j}] = −1 → 0.`
+      });
+    }
+  }
+}
+
+// Done
+steps.push({
+  type: 'done',
+  matSnapshot: copyMat(mat),
+  line: null,
+  narration: `Done. Every row and column that originally contained 0 is now entirely 0.`
+});
+
+const TOTAL = steps.length;
+
+let cursor = 0, playing = false, timer = null;
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+
+function renderMatrix(snapshot, step) {
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < M; j++) {
+      const cell = document.getElementById(`m-${i}-${j}`);
+      const val = snapshot[i][j];
+      cell.textContent = val === -1 ? '−1' : val;
+
+      let cls = 'cell';
+      if (val === 0) {
+        // Original 0 OR a final converted 0
+        if (step && step.type === 'done') cls += ' final-zero';
+        else if (step && step.pass === 3 && step.type === 'convert' && step.i === i && step.j === j) cls += ' final-zero scanning';
+        else if (step && step.pass === 3) {
+          // Cell that was already converted in pass 3 (came earlier)
+          // Check if it was originally 0 in initial
+          if (initial[i][j] === 0) cls += ' zero';
+          else cls += ' final-zero';
+        } else {
+          cls += ' zero';
+        }
+      } else if (val === -1) {
+        cls += ' marker';
+      }
+
+      // Highlight the cell currently being acted on
+      if (step) {
+        if ((step.type === 'mark_row' && step.i === i && step.j === j) ||
+            (step.type === 'mark_col' && step.i === i && step.j === j) ||
+            (step.type === 'convert' && step.i === i && step.j === j)) {
+          cls = 'cell scanning';
+        }
+      }
+
+      cell.className = cls;
+    }
+  }
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${TOTAL}`;
+  if (cursor === 0) {
+    renderMatrix(initial, null);
+    document.getElementById('passBanner').className = 'pass-banner p0';
+    document.getElementById('passBanner').textContent = 'Click STEP to begin';
+    document.getElementById('varPass').textContent = '—';
+    document.getElementById('varIJ').textContent = '—';
+    document.getElementById('varAction').textContent = '—';
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to watch the 3-pass algorithm transform the matrix.`;
+    setLine(null);
+    return;
+  }
+  const s = steps[cursor - 1];
+  setLine(s.line);
+  renderMatrix(s.matSnapshot, s);
+
+  document.getElementById('narration').innerHTML = s.narration;
+
+  if (s.type === 'done') {
+    document.getElementById('passBanner').className = 'pass-banner p3';
+    document.getElementById('passBanner').textContent = 'COMPLETE — final result';
+    document.getElementById('varPass').textContent = 'done';
+    document.getElementById('varIJ').textContent = '—';
+    document.getElementById('varAction').textContent = 'all markers converted to 0';
+    return;
+  }
+
+  const passClass = `p${s.pass}`;
+  const passLabels = {
+    1: 'PASS 1 — mark rows that contain 0',
+    2: 'PASS 2 — mark cols that contain 0',
+    3: 'PASS 3 — convert −1 markers to 0'
+  };
+  document.getElementById('passBanner').className = 'pass-banner ' + passClass;
+  document.getElementById('passBanner').textContent = passLabels[s.pass];
+  document.getElementById('varPass').textContent = s.pass;
+
+  if (s.type === 'check_row') {
+    document.getElementById('varIJ').textContent = `i = ${s.i}`;
+    document.getElementById('varAction').textContent = s.rowHasZero ? `row ${s.i} has a 0 — about to mark` : `row ${s.i} has no 0 — skip`;
+  } else if (s.type === 'check_col') {
+    document.getElementById('varIJ').textContent = `j = ${s.j}`;
+    document.getElementById('varAction').textContent = s.colHasZero ? `col ${s.j} has a 0 — about to mark` : `col ${s.j} has no 0 — skip`;
+  } else if (s.type === 'mark_row') {
+    document.getElementById('varIJ').textContent = `(${s.i}, ${s.j})`;
+    document.getElementById('varAction').textContent = `A[${s.i}][${s.j}] := −1`;
+  } else if (s.type === 'mark_col') {
+    document.getElementById('varIJ').textContent = `(${s.i}, ${s.j})`;
+    document.getElementById('varAction').textContent = `A[${s.i}][${s.j}] := −1`;
+  } else if (s.type === 'convert') {
+    document.getElementById('varIJ').textContent = `(${s.i}, ${s.j})`;
+    document.getElementById('varAction').textContent = `−1 → 0`;
+  }
+}
+
+function step() { if (cursor < TOTAL) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= TOTAL) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= TOTAL) { pause(); return; } step(); }, 700);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${TOTAL}`;
+reset();
+</script>
+</body>
+</html>
