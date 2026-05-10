@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Array traversal — sum, max, min</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .seg {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .seg button.active { background: var(--accent); color: #1a1d23; font-weight: 600; }
+  .arr-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 240px;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.skipped { opacity: 0.4; color: var(--muted); }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .str { color: #a3d977; }
+
+  .array-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 24px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .array-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin-bottom: 6px;
+  }
+  .arr-cell {
+    min-width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.3s;
+  }
+  .arr-cell.current {
+    background: rgba(240, 160, 75, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.1) translateY(-4px);
+  }
+  .arr-cell.visited {
+    background: rgba(163, 217, 119, 0.12);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .arr-cell.winner {
+    background: rgba(163, 217, 119, 0.3);
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 0 2px var(--green);
+  }
+  .index-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin-top: 4px;
+  }
+  .idx-cell {
+    min-width: 50px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+  .idx-cell.current { color: var(--accent); font-weight: 600; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 12px 16px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+  }
+  .state-cell.i { border-left-color: var(--accent); }
+  .state-cell.acc { border-left-color: var(--green); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 22px; font-weight: 600; }
+  .state-cell.i .val { color: var(--accent); }
+  .state-cell.acc .val { color: var(--green); }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--blue);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .step-trace .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-right: 10px; }
+
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin: 0 2px;
+    display: inline-block;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.red { background: rgba(229, 115, 115, 0.18); color: var(--red); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Traverse the array — sum, max, min, all the same skeleton</h1>
+  <div class="sub">One pointer slides left to right. The accumulator updates differently for each problem.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PROBLEM</span>
+      <div class="seg" id="modeSeg">
+        <button class="active" data-m="sum">sum (P1)</button>
+        <button data-m="max">max (P2)</button>
+        <button data-m="min">min (P3)</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">ARRAY</span>
+      <input type="text" class="arr-input" id="arrIn" value="1, 2, 3, 4, 5">
+    </div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button class="qb" onclick="set('1, 2, 3, 4, 5')">1..5</button>
+      <button class="qb" onclick="set('3, 7, 1, 9, 4, 2')">mixed</button>
+      <button class="qb" onclick="set('-3, -7, -2, -10, -1')">all neg</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i (index)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell acc">
+          <div class="lbl" id="accLbl">SUM</div>
+          <div class="val" id="stateAcc">—</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span class="lbl">CURRENT STEP</span>
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ARRAY</div>
+      <div class="array-display">
+        <div class="array-row" id="arrRow"></div>
+        <div class="index-row" id="idxRow"></div>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const modes = {
+    sum: {
+      title: 'sum',
+      accLabel: 'SUM',
+      initAcc: (arr) => 0,
+      initBy: 'always 0',
+      update: (acc, val, idx) => acc + val,
+      finalLabel: (acc) => `final sum = ${acc}`,
+      formatStep: (acc, val, prev, idx) => {
+        return `<span class="formula-piece fp green">${prev}</span> + <span class="formula-piece fp orange">${val}</span> = <span class="formula-piece fp green">${acc}</span>`;
+      },
+      isImproved: (acc, val) => true,
+      code: [
+        '<span class="kw">int</span> sum = <span class="num">0</span>;',
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; n; i++) {',
+        '  sum = sum + arr[i];',
+        '}',
+        '<span class="com">// final answer in sum</span>'
+      ]
+    },
+    max: {
+      title: 'maximum',
+      accLabel: 'MAX',
+      initAcc: (arr) => arr[0],
+      initBy: 'arr[0]',
+      update: (acc, val, idx) => val > acc ? val : acc,
+      finalLabel: (acc) => `final max = ${acc}`,
+      formatStep: (acc, val, prev, idx) => {
+        if (val > prev) {
+          return `<span class="formula-piece fp orange">${val}</span> &gt; <span class="formula-piece fp green">${prev}</span> &nbsp;→&nbsp; <span class="formula-piece fp green">max = ${acc}</span>`;
+        } else {
+          return `<span class="formula-piece fp red">${val}</span> ≤ <span class="formula-piece fp green">${prev}</span> &nbsp;→&nbsp; max stays <span class="formula-piece fp green">${acc}</span>`;
+        }
+      },
+      isImproved: (acc, val) => val > acc,
+      code: [
+        '<span class="kw">int</span> max = arr[<span class="num">0</span>]; <span class="com">// not 0 !</span>',
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; n; i++) {',
+        '  <span class="kw">if</span> (max &lt; arr[i])',
+        '    max = arr[i];',
+        '}'
+      ]
+    },
+    min: {
+      title: 'minimum',
+      accLabel: 'MIN',
+      initAcc: (arr) => arr[0],
+      initBy: 'arr[0]',
+      update: (acc, val, idx) => val < acc ? val : acc,
+      finalLabel: (acc) => `final min = ${acc}`,
+      formatStep: (acc, val, prev, idx) => {
+        if (val < prev) {
+          return `<span class="formula-piece fp orange">${val}</span> &lt; <span class="formula-piece fp green">${prev}</span> &nbsp;→&nbsp; <span class="formula-piece fp green">min = ${acc}</span>`;
+        } else {
+          return `<span class="formula-piece fp red">${val}</span> ≥ <span class="formula-piece fp green">${prev}</span> &nbsp;→&nbsp; min stays <span class="formula-piece fp green">${acc}</span>`;
+        }
+      },
+      isImproved: (acc, val) => val < acc,
+      code: [
+        '<span class="kw">int</span> min = arr[<span class="num">0</span>];',
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; n; i++) {',
+        '  <span class="kw">if</span> (min &gt; arr[i])',
+        '    min = arr[i];',
+        '}'
+      ]
+    }
+  };
+
+  let mode = 'sum';
+  let arr = [];
+  let i = -1;
+  let acc = null;
+  let done = false;
+  let timer = null;
+  let bestIdx = -1;
+
+  document.getElementById('modeSeg').onclick = e => {
+    if (e.target.tagName !== 'BUTTON') return;
+    document.getElementById('modeSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    mode = e.target.dataset.m;
+    reset();
+  };
+  document.getElementById('arrIn').oninput = reset;
+  function set(s) { document.getElementById('arrIn').value = s; reset(); }
+
+  function parseArr() {
+    const raw = document.getElementById('arrIn').value;
+    return raw.split(',').map(s => s.trim()).filter(s => s.length > 0).map(Number).filter(n => !isNaN(n));
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    arr = parseArr();
+    if (arr.length === 0) arr = [0];
+    i = -1;
+    acc = null;
+    done = false;
+    bestIdx = -1;
+
+    const m = modes[mode];
+    const cb = document.getElementById('codebox');
+    cb.innerHTML = m.code.map((line, idx) => `<div class="cl" id="c${idx}">${line}</div>`).join('');
+
+    document.getElementById('accLbl').textContent = m.accLabel;
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateAcc').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+
+    renderArr();
+    document.getElementById('stepLbl').textContent = `${m.title}, n = ${arr.length}, init by ${m.initBy}`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderArr() {
+    const r = document.getElementById('arrRow');
+    const ir = document.getElementById('idxRow');
+    let h = '';
+    let ih = '';
+    for (let k = 0; k < arr.length; k++) {
+      let cls = 'arr-cell';
+      if (k === i && !done) cls += ' current';
+      else if (k < i || (done && k === bestIdx)) {
+        if (mode !== 'sum' && k === bestIdx && done) cls += ' winner';
+        else cls += ' visited';
+      } else if (k <= i) cls += ' visited';
+      h += `<div class="${cls}">${arr[k]}</div>`;
+      let ic = 'idx-cell';
+      if (k === i && !done) ic += ' current';
+      ih += `<div class="${ic}">${k}</div>`;
+    }
+    r.innerHTML = h;
+    ir.innerHTML = ih;
+  }
+
+  function step() {
+    if (done) return;
+    const m = modes[mode];
+
+    if (i === -1) {
+      // Initialize accumulator
+      acc = m.initAcc(arr);
+      i = 0;
+      if (mode !== 'sum') bestIdx = 0;
+      Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+      document.getElementById('c0').className = 'cl taken';
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('stateAcc').textContent = acc;
+      document.getElementById('traceText').innerHTML = `init: <span class="formula-piece fp green">${m.accLabel.toLowerCase()} = ${acc}</span> (${m.initBy})`;
+      renderArr();
+      document.getElementById('stepLbl').textContent = `init done — pointer at i = 0`;
+      return;
+    }
+
+    if (i >= arr.length) {
+      done = true;
+      Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+      document.getElementById('traceText').innerHTML = `<span class="formula-piece fp green">DONE — ${m.finalLabel(acc)}</span>`;
+      renderArr();
+      document.getElementById('stepLbl').textContent = `complete in ${arr.length} iterations`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      return;
+    }
+
+    // Process arr[i]
+    const val = arr[i];
+    const prev = acc;
+    const newAcc = m.update(acc, val, i);
+    const improved = m.isImproved(acc, val) && newAcc !== prev;
+    acc = newAcc;
+    if (mode !== 'sum' && improved) bestIdx = i;
+
+    Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+    if (mode === 'sum') {
+      document.getElementById('c2').className = 'cl taken';
+    } else {
+      document.getElementById('c2').className = 'cl eval';
+      if (improved) document.getElementById('c3').className = 'cl taken';
+      else document.getElementById('c3').className = 'cl skipped';
+    }
+
+    document.getElementById('stateAcc').textContent = acc;
+    document.getElementById('traceText').innerHTML = m.formatStep(acc, val, prev, i);
+    renderArr();
+    document.getElementById('stepLbl').textContent = `i = ${i}, processed arr[${i}] = ${val}`;
+    i++;
+    document.getElementById('stateI').textContent = i;
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (done) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 600);
+  }
+
+  reset();
+</script>
+</body>
+</html>

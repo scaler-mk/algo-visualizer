@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D matrix — cell access &amp; traversal</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .seg {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .seg button.active { background: var(--accent); color: #1a1d23; font-weight: 600; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 60px;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .matrix-wrap {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 24px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+  .matrix {
+    display: inline-block;
+    margin: 0 auto;
+  }
+  .col-headers {
+    display: flex; gap: 4px; padding-left: 36px;
+    margin-bottom: 6px;
+  }
+  .col-header {
+    min-width: 56px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .col-header.active {
+    color: var(--accent);
+    transform: scale(1.15);
+  }
+  .matrix-row {
+    display: flex; align-items: center; gap: 4px;
+    margin-bottom: 4px;
+  }
+  .row-label {
+    width: 32px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--purple);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .row-label.active {
+    color: var(--accent);
+    transform: scale(1.15);
+  }
+  .mat-cell {
+    width: 56px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .mat-cell:hover {
+    border-color: var(--accent);
+    background: rgba(240, 160, 75, 0.08);
+  }
+  .mat-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .mat-cell.visited {
+    background: rgba(163, 217, 119, 0.15);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .mat-cell.in-row {
+    background: rgba(192, 132, 232, 0.12);
+    border-color: rgba(192, 132, 232, 0.4);
+  }
+  .mat-cell.in-col {
+    background: rgba(93, 173, 236, 0.12);
+    border-color: rgba(93, 173, 236, 0.4);
+  }
+  .mat-cell.corner-tl {
+    background: rgba(240, 160, 75, 0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .mat-cell.corner-br {
+    background: rgba(229, 115, 115, 0.2);
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .info-box {
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+  }
+  .info-box .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .info-box .text { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--ink); }
+
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin: 0 2px;
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .str { color: #a3d977; }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+
+  .mode-help {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(192, 132, 232, 0.06);
+    border-left: 3px solid var(--purple);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>2D matrix — every cell is mat[row][col]</h1>
+  <div class="sub">Click any cell in <em>explore</em> mode to see its indices. Or step through traversal modes to see how loops scan rows and columns.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">MODE</span>
+      <div class="seg" id="modeSeg">
+        <button class="active" data-m="explore">explore</button>
+        <button data-m="topRow">top row</button>
+        <button data-m="bottomRow">bottom row</button>
+        <button data-m="leftCol">left col</button>
+        <button data-m="rightCol">right col</button>
+        <button data-m="full">full traversal</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N (rows)</span>
+      <input type="number" class="num-input" id="nIn" value="3" min="1" max="5">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">M (cols)</span>
+      <input type="number" class="num-input" id="mIn" value="4" min="1" max="6">
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">MATRIX (rows × cols)</div>
+      <div class="matrix-wrap">
+        <div class="matrix" id="matrix"></div>
+      </div>
+
+      <div class="info-box" id="infoBox">
+        <div class="lbl" id="infoLbl">CLICKED CELL</div>
+        <div class="text" id="infoText">— click any cell to see its indices —</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title" id="codeTitle">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="info-box" id="modeInfo" style="border-left-color: var(--blue);">
+        <div class="lbl">CURRENT</div>
+        <div class="text" id="modeInfoText">— select a mode and step —</div>
+      </div>
+
+      <div class="step-counter" id="stepLbl">explore mode: click any cell</div>
+
+      <div class="mode-help" id="modeHelp">
+        <strong style="color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace;">Explore mode →</strong> click any cell to see its <code style="background:#0d1117;color:var(--accent);padding:1px 6px;border-radius:3px;">mat[i][j]</code> coordinates. The row label and column header light up to show what the indices map to.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const modes = {
+    explore: {
+      title: 'click any cell',
+      code: ['<span class="com">// click cells in the matrix to inspect indices</span>'],
+      help: '<strong style="color: var(--purple); font-style: normal; font-family: monospace;">Explore mode →</strong> click any cell to see its <code style="background:#0d1117;color:var(--accent);padding:1px 6px;border-radius:3px;">mat[i][j]</code> coordinates.',
+      cells: (N, M) => null
+    },
+    topRow: {
+      title: 'top row: i = 0, j sweeps',
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">0</span>; j &lt; M; j++) {',
+        '  print(mat[<span class="num">0</span>][j]);',
+        '}'
+      ],
+      help: '<strong style="color: var(--purple); font-style: normal; font-family: monospace;">Top row →</strong> row index is fixed at <code style="background:#0d1117;color:var(--purple);padding:1px 6px;border-radius:3px;">0</code>, column index sweeps from <code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">0</code> to <code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">M-1</code>.',
+      cells: (N, M) => Array.from({length: M}, (_, j) => [0, j])
+    },
+    bottomRow: {
+      title: 'bottom row: i = N-1, j sweeps',
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">0</span>; j &lt; M; j++) {',
+        '  print(mat[N-<span class="num">1</span>][j]);',
+        '}'
+      ],
+      help: '<strong style="color: var(--purple); font-style: normal; font-family: monospace;">Bottom row →</strong> row index is fixed at <code style="background:#0d1117;color:var(--purple);padding:1px 6px;border-radius:3px;">N-1</code> (last row), column sweeps.',
+      cells: (N, M) => Array.from({length: M}, (_, j) => [N-1, j])
+    },
+    leftCol: {
+      title: 'left column: j = 0, i sweeps',
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; N; i++) {',
+        '  print(mat[i][<span class="num">0</span>]);',
+        '}'
+      ],
+      help: '<strong style="color: var(--purple); font-style: normal; font-family: monospace;">Left column →</strong> column index is fixed at <code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">0</code>, row sweeps.',
+      cells: (N, M) => Array.from({length: N}, (_, i) => [i, 0])
+    },
+    rightCol: {
+      title: 'right column: j = M-1, i sweeps',
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; N; i++) {',
+        '  print(mat[i][M-<span class="num">1</span>]);',
+        '}'
+      ],
+      help: '<strong style="color: var(--purple); font-style: normal; font-family: monospace;">Right column →</strong> column index fixed at <code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">M-1</code>, row sweeps.',
+      cells: (N, M) => Array.from({length: N}, (_, i) => [i, M-1])
+    },
+    full: {
+      title: 'full traversal: nested loop',
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; N; i++) {',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">0</span>; j &lt; M; j++) {',
+        '    print(mat[i][j]);',
+        '  }',
+        '}'
+      ],
+      help: '<strong style="color: var(--purple); font-style: normal; font-family: monospace;">Full traversal →</strong> nested loops. Outer i picks row, inner j sweeps every column. <code style="background:#0d1117;color:var(--accent);padding:1px 6px;border-radius:3px;">N × M</code> cells visited.',
+      cells: (N, M) => {
+        const list = [];
+        for (let i = 0; i < N; i++)
+          for (let j = 0; j < M; j++)
+            list.push([i, j]);
+        return list;
+      }
+    }
+  };
+
+  let mode = 'explore';
+  let N = 3, M = 4;
+  let traversalSeq = null;
+  let traversalIdx = -1;
+  let visited = []; // [[i,j], ...]
+  let clickedCell = null;
+  let timer = null;
+
+  document.getElementById('modeSeg').onclick = e => {
+    if (e.target.tagName !== 'BUTTON') return;
+    document.getElementById('modeSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    mode = e.target.dataset.m;
+    reset();
+  };
+  document.getElementById('nIn').oninput = reset;
+  document.getElementById('mIn').oninput = reset;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    N = +document.getElementById('nIn').value || 1;
+    M = +document.getElementById('mIn').value || 1;
+
+    const m = modes[mode];
+    traversalSeq = m.cells(N, M);
+    traversalIdx = -1;
+    visited = [];
+    clickedCell = null;
+
+    // Render code
+    const cb = document.getElementById('codebox');
+    cb.innerHTML = m.code.map((line, idx) => `<div class="cl" id="c${idx}">${line}</div>`).join('');
+
+    document.getElementById('modeHelp').innerHTML = m.help;
+
+    if (mode === 'explore') {
+      document.getElementById('infoLbl').textContent = 'CLICKED CELL';
+      document.getElementById('infoText').textContent = '— click any cell to see its indices —';
+      document.getElementById('modeInfoText').textContent = 'Explore mode active. Click any cell.';
+      document.getElementById('stepLbl').textContent = `${N} × ${M} matrix — click cells to explore`;
+      document.getElementById('stepBtn').disabled = true;
+    } else {
+      document.getElementById('infoLbl').textContent = 'CELLS TO VISIT';
+      document.getElementById('infoText').innerHTML = `${traversalSeq.length} cell${traversalSeq.length === 1 ? '' : 's'} — press Step to advance`;
+      document.getElementById('modeInfoText').innerHTML = `<span class="formula-piece fp orange">${m.title}</span>`;
+      document.getElementById('stepLbl').textContent = `${m.title} — 0 of ${traversalSeq.length}`;
+      document.getElementById('stepBtn').disabled = false;
+    }
+
+    renderMatrix();
+  }
+
+  function renderMatrix() {
+    const m = modes[mode];
+    const matEl = document.getElementById('matrix');
+    let h = '';
+
+    // Determine highlights
+    const current = (mode !== 'explore' && traversalIdx >= 0 && traversalIdx < traversalSeq.length) ? traversalSeq[traversalIdx] : null;
+
+    // Column headers
+    h += '<div class="col-headers">';
+    for (let j = 0; j < M; j++) {
+      const active = current && current[1] === j;
+      h += `<div class="col-header${active ? ' active' : ''}">j=${j}</div>`;
+    }
+    h += '</div>';
+
+    for (let i = 0; i < N; i++) {
+      h += '<div class="matrix-row">';
+      const rowActive = current && current[0] === i;
+      h += `<div class="row-label${rowActive ? ' active' : ''}">i=${i}</div>`;
+      for (let j = 0; j < M; j++) {
+        let cls = 'mat-cell';
+        if (current && current[0] === i && current[1] === j) cls += ' current';
+        else if (visited.some(([vi, vj]) => vi === i && vj === j)) cls += ' visited';
+        else if (clickedCell && clickedCell[0] === i && clickedCell[1] === j) cls += ' current';
+
+        // Fade row/col context for traversal modes
+        if (mode !== 'explore' && current) {
+          if (current[0] === i && !cls.includes('current')) cls += ' in-row';
+        }
+
+        h += `<div class="${cls}" data-i="${i}" data-j="${j}">·</div>`;
+      }
+      h += '</div>';
+    }
+
+    matEl.innerHTML = h;
+
+    // attach click handlers in explore mode
+    if (mode === 'explore') {
+      matEl.querySelectorAll('.mat-cell').forEach(el => {
+        el.onclick = () => {
+          const ci = +el.dataset.i;
+          const cj = +el.dataset.j;
+          clickedCell = [ci, cj];
+          document.getElementById('infoText').innerHTML =
+            `<span class="formula-piece fp purple">i=${ci}</span> <span class="formula-piece fp blue">j=${cj}</span> &nbsp;→&nbsp; <span class="formula-piece fp green">mat[${ci}][${cj}]</span>`;
+          renderMatrix();
+        };
+      });
+    }
+  }
+
+  function step() {
+    if (mode === 'explore') return;
+    if (traversalIdx >= traversalSeq.length - 1 && traversalIdx >= 0) {
+      // already done; do final summary
+      const m = modes[mode];
+      // Mark all as visited
+      visited = traversalSeq.slice();
+      traversalIdx = -1; // reset current
+      Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+      document.getElementById('modeInfoText').innerHTML = `<span class="formula-piece fp green">DONE — visited all ${traversalSeq.length} cells</span>`;
+      document.getElementById('stepLbl').textContent = `${m.title} complete — ${traversalSeq.length} cells visited`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      renderMatrix();
+      return;
+    }
+    if (traversalIdx >= 0) {
+      visited.push(traversalSeq[traversalIdx]);
+    }
+    traversalIdx++;
+    const cur = traversalSeq[traversalIdx];
+    const m = modes[mode];
+
+    Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+    if (mode === 'full') {
+      document.getElementById('c2').className = 'cl taken';
+    } else if (mode === 'topRow' || mode === 'bottomRow' || mode === 'leftCol' || mode === 'rightCol') {
+      document.getElementById('c1').className = 'cl taken';
+    }
+
+    document.getElementById('modeInfoText').innerHTML =
+      `print <span class="formula-piece fp green">mat[${cur[0]}][${cur[1]}]</span> — step ${traversalIdx + 1} of ${traversalSeq.length}`;
+    document.getElementById('stepLbl').textContent = `${m.title} — ${traversalIdx + 1} of ${traversalSeq.length}`;
+    renderMatrix();
+  }
+
+  function autoplay() {
+    if (mode === 'explore') return;
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (traversalIdx >= traversalSeq.length - 1) { step(); clearInterval(timer); timer = null; return; }
+      step();
+    }, 400);
+  }
+
+  reset();
+</script>
+</body>
+</html>
