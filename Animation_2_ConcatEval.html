@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>concat evaluation</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --num: #5dadec;
+    --str: #a3d977;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    font-size: 22px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .selector {
+    display: flex; gap: 8px; margin-bottom: 20px;
+  }
+  .tab {
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .tab.active { background: var(--accent); color: #1a1d23; border-color: var(--accent); font-weight: 600; }
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 32px;
+    min-height: 360px;
+  }
+  .step-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 18px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 18px;
+    opacity: 0.3;
+    transition: opacity 0.4s;
+  }
+  .step-row.shown { opacity: 1; }
+  .step-row.current {
+    background: rgba(240, 160, 75, 0.06);
+    margin: 0 -16px;
+    padding: 18px 16px;
+    border-radius: 6px;
+    border-bottom: 1px dashed var(--accent);
+  }
+  .step-row:last-child { border-bottom: none; }
+  .step-num {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: Georgia, serif;
+    font-style: italic;
+    width: 60px;
+    flex-shrink: 0;
+  }
+  .expr {
+    font-size: 18px;
+    letter-spacing: 0.02em;
+    flex: 1;
+  }
+  .num { color: var(--num); }
+  .str { color: var(--str); }
+  .op {
+    color: var(--accent);
+    margin: 0 6px;
+    font-weight: 600;
+  }
+  .op.highlight {
+    background: var(--accent);
+    color: #1a1d23;
+    padding: 2px 8px;
+    border-radius: 4px;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { transform: scale(1.1); } }
+  .note {
+    color: var(--muted);
+    font-size: 12px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-left: 12px;
+  }
+  .final {
+    margin-top: 16px;
+    padding: 16px;
+    background: rgba(163, 217, 119, 0.08);
+    border-left: 3px solid var(--str);
+    border-radius: 4px;
+    display: none;
+  }
+  .final.shown { display: block; }
+  .final-label { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+  .final-val { font-size: 22px; color: var(--str); }
+  .controls {
+    display: flex; gap: 12px; align-items: center;
+    margin-top: 20px;
+  }
+  button {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { background: #ffb866; }
+  button.ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  button.ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .rule {
+    margin-top: 18px;
+    padding: 14px 18px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    border-left: 2px solid var(--num);
+  }
+  .rule strong { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>String concatenation — left to right, one + at a time</h1>
+  <div class="sub">The order matters. When a <span class="num">number</span> meets a <span class="str">string</span>, it becomes a string from that point on.</div>
+
+  <div class="selector">
+    <button class="tab active" data-q="6" onclick="pickQuiz(6)">Quiz 6 → 7 + 1 + "156"</button>
+    <button class="tab" data-q="7" onclick="pickQuiz(7)">Quiz 7 → "156" + 7 + 1</button>
+  </div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="controls">
+    <button onclick="next()">Step ▸</button>
+    <button class="ghost" onclick="reset()">Reset</button>
+    <span style="margin-left:auto; color: var(--muted); font-size: 12px;" id="counter"></span>
+  </div>
+
+  <div class="rule">
+    <strong>Rule:</strong> Java evaluates <code>+</code> left to right. <span class="num">number + number</span> → adds. <span class="str">string + anything</span> → concatenates and the result becomes a string.
+  </div>
+</div>
+
+<script>
+  const quizzes = {
+    6: {
+      title: '7 + 1 + "156"',
+      steps: [
+        { html: '<span class="num">7</span> <span class="op">+</span> <span class="num">1</span> <span class="op">+</span> <span class="str">"156"</span>', note: 'starting expression' },
+        { html: '<span class="num">7</span> <span class="op highlight">+</span> <span class="num">1</span> <span class="op">+</span> <span class="str">"156"</span>', note: 'number + number → add' },
+        { html: '<span class="num">8</span> <span class="op">+</span> <span class="str">"156"</span>', note: '7 + 1 = 8' },
+        { html: '<span class="num">8</span> <span class="op highlight">+</span> <span class="str">"156"</span>', note: 'number + string → concatenate' },
+        { html: '<span class="str">"8156"</span>', note: 'final result', final: true }
+      ]
+    },
+    7: {
+      title: '"156" + 7 + 1',
+      steps: [
+        { html: '<span class="str">"156"</span> <span class="op">+</span> <span class="num">7</span> <span class="op">+</span> <span class="num">1</span>', note: 'starting expression' },
+        { html: '<span class="str">"156"</span> <span class="op highlight">+</span> <span class="num">7</span> <span class="op">+</span> <span class="num">1</span>', note: 'string + number → concatenate' },
+        { html: '<span class="str">"1567"</span> <span class="op">+</span> <span class="num">1</span>', note: 'now everything to the left is a string' },
+        { html: '<span class="str">"1567"</span> <span class="op highlight">+</span> <span class="num">1</span>', note: 'string + number → concatenate again' },
+        { html: '<span class="str">"15671"</span>', note: 'final result', final: true }
+      ]
+    }
+  };
+
+  let currentQ = 6;
+  let stepIdx = 0;
+
+  function pickQuiz(q) {
+    currentQ = q;
+    stepIdx = 0;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', +t.dataset.q === q));
+    render();
+  }
+
+  function render() {
+    const q = quizzes[currentQ];
+    const stage = document.getElementById('stage');
+    let html = '';
+    for (let i = 0; i < q.steps.length; i++) {
+      const s = q.steps[i];
+      const isShown = i <= stepIdx;
+      const isCurrent = i === stepIdx;
+      if (s.final) {
+        html += `<div class="final ${isShown ? 'shown' : ''}">
+          <div class="final-label">FINAL OUTPUT</div>
+          <div class="final-val">${s.html.replace(/<span class="str">|<\/span>/g, '').replace(/"/g,'')}</div>
+        </div>`;
+      } else {
+        html += `<div class="step-row ${isShown ? 'shown' : ''} ${isCurrent ? 'current' : ''}">
+          <div class="step-num">step ${i+1}</div>
+          <div class="expr">${s.html}</div>
+          <div class="note">${s.note}</div>
+        </div>`;
+      }
+    }
+    stage.innerHTML = html;
+    document.getElementById('counter').textContent = `Step ${Math.min(stepIdx+1, q.steps.length)} of ${q.steps.length}`;
+  }
+
+  function next() {
+    const q = quizzes[currentQ];
+    if (stepIdx < q.steps.length - 1) { stepIdx++; render(); }
+  }
+  function reset() { stepIdx = 0; render(); }
+  render();
+</script>
+</body>
+</html>

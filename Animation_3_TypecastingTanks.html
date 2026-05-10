@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>typecasting tanks</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --water: #4ea7d6;
+    --water-dark: #2e6f97;
+    --green: #a3d977;
+    --red: #e57373;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    font-size: 22px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-bottom: 4px;
+  }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .ctl-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+  .seg {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    flex: 1;
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .seg button.active {
+    background: var(--accent);
+    color: #1a1d23;
+    font-weight: 600;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .water-val {
+    color: var(--water);
+    font-weight: 600;
+    margin-left: 8px;
+  }
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 32px;
+    align-items: end;
+    min-height: 380px;
+  }
+  .tank-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .tank-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+  .tank-type {
+    font-size: 18px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .tank-cap {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .tank-svg-wrap {
+    position: relative;
+  }
+  .pour-zone {
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 0 8px;
+  }
+  .arrow {
+    font-size: 28px;
+    color: var(--accent);
+  }
+  .verdict {
+    text-align: center;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    min-width: 180px;
+  }
+  .verdict.ok {
+    background: rgba(163, 217, 119, 0.12);
+    color: var(--green);
+    border: 1px solid rgba(163, 217, 119, 0.3);
+  }
+  .verdict.bad {
+    background: rgba(229, 115, 115, 0.12);
+    color: var(--red);
+    border: 1px solid rgba(229, 115, 115, 0.3);
+  }
+  .pour-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .pour-btn:hover { background: #ffb866; }
+  .codebox {
+    margin-top: 20px;
+    background: #0d1117;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .kw { color: #5dadec; }
+  .str { color: var(--green); }
+  .num { color: #f0a04b; }
+  .com { color: var(--muted); font-style: italic; }
+  .result-line {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .result-line.ok { color: var(--green); }
+  .result-line.bad { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Typecasting — pour the water, see what happens</h1>
+  <div class="sub">Pick the source and destination types, set the value, then pour. Tank capacity = type's max range.</div>
+
+  <div class="controls">
+    <div>
+      <div class="ctl-label">FROM (source)</div>
+      <div class="seg" id="srcSeg">
+        <button class="active" data-t="int">int</button>
+        <button data-t="long">long</button>
+      </div>
+    </div>
+    <div>
+      <div class="ctl-label">TO (destination)</div>
+      <div class="seg" id="dstSeg">
+        <button data-t="int">int</button>
+        <button class="active" data-t="long">long</button>
+      </div>
+    </div>
+    <div>
+      <div class="ctl-label">VALUE <span class="water-val" id="valLabel">100</span></div>
+      <input type="range" id="valSlider" min="0" max="100" value="50">
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="tank-col">
+      <div class="tank-label">SOURCE</div>
+      <div class="tank-svg-wrap" id="srcTank"></div>
+      <div class="tank-type" id="srcType">int</div>
+      <div class="tank-cap" id="srcCap">capacity ≈ 10⁹</div>
+    </div>
+    <div class="pour-zone">
+      <div class="arrow">→</div>
+      <button class="pour-btn" onclick="pour()">Pour</button>
+      <div class="verdict ok" id="verdict">ready</div>
+    </div>
+    <div class="tank-col">
+      <div class="tank-label">DESTINATION</div>
+      <div class="tank-svg-wrap" id="dstTank"></div>
+      <div class="tank-type" id="dstType">long</div>
+      <div class="tank-cap" id="dstCap">capacity ≈ 10¹⁸</div>
+    </div>
+  </div>
+
+  <div class="codebox" id="codebox"></div>
+</div>
+
+<script>
+  const TYPES = {
+    int:  { name: 'int',  cap: 'capacity ≈ 10⁹',  capNum: 1e9,  short: 'small tank' },
+    long: { name: 'long', cap: 'capacity ≈ 10¹⁸', capNum: 1e18, short: 'large tank' }
+  };
+
+  let src = 'int';
+  let dst = 'long';
+  let valPct = 50; // 0-100 representing % of source's capacity
+  let poured = false;
+
+  function makeTank(id, capacityType, fillPct, isPoured, willOverflow) {
+    // Tank size scales with type capacity (just visual cue)
+    const isLong = capacityType === 'long';
+    const w = isLong ? 180 : 110;
+    const h = isLong ? 240 : 180;
+    const wallT = 4;
+    const fillH = (h - wallT*2) * (Math.min(fillPct, 100) / 100);
+    const overflowAmt = Math.max(0, fillPct - 100);
+
+    return `
+      <svg width="${w}" height="${h+40}" viewBox="0 0 ${w} ${h+40}">
+        ${overflowAmt > 0 ? `
+          <g class="spill">
+            <ellipse cx="${w/2}" cy="${h+20}" rx="${Math.min(60, overflowAmt*1.5)}" ry="6" fill="#e57373" opacity="0.4"/>
+            <ellipse cx="${w/2 - 30}" cy="${h+25}" rx="14" ry="3" fill="#e57373" opacity="0.5"/>
+            <ellipse cx="${w/2 + 30}" cy="${h+25}" rx="14" ry="3" fill="#e57373" opacity="0.5"/>
+          </g>
+        ` : ''}
+        <!-- tank walls -->
+        <path d="M ${wallT} ${wallT} L ${wallT} ${h-wallT} L ${w-wallT} ${h-wallT} L ${w-wallT} ${wallT}"
+              stroke="#8b8d93" stroke-width="${wallT}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- water fill -->
+        ${fillH > 0 ? `
+          <rect x="${wallT*2}" y="${h - wallT - fillH}" width="${w - wallT*4}" height="${fillH}"
+                fill="${overflowAmt > 0 ? '#e57373' : '#4ea7d6'}" opacity="0.85">
+            <animate attributeName="height" from="0" to="${fillH}" dur="0.6s" begin="${isPoured ? '0s' : 'indefinite'}" fill="freeze"/>
+          </rect>
+          <!-- wave -->
+          <path d="M ${wallT*2} ${h - wallT - fillH} Q ${w/4} ${h - wallT - fillH - 4}, ${w/2} ${h - wallT - fillH} T ${w-wallT*2} ${h - wallT - fillH}"
+                stroke="${overflowAmt > 0 ? '#ff8a80' : '#7bc4e8'}" stroke-width="2" fill="none" opacity="0.8"/>
+        ` : ''}
+        <!-- capacity tick -->
+        <line x1="${w-wallT-2}" y1="${wallT}" x2="${w+2}" y2="${wallT}" stroke="#8b8d93" stroke-width="1"/>
+        <text x="${w+6}" y="${wallT+4}" fill="#8b8d93" font-size="9" font-family="monospace">max</text>
+      </svg>
+    `;
+  }
+
+  function setupSeg(id, onChange) {
+    const seg = document.getElementById(id);
+    seg.querySelectorAll('button').forEach(b => {
+      b.onclick = () => {
+        seg.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        onChange(b.dataset.t);
+      };
+    });
+  }
+
+  setupSeg('srcSeg', t => { src = t; poured = false; render(); });
+  setupSeg('dstSeg', t => { dst = t; poured = false; render(); });
+
+  document.getElementById('valSlider').oninput = e => {
+    valPct = +e.target.value;
+    poured = false;
+    render();
+  };
+
+  function pour() {
+    poured = true;
+    render();
+  }
+
+  function render() {
+    document.getElementById('srcType').textContent = TYPES[src].name;
+    document.getElementById('dstType').textContent = TYPES[dst].name;
+    document.getElementById('srcCap').textContent = TYPES[src].cap;
+    document.getElementById('dstCap').textContent = TYPES[dst].cap;
+
+    // src always shows valPct of its own capacity
+    const srcFill = valPct;
+
+    // dst fill: if poured, compute based on whether the value fits
+    // Value as a number: valPct% of source capacity
+    const valueAbs = (valPct / 100) * TYPES[src].capNum;
+    let dstFillPct = 0;
+    let willOverflow = false;
+    if (poured) {
+      dstFillPct = (valueAbs / TYPES[dst].capNum) * 100;
+      if (dstFillPct > 100) willOverflow = true;
+      // amplify visual overflow modestly so it's visible
+      if (willOverflow) dstFillPct = 100 + Math.min(40, (dstFillPct - 100) / 5);
+    }
+
+    document.getElementById('srcTank').innerHTML = makeTank('s', src, srcFill, false, false);
+    document.getElementById('dstTank').innerHTML = makeTank('d', dst, dstFillPct, poured, willOverflow);
+
+    // verdict
+    const v = document.getElementById('verdict');
+    if (!poured) {
+      v.className = 'verdict ok';
+      v.textContent = 'ready to pour';
+    } else if (src === dst) {
+      v.className = 'verdict ok';
+      v.textContent = '✓ same type, no cast';
+    } else if (TYPES[src].capNum <= TYPES[dst].capNum) {
+      v.className = 'verdict ok';
+      v.textContent = '✓ implicit cast — fits';
+    } else if (!willOverflow) {
+      v.className = 'verdict ok';
+      v.textContent = '✓ explicit cast — value fits';
+    } else {
+      v.className = 'verdict bad';
+      v.textContent = '✗ overflow → garbage value';
+    }
+
+    // value label
+    document.getElementById('valLabel').textContent = formatVal(valueAbs);
+
+    // code box
+    const codebox = document.getElementById('codebox');
+    const needsCast = TYPES[src].capNum > TYPES[dst].capNum;
+    const exampleVal = formatVal(valueAbs, true);
+    let code = '';
+    if (src === dst) {
+      code = `<span class="kw">${src}</span> a = <span class="num">${exampleVal}</span>;\n<span class="kw">${dst}</span> b = a; <span class="com">// same type — no cast</span>`;
+    } else if (!needsCast) {
+      code = `<span class="kw">${src}</span> a = <span class="num">${exampleVal}</span>;\n<span class="kw">${dst}</span> b = a; <span class="com">// implicit — small to large</span>`;
+    } else {
+      code = `<span class="kw">${src}</span> a = <span class="num">${exampleVal}</span>;\n<span class="kw">${dst}</span> b = (<span class="kw">${dst}</span>) a; <span class="com">// explicit cast required</span>`;
+    }
+    let resultLine = '';
+    if (poured) {
+      if (willOverflow) {
+        resultLine = `<div class="result-line bad">→ value out of <span class="kw">${dst}</span> range — result is garbage</div>`;
+      } else {
+        resultLine = `<div class="result-line ok">→ b = ${exampleVal} ✓</div>`;
+      }
+    }
+    codebox.innerHTML = `<pre style="margin:0; font-family:inherit; white-space:pre-wrap;">${code}</pre>${resultLine}`;
+  }
+
+  function formatVal(n, forCode=false) {
+    if (n === 0) return '0';
+    const sign = n < 0 ? '-' : '';
+    n = Math.abs(n);
+    if (n >= 1e15) {
+      const s = (n / 1e18).toFixed(2);
+      return `${sign}${s} × 10¹⁸`;
+    } else if (n >= 1e6) {
+      const exp = Math.floor(Math.log10(n));
+      const m = (n / Math.pow(10, exp)).toFixed(2);
+      return `${sign}${m} × 10${supDigit(exp)}`;
+    } else {
+      return sign + Math.round(n).toLocaleString();
+    }
+  }
+  function supDigit(n) {
+    const map = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹' };
+    return String(n).split('').map(c => map[c] || c).join('');
+  }
+  render();
+</script>
+</body>
+</html>
