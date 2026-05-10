@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FizzBuzz — buggy vs fixed</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 {
+    font-size: 22px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-bottom: 4px;
+  }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    display: flex; gap: 16px; align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+  }
+  .input-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 80px;
+  }
+  .num-input:focus { outline: none; border-color: var(--accent); }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .approach {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .approach.buggy {
+    border-color: rgba(229, 115, 115, 0.4);
+  }
+  .approach.fixed {
+    border-color: rgba(163, 217, 119, 0.4);
+  }
+  .approach-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .approach-tag {
+    font-size: 10px; letter-spacing: 0.1em; padding: 4px 10px;
+    border-radius: 10px; font-weight: 600;
+  }
+  .approach-tag.buggy { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .approach-tag.fixed { background: rgba(163, 217, 119, 0.15); color: var(--green); }
+  .approach-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; border-left: 2px solid var(--green); padding-left: 4px; color: var(--green); }
+  .cl.skipped { opacity: 0.3; text-decoration: line-through; text-decoration-color: var(--red); }
+  .cl.failed { opacity: 0.5; color: var(--muted); }
+  .kw { color: #5dadec; }
+  .str { color: var(--green); }
+  .num { color: #f0a04b; }
+  .com { color: var(--muted); font-style: italic; }
+  .checks {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-bottom: 16px;
+  }
+  .check {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--line);
+    transition: all 0.3s;
+    opacity: 0.5;
+  }
+  .check.evaluating { border-left-color: var(--accent); opacity: 1; }
+  .check.passed { border-left-color: var(--green); background: rgba(163, 217, 119, 0.08); opacity: 1; }
+  .check.failed { border-left-color: var(--red); opacity: 0.6; }
+  .check-cond { flex: 1; font-size: 12px; }
+  .check-result {
+    font-size: 10px; padding: 2px 8px; border-radius: 8px;
+    letter-spacing: 0.05em; font-weight: 600;
+  }
+  .check-result.t { background: rgba(163, 217, 119, 0.2); color: var(--green); }
+  .check-result.f { background: rgba(229, 115, 115, 0.2); color: var(--red); }
+  .check-result.skip { background: rgba(139, 141, 147, 0.2); color: var(--muted); }
+  .output-block {
+    padding: 14px 16px;
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .output-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .output-text { font-size: 18px; color: var(--ink); }
+  .output-text.empty { color: var(--muted); font-style: italic; font-size: 13px; }
+  .output-block.wrong { border-color: var(--red); }
+  .output-block.correct { border-color: var(--green); }
+  .verdict {
+    margin-top: 8px;
+    font-size: 11px;
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+  .verdict.wrong { color: var(--red); }
+  .verdict.correct { color: var(--green); }
+  .punchline {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: linear-gradient(135deg, rgba(240, 160, 75, 0.06), rgba(240, 160, 75, 0.02));
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.6;
+  }
+  .punchline strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FizzBuzz — why order of conditions matters</h1>
+  <div class="sub">Same conditions, different order. One produces the wrong answer for N=30. Step through both and see why.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="input-label">INPUT N</span>
+      <input type="number" class="num-input" id="nIn" value="30">
+    </div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button class="qb" onclick="set(3)">3</button>
+      <button class="qb" onclick="set(5)">5</button>
+      <button class="qb" onclick="set(15)">15</button>
+      <button class="qb" onclick="set(30)">30</button>
+      <button class="qb" onclick="set(13)">13</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <!-- BUGGY -->
+    <div class="approach buggy">
+      <div class="approach-head">
+        <span class="approach-tag buggy">APPROACH 1</span>
+        <span class="approach-title">checks divisibility-by-3 first</span>
+      </div>
+      <div class="codebox">
+<div class="cl" id="b1"><span class="kw">if</span> (A % <span class="num">3</span> == <span class="num">0</span>) {</div>
+<div class="cl" id="b2">  print(<span class="str">"Fizz"</span>);</div>
+<div class="cl" id="b3">} <span class="kw">else if</span> (A % <span class="num">5</span> == <span class="num">0</span>) {</div>
+<div class="cl" id="b4">  print(<span class="str">"Buzz"</span>);</div>
+<div class="cl" id="b5">} <span class="kw">else if</span> (A % <span class="num">3</span> == <span class="num">0</span> &amp;&amp; A % <span class="num">5</span> == <span class="num">0</span>) {</div>
+<div class="cl" id="b6">  print(<span class="str">"Fizz-Buzz"</span>); <span class="com">// unreachable for N=30</span></div>
+<div class="cl" id="b7">}</div>
+      </div>
+      <div class="checks">
+        <div class="check" id="bc1"><div class="check-cond" id="bc1c">A % 3 == 0</div><div class="check-result skip" id="bc1r">—</div></div>
+        <div class="check" id="bc2"><div class="check-cond" id="bc2c">A % 5 == 0</div><div class="check-result skip" id="bc2r">—</div></div>
+        <div class="check" id="bc3"><div class="check-cond" id="bc3c">A % 3 == 0 && A % 5 == 0</div><div class="check-result skip" id="bc3r">—</div></div>
+      </div>
+      <div class="output-block" id="bOut">
+        <div class="output-label">OUTPUT</div>
+        <div class="output-text empty" id="bOutText">—</div>
+        <div class="verdict" id="bVerdict"></div>
+      </div>
+    </div>
+
+    <!-- FIXED -->
+    <div class="approach fixed">
+      <div class="approach-head">
+        <span class="approach-tag fixed">APPROACH 2</span>
+        <span class="approach-title">checks the most-specific case first</span>
+      </div>
+      <div class="codebox">
+<div class="cl" id="f1"><span class="kw">if</span> (A % <span class="num">3</span> == <span class="num">0</span> &amp;&amp; A % <span class="num">5</span> == <span class="num">0</span>) {</div>
+<div class="cl" id="f2">  print(<span class="str">"Fizz-Buzz"</span>);</div>
+<div class="cl" id="f3">} <span class="kw">else if</span> (A % <span class="num">5</span> == <span class="num">0</span>) {</div>
+<div class="cl" id="f4">  print(<span class="str">"Buzz"</span>);</div>
+<div class="cl" id="f5">} <span class="kw">else if</span> (A % <span class="num">3</span> == <span class="num">0</span>) {</div>
+<div class="cl" id="f6">  print(<span class="str">"Fizz"</span>);</div>
+<div class="cl" id="f7">}</div>
+      </div>
+      <div class="checks">
+        <div class="check" id="fc1"><div class="check-cond" id="fc1c">A % 3 == 0 && A % 5 == 0</div><div class="check-result skip" id="fc1r">—</div></div>
+        <div class="check" id="fc2"><div class="check-cond" id="fc2c">A % 5 == 0</div><div class="check-result skip" id="fc2r">—</div></div>
+        <div class="check" id="fc3"><div class="check-cond" id="fc3c">A % 3 == 0</div><div class="check-result skip" id="fc3r">—</div></div>
+      </div>
+      <div class="output-block" id="fOut">
+        <div class="output-label">OUTPUT</div>
+        <div class="output-text empty" id="fOutText">—</div>
+        <div class="verdict" id="fVerdict"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="punchline">
+    <strong>Lesson →</strong> if-else conditions fire top to bottom. The <em>first</em> match wins, the rest never run. So when conditions overlap (a multiple of 15 is also a multiple of 3 and of 5), put the <em>most specific</em> check first.
+  </div>
+</div>
+
+<script>
+  let stepIdx = 0;
+
+  document.getElementById('nIn').oninput = reset;
+
+  function set(n) { document.getElementById('nIn').value = n; reset(); }
+  function getN() { return +document.getElementById('nIn').value; }
+
+  function expectedOutput(n) {
+    if (n % 3 === 0 && n % 5 === 0) return 'Fizz-Buzz';
+    if (n % 3 === 0) return 'Fizz';
+    if (n % 5 === 0) return 'Buzz';
+    return '(no output)';
+  }
+
+  function reset() {
+    stepIdx = 0;
+    const n = getN();
+    // update conditions text
+    document.getElementById('bc1c').innerHTML = `${n} % 3 == 0`;
+    document.getElementById('bc2c').innerHTML = `${n} % 5 == 0`;
+    document.getElementById('bc3c').innerHTML = `${n} % 3 == 0 && ${n} % 5 == 0`;
+    document.getElementById('fc1c').innerHTML = `${n} % 3 == 0 && ${n} % 5 == 0`;
+    document.getElementById('fc2c').innerHTML = `${n} % 5 == 0`;
+    document.getElementById('fc3c').innerHTML = `${n} % 3 == 0`;
+    // reset classes
+    ['bc1','bc2','bc3','fc1','fc2','fc3'].forEach(id => document.getElementById(id).className = 'check');
+    ['bc1r','bc2r','bc3r','fc1r','fc2r','fc3r'].forEach(id => {
+      const el = document.getElementById(id);
+      el.className = 'check-result skip';
+      el.textContent = '—';
+    });
+    ['b1','b2','b3','b4','b5','b6','b7','f1','f2','f3','f4','f5','f6','f7'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    ['bOutText','fOutText'].forEach(id => {
+      const el = document.getElementById(id);
+      el.className = 'output-text empty';
+      el.textContent = '—';
+    });
+    ['bOut','fOut'].forEach(id => document.getElementById(id).className = 'output-block');
+    document.getElementById('bVerdict').textContent = '';
+    document.getElementById('fVerdict').textContent = '';
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function step() {
+    const n = getN();
+    stepIdx++;
+
+    // Run buggy approach
+    runBuggy(n);
+    runFixed(n);
+    document.getElementById('stepBtn').disabled = true;
+  }
+
+  function runBuggy(n) {
+    // condition 1: n % 3 == 0
+    document.getElementById('b1').className = 'cl eval';
+    if (n % 3 === 0) {
+      mark('bc1', 'passed', 'TRUE', 't');
+      document.getElementById('b1').className = 'cl taken';
+      document.getElementById('b2').className = 'cl taken';
+      ['b3','b4','b5','b6'].forEach(id => document.getElementById(id).className = 'cl skipped');
+      finishOut('b', 'Fizz', n);
+      return;
+    }
+    mark('bc1', 'failed', 'FALSE', 'f');
+    document.getElementById('b1').className = 'cl failed';
+    document.getElementById('b2').className = 'cl skipped';
+
+    // condition 2: n % 5 == 0
+    document.getElementById('b3').className = 'cl eval';
+    if (n % 5 === 0) {
+      mark('bc2', 'passed', 'TRUE', 't');
+      document.getElementById('b3').className = 'cl taken';
+      document.getElementById('b4').className = 'cl taken';
+      ['b5','b6'].forEach(id => document.getElementById(id).className = 'cl skipped');
+      finishOut('b', 'Buzz', n);
+      return;
+    }
+    mark('bc2', 'failed', 'FALSE', 'f');
+    document.getElementById('b3').className = 'cl failed';
+    document.getElementById('b4').className = 'cl skipped';
+
+    // condition 3 (unreachable for cases where 3 already matched, but still checked here)
+    document.getElementById('b5').className = 'cl eval';
+    if (n % 3 === 0 && n % 5 === 0) {
+      mark('bc3', 'passed', 'TRUE', 't');
+      document.getElementById('b5').className = 'cl taken';
+      document.getElementById('b6').className = 'cl taken';
+      finishOut('b', 'Fizz-Buzz', n);
+      return;
+    }
+    mark('bc3', 'failed', 'FALSE', 'f');
+    document.getElementById('b5').className = 'cl failed';
+    document.getElementById('b6').className = 'cl skipped';
+    finishOut('b', '(no output)', n);
+  }
+
+  function runFixed(n) {
+    document.getElementById('f1').className = 'cl eval';
+    if (n % 3 === 0 && n % 5 === 0) {
+      mark('fc1', 'passed', 'TRUE', 't');
+      document.getElementById('f1').className = 'cl taken';
+      document.getElementById('f2').className = 'cl taken';
+      ['f3','f4','f5','f6'].forEach(id => document.getElementById(id).className = 'cl skipped');
+      finishOut('f', 'Fizz-Buzz', n);
+      return;
+    }
+    mark('fc1', 'failed', 'FALSE', 'f');
+    document.getElementById('f1').className = 'cl failed';
+    document.getElementById('f2').className = 'cl skipped';
+
+    document.getElementById('f3').className = 'cl eval';
+    if (n % 5 === 0) {
+      mark('fc2', 'passed', 'TRUE', 't');
+      document.getElementById('f3').className = 'cl taken';
+      document.getElementById('f4').className = 'cl taken';
+      ['f5','f6'].forEach(id => document.getElementById(id).className = 'cl skipped');
+      finishOut('f', 'Buzz', n);
+      return;
+    }
+    mark('fc2', 'failed', 'FALSE', 'f');
+    document.getElementById('f3').className = 'cl failed';
+    document.getElementById('f4').className = 'cl skipped';
+
+    document.getElementById('f5').className = 'cl eval';
+    if (n % 3 === 0) {
+      mark('fc3', 'passed', 'TRUE', 't');
+      document.getElementById('f5').className = 'cl taken';
+      document.getElementById('f6').className = 'cl taken';
+      finishOut('f', 'Fizz', n);
+      return;
+    }
+    mark('fc3', 'failed', 'FALSE', 'f');
+    document.getElementById('f5').className = 'cl failed';
+    document.getElementById('f6').className = 'cl skipped';
+    finishOut('f', '(no output)', n);
+  }
+
+  function mark(id, klass, text, resKlass) {
+    document.getElementById(id).className = 'check ' + klass;
+    const r = document.getElementById(id + 'r');
+    r.textContent = text;
+    r.className = 'check-result ' + resKlass;
+  }
+
+  function finishOut(prefix, text, n) {
+    const out = document.getElementById(prefix + 'Out');
+    const txt = document.getElementById(prefix + 'OutText');
+    const ver = document.getElementById(prefix + 'Verdict');
+    txt.textContent = text;
+    txt.className = 'output-text';
+    const expected = expectedOutput(n);
+    if (text === expected) {
+      out.className = 'output-block correct';
+      ver.className = 'verdict correct';
+      ver.textContent = '✓ correct';
+    } else {
+      out.className = 'output-block wrong';
+      ver.className = 'verdict wrong';
+      ver.textContent = `✗ wrong — expected "${expected}"`;
+    }
+  }
+
+  reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>else-if ladder — max of two</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    font-size: 22px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-bottom: 4px;
+  }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 24px;
+    align-items: center;
+  }
+  .input-group {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .input-label {
+    font-size: 11px; color: var(--muted); letter-spacing: 0.1em;
+  }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 6px;
+    width: 100%;
+  }
+  .num-input:focus { outline: none; border-color: var(--accent); }
+  .quick-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title {
+    font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 16px;
+  }
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.9;
+    border: 1px solid var(--line);
+  }
+  .cl {
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 6px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; border-left: 2px solid var(--green); padding-left: 6px; color: var(--green); }
+  .cl.skipped { opacity: 0.3; text-decoration: line-through; text-decoration-color: var(--red); }
+  .cl.failed { background: rgba(229, 115, 115, 0.08); opacity: 0.7; color: var(--muted); }
+  .kw { color: #5dadec; }
+  .str { color: var(--green); }
+  .num { color: #f0a04b; }
+  .com { color: var(--muted); font-style: italic; }
+  .ladder {
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .rung {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    transition: all 0.4s;
+    background: var(--panel-2);
+    position: relative;
+  }
+  .rung.evaluating { border-color: var(--accent); background: rgba(240, 160, 75, 0.06); }
+  .rung.passed { border-color: var(--green); background: rgba(163, 217, 119, 0.08); }
+  .rung.failed { opacity: 0.4; }
+  .rung-head {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 6px;
+  }
+  .rung-tag {
+    font-size: 10px; letter-spacing: 0.1em; color: var(--muted);
+    padding: 2px 8px; background: var(--bg); border-radius: 10px;
+  }
+  .rung-cond {
+    font-size: 14px; flex: 1;
+  }
+  .rung-result {
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .rung-result.t { background: rgba(163, 217, 119, 0.2); color: var(--green); }
+  .rung-result.f { background: rgba(229, 115, 115, 0.2); color: var(--red); }
+  .rung-result.skip { background: rgba(139, 141, 147, 0.2); color: var(--muted); }
+  .rung-action {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    padding-left: 4px;
+  }
+  .rung.passed .rung-action { color: var(--green); font-style: normal; }
+  .output-block {
+    margin-top: 18px;
+    padding: 16px 18px;
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .output-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .output-text { font-size: 18px; color: var(--ink); }
+  .output-text.empty { color: var(--muted); font-style: italic; font-size: 13px; }
+  .step-counter {
+    font-size: 11px; color: var(--muted); margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>else-if ladder — finding the larger</h1>
+  <div class="sub">Conditions check top to bottom. The first one that's true wins. The rest are skipped.</div>
+
+  <div class="controls">
+    <div class="input-group">
+      <div class="input-label">A</div>
+      <input type="number" class="num-input" id="aIn" value="9">
+      <div class="quick-row">
+        <button class="qb" onclick="set('a', 4)">4</button>
+        <button class="qb" onclick="set('a', 9)">9</button>
+        <button class="qb" onclick="set('a', 6)">6</button>
+      </div>
+    </div>
+    <div class="input-group">
+      <div class="input-label">B</div>
+      <input type="number" class="num-input" id="bIn" value="6">
+      <div class="quick-row">
+        <button class="qb" onclick="set('b', 4)">4</button>
+        <button class="qb" onclick="set('b', 6)">6</button>
+        <button class="qb" onclick="set('b', 9)">9</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">int</span> A = <span class="num" id="codeA">9</span>, B = <span class="num" id="codeB">6</span>;</div>
+<div class="cl" id="c2"><span class="kw">if</span> (A &gt; B) {</div>
+<div class="cl" id="c3">  System.out.print(A + <span class="str">" is bigger"</span>);</div>
+<div class="cl" id="c4">} <span class="kw">else if</span> (B &gt; A) {</div>
+<div class="cl" id="c5">  System.out.print(B + <span class="str">" is bigger"</span>);</div>
+<div class="cl" id="c6">} <span class="kw">else</span> {</div>
+<div class="cl" id="c7">  System.out.print(<span class="str">"Both are equal"</span>);</div>
+<div class="cl" id="c8">}</div>
+      </div>
+      <div class="output-block">
+        <div class="output-label">OUTPUT</div>
+        <div class="output-text empty" id="output">— press Step to run —</div>
+      </div>
+      <div class="step-counter" id="stepLbl">Step 0 of 3</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">CONDITION LADDER</div>
+      <div class="ladder">
+        <div class="rung" id="r1">
+          <div class="rung-head">
+            <span class="rung-tag">if</span>
+            <span class="rung-cond" id="cond1">A &gt; B</span>
+            <span class="rung-result skip" id="res1">—</span>
+          </div>
+          <div class="rung-action">→ print "A is bigger"</div>
+        </div>
+        <div class="rung" id="r2">
+          <div class="rung-head">
+            <span class="rung-tag">else if</span>
+            <span class="rung-cond" id="cond2">B &gt; A</span>
+            <span class="rung-result skip" id="res2">—</span>
+          </div>
+          <div class="rung-action">→ print "B is bigger"</div>
+        </div>
+        <div class="rung" id="r3">
+          <div class="rung-head">
+            <span class="rung-tag">else</span>
+            <span class="rung-cond">(everything else)</span>
+            <span class="rung-result skip" id="res3">—</span>
+          </div>
+          <div class="rung-action">→ print "Both are equal"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let stepIdx = 0;
+
+  document.getElementById('aIn').oninput = reset;
+  document.getElementById('bIn').oninput = reset;
+
+  function set(which, n) {
+    document.getElementById(which === 'a' ? 'aIn' : 'bIn').value = n;
+    reset();
+  }
+
+  function getAB() {
+    return [+document.getElementById('aIn').value, +document.getElementById('bIn').value];
+  }
+
+  function reset() {
+    stepIdx = 0;
+    const [a, b] = getAB();
+    document.getElementById('codeA').textContent = a;
+    document.getElementById('codeB').textContent = b;
+    document.getElementById('cond1').innerHTML = `${a} &gt; ${b}`;
+    document.getElementById('cond2').innerHTML = `${b} &gt; ${a}`;
+    ['r1','r2','r3'].forEach(id => document.getElementById(id).className = 'rung');
+    ['res1','res2','res3'].forEach(id => {
+      const el = document.getElementById(id);
+      el.className = 'rung-result skip';
+      el.textContent = '—';
+    });
+    ['c1','c2','c3','c4','c5','c6','c7','c8'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    const out = document.getElementById('output');
+    out.className = 'output-text empty';
+    out.textContent = '— press Step to run —';
+    document.getElementById('stepLbl').textContent = 'Step 0 of 3';
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function step() {
+    const [a, b] = getAB();
+    stepIdx++;
+
+    if (stepIdx === 1) {
+      // evaluate first if
+      document.getElementById('r1').className = 'rung evaluating';
+      document.getElementById('c2').className = 'cl eval';
+      const passed = a > b;
+      const res = document.getElementById('res1');
+      res.textContent = passed ? 'TRUE' : 'FALSE';
+      res.className = passed ? 'rung-result t' : 'rung-result f';
+      if (passed) {
+        document.getElementById('r1').className = 'rung passed';
+        document.getElementById('c2').className = 'cl taken';
+        document.getElementById('c3').className = 'cl taken';
+        document.getElementById('c4').className = 'cl skipped';
+        document.getElementById('c5').className = 'cl skipped';
+        document.getElementById('c6').className = 'cl skipped';
+        document.getElementById('c7').className = 'cl skipped';
+        finish(`${a} is bigger`);
+      } else {
+        document.getElementById('r1').className = 'rung failed';
+        document.getElementById('c2').className = 'cl failed';
+        document.getElementById('c3').className = 'cl skipped';
+        document.getElementById('stepLbl').textContent = 'Step 1 of 3 — false, try next';
+      }
+    } else if (stepIdx === 2) {
+      document.getElementById('r2').className = 'rung evaluating';
+      document.getElementById('c4').className = 'cl eval';
+      const passed = b > a;
+      const res = document.getElementById('res2');
+      res.textContent = passed ? 'TRUE' : 'FALSE';
+      res.className = passed ? 'rung-result t' : 'rung-result f';
+      if (passed) {
+        document.getElementById('r2').className = 'rung passed';
+        document.getElementById('c4').className = 'cl taken';
+        document.getElementById('c5').className = 'cl taken';
+        document.getElementById('c6').className = 'cl skipped';
+        document.getElementById('c7').className = 'cl skipped';
+        finish(`${b} is bigger`);
+      } else {
+        document.getElementById('r2').className = 'rung failed';
+        document.getElementById('c4').className = 'cl failed';
+        document.getElementById('c5').className = 'cl skipped';
+        document.getElementById('stepLbl').textContent = 'Step 2 of 3 — false, fall to else';
+      }
+    } else if (stepIdx === 3) {
+      document.getElementById('r3').className = 'rung passed';
+      document.getElementById('c6').className = 'cl taken';
+      document.getElementById('c7').className = 'cl taken';
+      const res = document.getElementById('res3');
+      res.textContent = 'TAKEN';
+      res.className = 'rung-result t';
+      finish('Both are equal');
+    }
+  }
+
+  function finish(text) {
+    const out = document.getElementById('output');
+    out.className = 'output-text';
+    out.textContent = text;
+    document.getElementById('stepBtn').disabled = true;
+    document.getElementById('stepLbl').textContent = 'done';
+  }
+
+  reset();
+</script>
+</body>
+</html>

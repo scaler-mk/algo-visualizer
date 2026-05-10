@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>If-Else flowchart — voting</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    font-size: 22px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-bottom: 4px;
+  }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 24px;
+  }
+  .panel-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+  }
+  .input-block {
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: var(--panel-2);
+    border-radius: 6px;
+  }
+  .age-display {
+    font-size: 48px;
+    color: var(--accent);
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .age-label {
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .quick-pick {
+    display: flex; gap: 8px; margin-top: 12px; justify-content: center;
+  }
+  .pick-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+  }
+  .pick-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.8;
+    border: 1px solid var(--line);
+  }
+  .code-line {
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .code-line.evaluating {
+    background: rgba(240, 160, 75, 0.15);
+    opacity: 1;
+    color: var(--accent);
+  }
+  .code-line.taken {
+    background: rgba(163, 217, 119, 0.12);
+    opacity: 1;
+    border-left: 2px solid var(--green);
+    padding-left: 6px;
+  }
+  .code-line.skipped {
+    opacity: 0.25;
+    text-decoration: line-through;
+    text-decoration-color: var(--red);
+  }
+  .kw { color: #5dadec; }
+  .str { color: var(--green); }
+  .num { color: #f0a04b; }
+  .com { color: var(--muted); font-style: italic; }
+  .flowchart {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+  }
+  .node {
+    padding: 14px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: center;
+    transition: all 0.4s;
+    min-width: 200px;
+    border: 2px solid transparent;
+  }
+  .node.start, .node.end {
+    background: var(--panel-2);
+    color: var(--ink);
+    border-radius: 24px;
+  }
+  .node.diamond {
+    background: var(--panel-2);
+    color: var(--ink);
+    transform: rotate(0deg);
+    padding: 16px 28px;
+    border: 2px solid var(--line);
+    border-radius: 6px;
+    position: relative;
+  }
+  .node.diamond.active {
+    border-color: var(--accent);
+    background: rgba(240, 160, 75, 0.1);
+    color: var(--accent);
+    box-shadow: 0 0 20px rgba(240, 160, 75, 0.2);
+  }
+  .branches {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    width: 100%;
+    position: relative;
+  }
+  .branch-label {
+    position: absolute;
+    top: -8px;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    background: var(--panel);
+    padding: 0 8px;
+  }
+  .branch-label.true { left: 24%; color: var(--green); }
+  .branch-label.false { right: 24%; color: var(--red); }
+  .branch-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding-top: 14px;
+  }
+  .arrow {
+    color: var(--line);
+    font-size: 18px;
+    transition: color 0.4s;
+  }
+  .arrow.lit-green { color: var(--green); }
+  .arrow.lit-red { color: var(--red); }
+  .leaf {
+    background: var(--panel-2);
+    border: 2px solid var(--line);
+    color: var(--muted);
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.4s;
+    min-width: 160px;
+    text-align: center;
+  }
+  .leaf.taken-true {
+    border-color: var(--green);
+    background: rgba(163, 217, 119, 0.12);
+    color: var(--green);
+    box-shadow: 0 0 20px rgba(163, 217, 119, 0.15);
+  }
+  .leaf.taken-false {
+    border-color: var(--red);
+    background: rgba(229, 115, 115, 0.12);
+    color: var(--red);
+    box-shadow: 0 0 20px rgba(229, 115, 115, 0.15);
+  }
+  .output-block {
+    margin-top: 20px;
+    padding: 14px 18px;
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .output-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .output-text {
+    font-size: 18px;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .output-text.empty { color: var(--muted); font-style: italic; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>If-else, in motion — eligible to vote?</h1>
+  <div class="sub">Move the slider. Watch the condition fire and the path light up.</div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">INPUT</div>
+      <div class="input-block">
+        <div class="age-display" id="ageDisplay">20</div>
+        <div class="age-label">AGE</div>
+        <input type="range" id="ageSlider" min="0" max="100" value="20">
+        <div class="quick-pick">
+          <button class="pick-btn" onclick="setAge(14)">14</button>
+          <button class="pick-btn" onclick="setAge(17)">17</button>
+          <button class="pick-btn" onclick="setAge(18)">18</button>
+          <button class="pick-btn" onclick="setAge(20)">20</button>
+          <button class="pick-btn" onclick="setAge(45)">45</button>
+        </div>
+      </div>
+
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="code-line" id="c1"><span class="kw">int</span> age = <span class="num" id="codeAge">20</span>;</div>
+<div class="code-line" id="c2"><span class="kw">if</span> (age &gt;= <span class="num">18</span>) {</div>
+<div class="code-line" id="c3">  System.out.print(<span class="str">"Eligible"</span>);</div>
+<div class="code-line" id="c4">} <span class="kw">else</span> {</div>
+<div class="code-line" id="c5">  System.out.print(<span class="str">"Not Eligible"</span>);</div>
+<div class="code-line" id="c6">}</div>
+      </div>
+
+      <div class="output-block">
+        <div class="output-label">OUTPUT</div>
+        <div class="output-text" id="output">—</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION FLOW</div>
+      <div class="flowchart">
+        <div class="node start">START</div>
+        <div class="arrow">↓</div>
+        <div class="node diamond" id="diamond">age &gt;= 18 ?</div>
+
+        <div class="branches">
+          <div class="branch-label true">TRUE</div>
+          <div class="branch-label false">FALSE</div>
+          <div class="branch-col">
+            <div class="arrow" id="arrowTrue">↓</div>
+            <div class="leaf" id="leafTrue">print "Eligible"</div>
+          </div>
+          <div class="branch-col">
+            <div class="arrow" id="arrowFalse">↓</div>
+            <div class="leaf" id="leafFalse">print "Not Eligible"</div>
+          </div>
+        </div>
+
+        <div class="arrow" style="margin-top:4px">↓</div>
+        <div class="node end">END</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const slider = document.getElementById('ageSlider');
+  function setAge(n) { slider.value = n; render(); }
+  slider.oninput = render;
+
+  function render() {
+    const age = +slider.value;
+    document.getElementById('ageDisplay').textContent = age;
+    document.getElementById('codeAge').textContent = age;
+
+    const eligible = age >= 18;
+
+    // diamond highlights
+    document.getElementById('diamond').classList.add('active');
+    document.getElementById('diamond').textContent = `age >= 18 ?  →  ${eligible ? 'TRUE' : 'FALSE'}`;
+
+    // arrows
+    const aT = document.getElementById('arrowTrue');
+    const aF = document.getElementById('arrowFalse');
+    aT.classList.toggle('lit-green', eligible);
+    aF.classList.toggle('lit-red', !eligible);
+    aT.classList.toggle('lit-red', false);
+    aF.classList.toggle('lit-green', false);
+
+    // leaves
+    const lT = document.getElementById('leafTrue');
+    const lF = document.getElementById('leafFalse');
+    lT.classList.toggle('taken-true', eligible);
+    lF.classList.toggle('taken-false', !eligible);
+
+    // code lines
+    const c2 = document.getElementById('c2');
+    const c3 = document.getElementById('c3');
+    const c5 = document.getElementById('c5');
+    [c2, c3, c5].forEach(el => el.classList.remove('evaluating', 'taken', 'skipped'));
+    c2.classList.add('evaluating');
+    if (eligible) {
+      c3.classList.add('taken');
+      c5.classList.add('skipped');
+    } else {
+      c3.classList.add('skipped');
+      c5.classList.add('taken');
+    }
+
+    // output
+    const out = document.getElementById('output');
+    out.textContent = eligible ? 'Eligible' : 'Not Eligible';
+    out.className = 'output-text';
+  }
+  render();
+</script>
+</body>
+</html>
