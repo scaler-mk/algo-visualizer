@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wave print — snake traversal</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.outer { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.skipped { opacity: 0.4; color: var(--muted); }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.row { border-left-color: var(--purple); }
+  .state-cell.col { border-left-color: var(--blue); }
+  .state-cell.dir { border-left-color: var(--accent); }
+  .state-cell .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 16px; font-weight: 600; }
+  .state-cell.row .val { color: var(--purple); }
+  .state-cell.col .val { color: var(--blue); }
+  .state-cell.dir .val { color: var(--accent); font-size: 14px; }
+
+  .matrix-wrap {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .matrix {
+    display: inline-block;
+  }
+  .col-headers {
+    display: flex; gap: 4px; padding-left: 36px;
+    margin-bottom: 6px;
+  }
+  .col-header {
+    width: 56px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .matrix-row {
+    display: flex; align-items: center; gap: 4px;
+    margin-bottom: 4px;
+    transition: all 0.3s;
+    padding: 4px 6px;
+    border-radius: 6px;
+  }
+  .matrix-row.even-row {
+    background: rgba(240, 160, 75, 0.05);
+  }
+  .matrix-row.odd-row {
+    background: rgba(192, 132, 232, 0.05);
+  }
+  .matrix-row.active {
+    box-shadow: 0 0 0 1px rgba(240, 160, 75, 0.4);
+  }
+  .row-label-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    width: 32px; height: 44px;
+    justify-content: center;
+  }
+  .row-label {
+    color: var(--purple);
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+  .row-label.active { color: var(--accent); }
+  .row-direction {
+    font-size: 10px;
+    color: var(--muted);
+    transition: all 0.3s;
+  }
+  .row-direction.active.even { color: #c97224; }
+  .row-direction.active.odd { color: #8845b5; }
+  .mat-cell {
+    width: 56px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 5px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.3s;
+  }
+  .mat-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .mat-cell.visited {
+    background: rgba(163, 217, 119, 0.12);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .output-stream {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 50px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--green);
+    line-height: 1.7;
+  }
+  .output-stream .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Wave print — snake through the matrix</h1>
+  <div class="sub"><span style="color:var(--accent)">Even rows</span> (0, 2, 4...) sweep <strong>left → right</strong>. <span style="color:var(--purple)">Odd rows</span> (1, 3, 5...) sweep <strong>right → left</strong>. Output is one continuous snake.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px;">
+        <button class="qb" onclick="loadMatrix(0)">3 × 3 (script)</button>
+        <button class="qb" onclick="loadMatrix(1)">2 × 3 (quiz 2)</button>
+        <button class="qb" onclick="loadMatrix(2)">4 × 4</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">for</span> (<span class="kw">int</span> row = <span class="num">0</span>; row &lt; n; row++) {</div>
+<div class="cl" id="c2">  <span class="kw">if</span> (row % <span class="num">2</span> == <span class="num">0</span>) {</div>
+<div class="cl" id="c3">    <span class="kw">for</span> (<span class="kw">int</span> col = <span class="num">0</span>; col &lt; m; col++)</div>
+<div class="cl" id="c4">      print(mat[row][col]);</div>
+<div class="cl" id="c5">  } <span class="kw">else</span> {</div>
+<div class="cl" id="c6">    <span class="kw">for</span> (<span class="kw">int</span> col = m-<span class="num">1</span>; col &gt;= <span class="num">0</span>; col--)</div>
+<div class="cl" id="c7">      print(mat[row][col]);</div>
+<div class="cl" id="c8">  }</div>
+<div class="cl" id="c9">}</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell row">
+          <div class="lbl">row</div>
+          <div class="val" id="stateRow">—</div>
+        </div>
+        <div class="state-cell col">
+          <div class="lbl">col</div>
+          <div class="val" id="stateCol">—</div>
+        </div>
+        <div class="state-cell dir">
+          <div class="lbl">DIRECTION</div>
+          <div class="val" id="stateDir">—</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">MATRIX</div>
+      <div class="matrix-wrap">
+        <div class="matrix" id="matrix"></div>
+      </div>
+
+      <div class="output-stream" id="output">
+        <span class="lbl">OUTPUT</span>
+        <span style="color: var(--muted); font-style: italic; font-family: Georgia, serif;">— press Step to begin —</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const presets = [
+    [[4, 1, 2], [7, 4, 4], [3, 7, 4]],
+    [[1, 2, 3], [4, 5, 6]],
+    [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]
+  ];
+
+  let matrix = presets[0];
+  let N = 3, M = 3;
+  let row = -1, col = -1;
+  let phase = 'idle'; // idle | row-decide | sweep | done
+  let outputLine = '';
+  let visited = []; // [{row, col}]
+  let timer = null;
+
+  function loadMatrix(idx) {
+    matrix = presets[idx].map(r => r.slice());
+    N = matrix.length;
+    M = matrix[0].length;
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    row = -1; col = -1;
+    phase = 'idle';
+    outputLine = '';
+    visited = [];
+
+    document.getElementById('stateRow').textContent = '—';
+    document.getElementById('stateCol').textContent = '—';
+    document.getElementById('stateDir').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+
+    renderMatrix();
+    renderOutput();
+    document.getElementById('stepLbl').textContent = `${N} × ${M} matrix, ${N * M} cells to print`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderMatrix() {
+    const matEl = document.getElementById('matrix');
+    let h = '';
+
+    // Column headers
+    h += '<div class="col-headers">';
+    for (let j = 0; j < M; j++) {
+      h += `<div class="col-header">c=${j}</div>`;
+    }
+    h += '</div>';
+
+    for (let i = 0; i < N; i++) {
+      const isEven = i % 2 === 0;
+      const isActive = i === row && phase !== 'done';
+      let rowCls = 'matrix-row ' + (isEven ? 'even-row' : 'odd-row');
+      if (isActive) rowCls += ' active';
+      h += `<div class="${rowCls}">`;
+      h += `<div class="row-label-wrap">`;
+      h += `<div class="row-label${isActive ? ' active' : ''}">r=${i}</div>`;
+      h += `<div class="row-direction${isActive ? ' active ' + (isEven ? 'even' : 'odd') : ''}">${isEven ? '→' : '←'}</div>`;
+      h += `</div>`;
+      for (let j = 0; j < M; j++) {
+        let cls = 'mat-cell';
+        if (i === row && j === col && phase === 'sweep') cls += ' current';
+        else if (visited.some(v => v.row === i && v.col === j)) cls += ' visited';
+        h += `<div class="${cls}">${matrix[i][j]}</div>`;
+      }
+      h += '</div>';
+    }
+    matEl.innerHTML = h;
+  }
+
+  function renderOutput() {
+    const outEl = document.getElementById('output');
+    let h = '<span class="lbl">OUTPUT (single line)</span>';
+    if (outputLine === '') {
+      h += '<span style="color: var(--muted); font-style: italic; font-family: Georgia, serif;">— press Step to begin —</span>';
+    } else {
+      h += `<span>${outputLine}<span style="opacity:0.4;">_</span></span>`;
+    }
+    outEl.innerHTML = h;
+  }
+
+  function highlight(arr) {
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    if (phase === 'idle') {
+      row = 0;
+      const isEven = row % 2 === 0;
+      phase = 'sweep';
+      col = isEven ? 0 : M - 1;
+      highlight([['c1', 'outer'], ['c2', 'eval'], [isEven ? 'c3' : 'c5', 'taken'], [isEven ? 'c3' : 'c6', 'taken']]);
+      document.getElementById('stateRow').textContent = row;
+      document.getElementById('stateCol').textContent = col;
+      document.getElementById('stateDir').textContent = isEven ? '→ L→R' : '← R→L';
+      processSweep();
+      return;
+    }
+
+    if (phase === 'sweep') {
+      const isEven = row % 2 === 0;
+      // Mark current as visited and advance
+      visited.push({ row, col });
+
+      let nextCol;
+      if (isEven) nextCol = col + 1;
+      else nextCol = col - 1;
+
+      const inBounds = isEven ? nextCol < M : nextCol >= 0;
+      if (inBounds) {
+        col = nextCol;
+        document.getElementById('stateCol').textContent = col;
+        highlight([['c1', 'outer'], [isEven ? 'c3' : 'c6', 'eval'], [isEven ? 'c4' : 'c7', 'taken']]);
+        processSweep();
+      } else {
+        // Row done, advance row
+        if (row + 1 < N) {
+          row++;
+          const newIsEven = row % 2 === 0;
+          col = newIsEven ? 0 : M - 1;
+          highlight([['c1', 'outer'], ['c2', 'eval'], [newIsEven ? 'c3' : 'c5', 'taken'], [newIsEven ? 'c3' : 'c6', 'taken']]);
+          document.getElementById('stateRow').textContent = row;
+          document.getElementById('stateCol').textContent = col;
+          document.getElementById('stateDir').textContent = newIsEven ? '→ L→R' : '← R→L';
+          processSweep();
+        } else {
+          // All rows done
+          phase = 'done';
+          highlight([]);
+          visited.push(...[]); // already pushed last
+          document.getElementById('traceText').innerHTML =
+            `<span class="formula-piece fp green">DONE — wave print: ${outputLine.trim()}</span>`;
+          document.getElementById('stepLbl').textContent = 'complete';
+          document.getElementById('stepBtn').disabled = true;
+          if (timer) { clearInterval(timer); timer = null; }
+          renderMatrix();
+        }
+      }
+      return;
+    }
+  }
+
+  function processSweep() {
+    const isEven = row % 2 === 0;
+    const val = matrix[row][col];
+    outputLine += val + ' ';
+    document.getElementById('traceText').innerHTML =
+      `row <span class="formula-piece fp purple">${row}</span> ${isEven ? '(even)' : '(odd)'} → print <span class="formula-piece fp orange">mat[${row}][${col}] = ${val}</span>`;
+    document.getElementById('stepLbl').textContent = `row ${row} ${isEven ? '→' : '←'}, col = ${col}`;
+    renderMatrix();
+    renderOutput();
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 350);
+  }
+
+  reset();
+</script>
+</body>
+</html>

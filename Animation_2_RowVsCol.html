@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Matrix traversal — row-by-row vs col-by-col</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .seg {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .seg button.active { background: var(--accent); color: #1a1d23; font-weight: 600; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.outer { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.inner { background: rgba(93, 173, 236, 0.18); opacity: 1; color: var(--blue); border-left: 2px solid var(--blue); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .str { color: #a3d977; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.outer-s { border-left-color: var(--purple); }
+  .state-cell.inner-s { border-left-color: var(--blue); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; }
+  .state-cell.outer-s .val { color: var(--purple); }
+  .state-cell.inner-s .val { color: var(--blue); }
+
+  .matrix-wrap {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    overflow-x: auto;
+  }
+  .matrix {
+    display: inline-block;
+    margin: 0 auto;
+  }
+  .col-headers {
+    display: flex; gap: 4px; padding-left: 32px;
+    margin-bottom: 6px;
+  }
+  .col-header {
+    min-width: 56px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+  .col-header.active {
+    color: var(--accent);
+    font-size: 13px;
+  }
+  .matrix-row {
+    display: flex; align-items: center; gap: 4px;
+    margin-bottom: 4px;
+    transition: all 0.3s;
+  }
+  .matrix-row.active-row {
+    background: rgba(192, 132, 232, 0.06);
+    border-radius: 4px;
+  }
+  .row-label {
+    width: 28px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--purple);
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+  .row-label.active {
+    color: var(--accent);
+    font-size: 13px;
+  }
+  .mat-cell {
+    width: 56px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 5px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.3s;
+  }
+  .mat-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .mat-cell.visited {
+    background: rgba(163, 217, 119, 0.12);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .mat-cell.in-current-row {
+    background: rgba(192, 132, 232, 0.1);
+    border-color: rgba(192, 132, 232, 0.3);
+  }
+  .mat-cell.in-current-col {
+    background: rgba(93, 173, 236, 0.1);
+    border-color: rgba(93, 173, 236, 0.3);
+  }
+
+  .output-stream {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 80px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--green);
+    line-height: 1.8;
+  }
+  .output-stream .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .output-row {
+    display: block;
+    color: var(--green);
+  }
+  .output-row.last {
+    color: var(--accent);
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Matrix traversal — row-by-row vs col-by-col</h1>
+  <div class="sub">Same matrix. Same nested loops. <strong>Swap which loop is outer</strong> and the entire output reorders. <span style="color:var(--purple)">Outer = row</span> means we finish a row before moving on. <span style="color:var(--blue)">Outer = col</span> means we finish a column.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">MODE</span>
+      <div class="seg" id="modeSeg">
+        <button class="active" data-m="rowByRow">row by row (P2)</button>
+        <button data-m="colByCol">col by col (P3)</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="state-grid">
+        <div class="state-cell outer-s">
+          <div class="lbl" id="outerLbl">OUTER (row)</div>
+          <div class="val" id="stateOuter">—</div>
+        </div>
+        <div class="state-cell inner-s">
+          <div class="lbl" id="innerLbl">INNER (col)</div>
+          <div class="val" id="stateInner">—</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">MATRIX (3 × 4)</div>
+      <div class="matrix-wrap">
+        <div class="matrix" id="matrix"></div>
+      </div>
+
+      <div class="output-stream" id="output">
+        <span class="lbl">OUTPUT</span>
+        <span style="color: var(--muted); font-style: italic; font-family: Georgia, serif;">— press Step to begin —</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Sample 3x4 matrix
+  const matrix = [
+    [10, 20, 30, 40],
+    [50, 60, 70, 80],
+    [90, 100, 110, 120]
+  ];
+  const N = 3, M = 4;
+
+  const modes = {
+    rowByRow: {
+      outerLabel: 'OUTER (row)',
+      innerLabel: 'INNER (col)',
+      // Sequence: visit (row, col) in row-major order, with newline after each row
+      sequence: () => {
+        const seq = [];
+        for (let row = 0; row < N; row++) {
+          for (let col = 0; col < M; col++) {
+            seq.push({ type: 'cell', row, col });
+          }
+          seq.push({ type: 'newline', row });
+        }
+        return seq;
+      },
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> row = <span class="num">0</span>; row &lt; n; row++) {',
+        '  <span class="kw">for</span> (<span class="kw">int</span> col = <span class="num">0</span>; col &lt; m; col++) {',
+        '    print(mat[row][col]);',
+        '  }',
+        '  println();',
+        '}'
+      ],
+      title: 'Row-by-row: outer = row, inner = col'
+    },
+    colByCol: {
+      outerLabel: 'OUTER (col)',
+      innerLabel: 'INNER (row)',
+      sequence: () => {
+        const seq = [];
+        for (let col = 0; col < M; col++) {
+          for (let row = 0; row < N; row++) {
+            seq.push({ type: 'cell', row, col });
+          }
+          seq.push({ type: 'newline', col });
+        }
+        return seq;
+      },
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> col = <span class="num">0</span>; col &lt; m; col++) {',
+        '  <span class="kw">for</span> (<span class="kw">int</span> row = <span class="num">0</span>; row &lt; n; row++) {',
+        '    print(mat[row][col]);',
+        '  }',
+        '  println();',
+        '}'
+      ],
+      title: 'Col-by-col: outer = col, inner = row'
+    }
+  };
+
+  let mode = 'rowByRow';
+  let seq = [];
+  let idx = -1;
+  let visitedCells = []; // [{row, col}]
+  let outputLines = [];
+  let currentLine = '';
+  let timer = null;
+
+  document.getElementById('modeSeg').onclick = e => {
+    if (e.target.tagName !== 'BUTTON') return;
+    document.getElementById('modeSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    mode = e.target.dataset.m;
+    reset();
+  };
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    const m = modes[mode];
+    seq = m.sequence();
+    idx = -1;
+    visitedCells = [];
+    outputLines = [];
+    currentLine = '';
+
+    const cb = document.getElementById('codebox');
+    cb.innerHTML = m.code.map((line, i) => `<div class="cl" id="c${i}">${line}</div>`).join('');
+
+    document.getElementById('outerLbl').textContent = m.outerLabel;
+    document.getElementById('innerLbl').textContent = m.innerLabel;
+    document.getElementById('stateOuter').textContent = '—';
+    document.getElementById('stateInner').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+
+    renderMatrix();
+    renderOutput();
+    document.getElementById('stepLbl').textContent = m.title;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderMatrix() {
+    const matEl = document.getElementById('matrix');
+    let h = '';
+    const current = idx >= 0 && idx < seq.length && seq[idx].type === 'cell' ? seq[idx] : null;
+
+    // Column headers
+    h += '<div class="col-headers">';
+    for (let j = 0; j < M; j++) {
+      const active = current && current.col === j;
+      h += `<div class="col-header${active ? ' active' : ''}">col=${j}</div>`;
+    }
+    h += '</div>';
+
+    for (let i = 0; i < N; i++) {
+      const rowActive = current && current.row === i;
+      h += `<div class="matrix-row${rowActive ? ' active-row' : ''}">`;
+      h += `<div class="row-label${rowActive ? ' active' : ''}">r=${i}</div>`;
+      for (let j = 0; j < M; j++) {
+        let cls = 'mat-cell';
+        if (current && current.row === i && current.col === j) cls += ' current';
+        else if (visitedCells.some(v => v.row === i && v.col === j)) cls += ' visited';
+        else if (current) {
+          // For row-by-row mode, highlight the row
+          if (mode === 'rowByRow' && current.row === i) cls += ' in-current-row';
+          // For col-by-col mode, highlight the col
+          else if (mode === 'colByCol' && current.col === j) cls += ' in-current-col';
+        }
+        h += `<div class="${cls}">${matrix[i][j]}</div>`;
+      }
+      h += '</div>';
+    }
+    matEl.innerHTML = h;
+  }
+
+  function renderOutput() {
+    const outEl = document.getElementById('output');
+    let h = '<span class="lbl">OUTPUT</span>';
+    if (outputLines.length === 0 && currentLine === '') {
+      h += '<span style="color: var(--muted); font-style: italic; font-family: Georgia, serif;">— press Step to begin —</span>';
+    } else {
+      outputLines.forEach((l, i) => {
+        h += `<span class="output-row">${l}</span>`;
+      });
+      if (currentLine) {
+        h += `<span class="output-row last">${currentLine}<span style="opacity:0.4;">_</span></span>`;
+      }
+    }
+    outEl.innerHTML = h;
+  }
+
+  function step() {
+    if (idx + 1 >= seq.length) {
+      // Final summary
+      idx = seq.length;
+      Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+      document.getElementById('traceText').innerHTML = `<span class="formula-piece fp green">DONE — visited ${N * M} cells, output ${outputLines.length} line${outputLines.length === 1 ? '' : 's'}</span>`;
+      document.getElementById('stepLbl').textContent = 'complete';
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      // mark all visited
+      visitedCells = [];
+      for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) visitedCells.push({row:i, col:j});
+      renderMatrix();
+      return;
+    }
+
+    idx++;
+    const item = seq[idx];
+
+    if (item.type === 'cell') {
+      visitedCells.push(...[]); // track the previously-current cell
+      // Highlight the print line
+      Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+      document.getElementById('c0').className = 'cl outer';
+      document.getElementById('c1').className = 'cl inner';
+      document.getElementById('c2').className = 'cl taken';
+
+      // State labels: in row-by-row mode: outer = row, inner = col
+      // in col-by-col mode: outer = col, inner = row
+      if (mode === 'rowByRow') {
+        document.getElementById('stateOuter').textContent = item.row;
+        document.getElementById('stateInner').textContent = item.col;
+      } else {
+        document.getElementById('stateOuter').textContent = item.col;
+        document.getElementById('stateInner').textContent = item.row;
+      }
+
+      const val = matrix[item.row][item.col];
+      currentLine += val + ' ';
+      document.getElementById('traceText').innerHTML =
+        `print <span class="formula-piece fp orange">mat[${item.row}][${item.col}] = ${val}</span>`;
+      document.getElementById('stepLbl').textContent = `step ${idx + 1} of ${seq.length}`;
+    } else if (item.type === 'newline') {
+      Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+      document.getElementById('c4').className = 'cl taken';
+      outputLines.push(currentLine.trim());
+      currentLine = '';
+      document.getElementById('traceText').innerHTML = `<span class="formula-piece fp green">println() — drop to next line</span>`;
+      document.getElementById('stepLbl').textContent = `line break — line ${outputLines.length} complete`;
+    }
+
+    // Mark previously-current cell as visited
+    // (We need to retroactively mark previously visited cells)
+    visitedCells = [];
+    for (let k = 0; k < idx; k++) {
+      if (seq[k].type === 'cell') visitedCells.push({row: seq[k].row, col: seq[k].col});
+    }
+
+    renderMatrix();
+    renderOutput();
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (idx + 1 >= seq.length) { step(); clearInterval(timer); timer = null; return; }
+      step();
+    }, 350);
+  }
+
+  reset();
+</script>
+</body>
+</html>

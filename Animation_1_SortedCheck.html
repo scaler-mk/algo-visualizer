@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Is array sorted? — pairwise scan</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .arr-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 240px;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.bad { background: rgba(229, 115, 115, 0.18); opacity: 1; color: var(--red); border-left: 2px solid var(--red); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .array-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 28px 18px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+  .array-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin-bottom: 6px;
+    position: relative;
+  }
+  .arr-cell {
+    min-width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.3s;
+  }
+  .arr-cell.passed {
+    background: rgba(163, 217, 119, 0.12);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .arr-cell.left-eval {
+    background: rgba(192, 132, 232, 0.25);
+    border-color: var(--purple);
+    color: var(--purple);
+    transform: scale(1.1) translateY(-4px);
+  }
+  .arr-cell.right-eval {
+    background: rgba(93, 173, 236, 0.25);
+    border-color: var(--blue);
+    color: var(--blue);
+    transform: scale(1.1) translateY(-4px);
+  }
+  .arr-cell.violation-left {
+    background: rgba(229, 115, 115, 0.25);
+    border-color: var(--red);
+    color: var(--red);
+    box-shadow: 0 0 0 2px var(--red);
+  }
+  .arr-cell.violation-right {
+    background: rgba(229, 115, 115, 0.15);
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .index-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin-top: 4px;
+  }
+  .idx-cell {
+    min-width: 50px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .compare-arrow {
+    margin: 14px auto 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 28px;
+    transition: all 0.3s;
+  }
+  .compare-arrow.bad { color: var(--red); }
+  .compare-arrow.good { color: var(--green); }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+  }
+  .state-cell.i { border-left-color: var(--accent); }
+  .state-cell.r { border-left-color: var(--blue); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 22px; font-weight: 600; }
+  .state-cell.i .val { color: var(--accent); }
+  .state-cell.r .val { color: var(--blue); }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 13px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Is the array sorted? — pairwise scan with early exit</h1>
+  <div class="sub">Compare every adjacent pair. If <span style="color:var(--purple)">A[i]</span> &gt; <span style="color:var(--blue)">A[i+1]</span> anywhere — return 0 immediately. Otherwise return 1.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">ARRAY</span>
+      <input type="text" class="arr-input" id="arrIn" value="1, 2, 2, 5, 7">
+    </div>
+    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+      <button class="qb" onclick="set('1, 2, 2, 5, 7')">sorted</button>
+      <button class="qb" onclick="set('3, 5, 5, 8, 5')">violation</button>
+      <button class="qb" onclick="set('5, 4, 3, 2, 1')">descending</button>
+      <button class="qb" onclick="set('1, 2, 1')">small bug</button>
+      <button class="qb" onclick="set('7')">single</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; n - <span class="num">1</span>; i++) {</div>
+<div class="cl" id="c2">  <span class="kw">if</span> (A[i] &gt; A[i + <span class="num">1</span>]) {</div>
+<div class="cl" id="c3">    <span class="kw">return</span> <span class="num">0</span>;</div>
+<div class="cl" id="c4">  }</div>
+<div class="cl" id="c5">}</div>
+<div class="cl" id="c6"><span class="kw">return</span> <span class="num">1</span>;</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i (left index)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell r">
+          <div class="lbl">RESULT</div>
+          <div class="val" id="stateR">—</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">PAIRWISE COMPARISON</div>
+      <div class="array-display">
+        <div class="array-row" id="arrRow"></div>
+        <div class="index-row" id="idxRow"></div>
+        <div class="compare-arrow" id="compareArrow">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let arr = [];
+  let i = -1;
+  let result = null;
+  let done = false;
+  let timer = null;
+  let cellStates = []; // 'passed' marker after each comparison
+
+  document.getElementById('arrIn').oninput = reset;
+  function set(s) { document.getElementById('arrIn').value = s; reset(); }
+
+  function parseArr() {
+    const raw = document.getElementById('arrIn').value;
+    return raw.split(',').map(s => s.trim()).filter(s => s.length > 0).map(Number).filter(n => !isNaN(n));
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    arr = parseArr();
+    if (arr.length === 0) arr = [0];
+    i = -1;
+    result = null;
+    done = false;
+    cellStates = arr.map(() => null);
+
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateR').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('compareArrow').innerHTML = '&nbsp;';
+    document.getElementById('compareArrow').className = 'compare-arrow';
+
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+
+    renderArr();
+    if (arr.length < 2) {
+      document.getElementById('stepLbl').textContent = `array of length ${arr.length} — trivially sorted`;
+    } else {
+      document.getElementById('stepLbl').textContent = `array of length ${arr.length}, ${arr.length - 1} pair${arr.length - 1 === 1 ? '' : 's'} to check`;
+    }
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderArr() {
+    const r = document.getElementById('arrRow');
+    const ir = document.getElementById('idxRow');
+    let h = '', ih = '';
+    for (let k = 0; k < arr.length; k++) {
+      let cls = 'arr-cell';
+      if (done && result === 0) {
+        if (k === i) cls += ' violation-left';
+        else if (k === i + 1) cls += ' violation-right';
+        else if (cellStates[k] === 'passed') cls += ' passed';
+      } else if (!done && i >= 0) {
+        if (k === i) cls += ' left-eval';
+        else if (k === i + 1) cls += ' right-eval';
+        else if (cellStates[k] === 'passed') cls += ' passed';
+      } else if (done && result === 1) {
+        cls += ' passed';
+      }
+      h += `<div class="${cls}">${arr[k]}</div>`;
+      ih += `<div class="idx-cell">${k}</div>`;
+    }
+    r.innerHTML = h;
+    ir.innerHTML = ih;
+  }
+
+  function step() {
+    if (done) return;
+
+    // Trivial case
+    if (arr.length < 2) {
+      done = true;
+      result = 1;
+      ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+      document.getElementById('c6').className = 'cl taken';
+      document.getElementById('stateR').textContent = '1';
+      document.getElementById('traceText').innerHTML = `<span class="formula-piece fp green">SORTED — return 1 (length &lt; 2 is trivially sorted)</span>`;
+      document.getElementById('stepLbl').textContent = 'done';
+      document.getElementById('stepBtn').disabled = true;
+      renderArr();
+      return;
+    }
+
+    if (i === -1) {
+      i = 0;
+      ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+      document.getElementById('c1').className = 'cl eval';
+      document.getElementById('c2').className = 'cl eval';
+      document.getElementById('stateI').textContent = i;
+      processCompare();
+      return;
+    }
+
+    if (i >= arr.length - 1) {
+      // Loop done, no violation found
+      done = true;
+      result = 1;
+      ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+      document.getElementById('c6').className = 'cl taken';
+      document.getElementById('stateR').textContent = '1';
+      document.getElementById('traceText').innerHTML = `<span class="formula-piece fp green">SORTED — all ${arr.length - 1} pair${arr.length - 1 === 1 ? '' : 's'} passed → return 1</span>`;
+      document.getElementById('compareArrow').innerHTML = '✓ all pairs passed';
+      document.getElementById('compareArrow').className = 'compare-arrow good';
+      document.getElementById('stepLbl').textContent = 'done — array is sorted';
+      document.getElementById('stepBtn').disabled = true;
+      renderArr();
+      return;
+    }
+
+    // Mark current as passed and advance
+    cellStates[i] = 'passed';
+    i++;
+    document.getElementById('stateI').textContent = i;
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+    document.getElementById('c1').className = 'cl eval';
+    document.getElementById('c2').className = 'cl eval';
+    processCompare();
+  }
+
+  function processCompare() {
+    const left = arr[i], right = arr[i + 1];
+    const violated = left > right;
+    if (violated) {
+      done = true;
+      result = 0;
+      ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+      document.getElementById('c2').className = 'cl bad';
+      document.getElementById('c3').className = 'cl bad';
+      document.getElementById('stateR').textContent = '0';
+      document.getElementById('traceText').innerHTML =
+        `A[${i}] = <span class="formula-piece fp purple">${left}</span> &gt; A[${i+1}] = <span class="formula-piece fp blue">${right}</span> ✗ &nbsp;→&nbsp; <span class="formula-piece fp red">return 0</span>`;
+      document.getElementById('compareArrow').innerHTML = `${left} &gt; ${right} — VIOLATION, exit early`;
+      document.getElementById('compareArrow').className = 'compare-arrow bad';
+      document.getElementById('stepLbl').textContent = `violation at i = ${i}`;
+      document.getElementById('stepBtn').disabled = true;
+      renderArr();
+    } else {
+      document.getElementById('traceText').innerHTML =
+        `A[${i}] = <span class="formula-piece fp purple">${left}</span> ≤ A[${i+1}] = <span class="formula-piece fp blue">${right}</span> ✓ &nbsp;→&nbsp; ok, continue`;
+      document.getElementById('compareArrow').innerHTML = `${left} ≤ ${right} — pair ok`;
+      document.getElementById('compareArrow').className = 'compare-arrow good';
+      document.getElementById('stepLbl').textContent = `pair (${i}, ${i+1}) passed`;
+      renderArr();
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (done) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 600);
+  }
+
+  reset();
+</script>
+</body>
+</html>

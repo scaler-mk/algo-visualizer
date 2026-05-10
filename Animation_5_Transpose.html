@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Matrix transpose — flip across diagonal</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .top-stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dim-tag {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .matrix-stage {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .matrix-panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .matrix-panel.source {
+    border-color: rgba(192, 132, 232, 0.3);
+  }
+  .matrix-panel.dest {
+    border-color: rgba(163, 217, 119, 0.3);
+  }
+  .matrix-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .matrix-head .title {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .matrix-head .dim {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .matrix-head.src .title { color: var(--purple); }
+  .matrix-head.src .dim { background: rgba(192, 132, 232, 0.15); color: var(--purple); }
+  .matrix-head.dst .title { color: var(--green); }
+  .matrix-head.dst .dim { background: rgba(163, 217, 119, 0.15); color: var(--green); }
+
+  .matrix-content { display: flex; justify-content: center; }
+  .matrix-grid { display: inline-block; }
+  .col-headers { display: flex; gap: 4px; padding-left: 28px; margin-bottom: 4px; }
+  .col-header {
+    width: 44px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--blue);
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .col-header.active { color: var(--accent); }
+  .matrix-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+  .row-label {
+    width: 24px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--purple);
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .row-label.active { color: var(--accent); }
+  .mat-cell {
+    width: 44px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.3s;
+  }
+  .mat-cell.empty {
+    color: var(--muted);
+    background: rgba(255,255,255,0.02);
+    opacity: 0.4;
+  }
+  .mat-cell.source-current {
+    background: rgba(192, 132, 232, 0.3);
+    border-color: var(--purple);
+    color: var(--purple);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px var(--purple);
+  }
+  .mat-cell.source-visited {
+    background: rgba(192, 132, 232, 0.08);
+    border-color: rgba(192, 132, 232, 0.3);
+    color: var(--purple);
+  }
+  .mat-cell.dest-current {
+    background: rgba(163, 217, 119, 0.3);
+    border-color: var(--green);
+    color: var(--green);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px var(--green);
+    animation: pop 0.3s ease-out;
+  }
+  .mat-cell.dest-filled {
+    background: rgba(163, 217, 119, 0.12);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  @keyframes pop {
+    0% { transform: scale(0.8); }
+    50% { transform: scale(1.25); }
+    100% { transform: scale(1.15); }
+  }
+
+  .arrow-section {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%;
+    color: var(--accent);
+  }
+  .arrow-svg {
+    width: 70px;
+    height: 50px;
+  }
+  .arrow-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 8px;
+    text-align: center;
+    font-style: italic;
+    font-family: Georgia, serif;
+    line-height: 1.4;
+  }
+  .arrow-formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 4px;
+    text-align: center;
+    font-weight: 600;
+    font-style: normal;
+    background: rgba(240, 160, 75, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(240, 160, 75, 0.3);
+  }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.outer { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.inner { background: rgba(93, 173, 236, 0.18); opacity: 1; color: var(--blue); border-left: 2px solid var(--blue); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.j { border-left-color: var(--blue); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.j .val { color: var(--blue); }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 13px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Matrix transpose — every cell flips across the diagonal</h1>
+  <div class="sub">Source <span style="color:var(--purple)">(i, j)</span> becomes destination <span style="color:var(--green)">(j, i)</span>. <strong>Indices swap. Dimensions swap.</strong> N×M turns into M×N.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px;">
+        <button class="qb" onclick="loadMatrix(0)">3 × 3 (script)</button>
+        <button class="qb" onclick="loadMatrix(1)">2 × 4 (rectangle)</button>
+        <button class="qb" onclick="loadMatrix(2)">4 × 2 (tall)</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="matrix-stage">
+    <div class="matrix-panel source">
+      <div class="matrix-head src">
+        <span class="title">SOURCE</span>
+        <span class="dim" id="srcDim">N × M</span>
+      </div>
+      <div class="matrix-content">
+        <div class="matrix-grid" id="srcMatrix"></div>
+      </div>
+    </div>
+
+    <div class="arrow-section">
+      <svg class="arrow-svg" viewBox="0 0 70 50">
+        <defs>
+          <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="#f0a04b"/>
+          </marker>
+        </defs>
+        <line x1="5" y1="25" x2="62" y2="25" stroke="#f0a04b" stroke-width="2.5" marker-end="url(#arr)"/>
+      </svg>
+      <div class="arrow-label">copy with<br>swapped indices</div>
+      <div class="arrow-formula">[i][j] → [j][i]</div>
+    </div>
+
+    <div class="matrix-panel dest">
+      <div class="matrix-head dst">
+        <span class="title">RESULT</span>
+        <span class="dim" id="dstDim">M × N</span>
+      </div>
+      <div class="matrix-content">
+        <div class="matrix-grid" id="dstMatrix"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="top-stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">int</span>[][] result = <span class="kw">new int</span>[m][n];</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; n; i++) {</div>
+<div class="cl" id="c3">  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">0</span>; j &lt; m; j++) {</div>
+<div class="cl" id="c4">    result[j][i] = mat[i][j];</div>
+<div class="cl" id="c5">  }</div>
+<div class="cl" id="c6">}</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i (source row)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell j">
+          <div class="lbl">j (source col)</div>
+          <div class="val" id="stateJ">—</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">WHY THIS WORKS</div>
+      <div style="background: var(--panel-2); padding: 14px 16px; border-radius: 6px; font-size: 13px; line-height: 1.7; color: var(--ink);">
+        Reading source <em>row by row</em> and writing destination <em>column by column</em> achieves the transpose. Source row 0 becomes destination col 0. Source row 1 becomes destination col 1. And so on.
+      </div>
+
+      <div style="background: rgba(240, 160, 75, 0.06); border-left: 3px solid var(--accent); padding: 14px 16px; border-radius: 4px; margin-top: 12px; font-size: 12px; line-height: 1.6; font-family: Georgia, serif; font-style: italic; color: var(--ink);">
+        <strong style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">Watch the dimensions →</strong> a 3×4 source becomes a 4×3 result. The diagonal stays in place; everything else flips around it.
+      </div>
+
+      <div style="background: rgba(163, 217, 119, 0.06); border-left: 3px solid var(--green); padding: 14px 16px; border-radius: 4px; margin-top: 12px; font-size: 12px; line-height: 1.6; font-family: 'JetBrains Mono', monospace; color: var(--ink);">
+        <strong style="color: var(--green);">Mental shortcut →</strong> "Row of source becomes column of destination."
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const presets = [
+    [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+    [[1, 2, 3, 4], [5, 6, 7, 8]],
+    [[1, 2], [3, 4], [5, 6], [7, 8]]
+  ];
+
+  let source = presets[0];
+  let N = 3, M = 3;
+  let dest = []; // size M × N
+  let i = -1, j = -1;
+  let phase = 'idle'; // idle | copying | done
+  let visitedSrc = []; // [{i, j}]
+  let filledDest = []; // [{r, c}]
+  let timer = null;
+
+  function loadMatrix(idx) {
+    source = presets[idx].map(r => r.slice());
+    N = source.length;
+    M = source[0].length;
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    dest = [];
+    for (let r = 0; r < M; r++) {
+      dest.push(new Array(N).fill(null));
+    }
+    i = -1; j = -1;
+    phase = 'idle';
+    visitedSrc = [];
+    filledDest = [];
+
+    document.getElementById('srcDim').textContent = `${N} × ${M}`;
+    document.getElementById('dstDim').textContent = `${M} × ${N}`;
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateJ').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('c1').className = 'cl taken';
+
+    renderMatrices();
+    document.getElementById('stepLbl').textContent = `${N} × ${M} → ${M} × ${N}, ${N * M} cell${N*M === 1 ? '' : 's'} to copy`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderMatrices() {
+    // SOURCE (N rows × M cols)
+    const srcEl = document.getElementById('srcMatrix');
+    let h = '';
+    h += '<div class="col-headers">';
+    for (let c = 0; c < M; c++) {
+      const active = c === j && phase === 'copying';
+      h += `<div class="col-header${active ? ' active' : ''}">j=${c}</div>`;
+    }
+    h += '</div>';
+    for (let r = 0; r < N; r++) {
+      h += '<div class="matrix-row">';
+      const active = r === i && phase === 'copying';
+      h += `<div class="row-label${active ? ' active' : ''}">i=${r}</div>`;
+      for (let c = 0; c < M; c++) {
+        let cls = 'mat-cell';
+        if (r === i && c === j && phase === 'copying') cls += ' source-current';
+        else if (visitedSrc.some(v => v.i === r && v.j === c)) cls += ' source-visited';
+        h += `<div class="${cls}">${source[r][c]}</div>`;
+      }
+      h += '</div>';
+    }
+    srcEl.innerHTML = h;
+
+    // DEST (M rows × N cols)
+    const dstEl = document.getElementById('dstMatrix');
+    let h2 = '';
+    h2 += '<div class="col-headers">';
+    for (let c = 0; c < N; c++) {
+      const active = c === i && phase === 'copying';
+      h2 += `<div class="col-header${active ? ' active' : ''}">c=${c}</div>`;
+    }
+    h2 += '</div>';
+    for (let r = 0; r < M; r++) {
+      h2 += '<div class="matrix-row">';
+      const active = r === j && phase === 'copying';
+      h2 += `<div class="row-label${active ? ' active' : ''}">r=${r}</div>`;
+      for (let c = 0; c < N; c++) {
+        let cls = 'mat-cell';
+        let content = '';
+        if (r === j && c === i && phase === 'copying') {
+          cls += ' dest-current';
+          content = source[i][j];
+        } else if (dest[r][c] !== null) {
+          cls += ' dest-filled';
+          content = dest[r][c];
+        } else {
+          cls += ' empty';
+          content = '·';
+        }
+        h2 += `<div class="${cls}">${content}</div>`;
+      }
+      h2 += '</div>';
+    }
+    dstEl.innerHTML = h2;
+  }
+
+  function highlight(arr) {
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    if (phase === 'idle') {
+      i = 0; j = 0;
+      phase = 'copying';
+      highlight([['c2', 'outer'], ['c3', 'inner'], ['c4', 'taken']]);
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('stateJ').textContent = j;
+      processCopy();
+      return;
+    }
+
+    if (phase === 'copying') {
+      // We just copied src[i][j] to dest[j][i]. Mark and advance.
+      dest[j][i] = source[i][j];
+      visitedSrc.push({i, j});
+      filledDest.push({r: j, c: i});
+
+      if (j + 1 < M) {
+        j++;
+        document.getElementById('stateJ').textContent = j;
+        highlight([['c2', 'outer'], ['c3', 'inner'], ['c4', 'taken']]);
+        processCopy();
+      } else if (i + 1 < N) {
+        i++;
+        j = 0;
+        document.getElementById('stateI').textContent = i;
+        document.getElementById('stateJ').textContent = j;
+        highlight([['c2', 'outer'], ['c3', 'inner'], ['c4', 'taken']]);
+        processCopy();
+      } else {
+        phase = 'done';
+        highlight([]);
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">DONE — ${N * M} cells transposed</span>`;
+        document.getElementById('stepLbl').textContent = `complete — source ${N}×${M} → result ${M}×${N}`;
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        renderMatrices();
+      }
+    }
+  }
+
+  function processCopy() {
+    const val = source[i][j];
+    document.getElementById('traceText').innerHTML =
+      `copy <span class="formula-piece fp purple">mat[${i}][${j}] = ${val}</span> → <span class="formula-piece fp green">result[${j}][${i}]</span>`;
+    document.getElementById('stepLbl').textContent = `(${i}, ${j}) → (${j}, ${i})`;
+    renderMatrices();
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 400);
+  }
+
+  reset();
+</script>
+</body>
+</html>
