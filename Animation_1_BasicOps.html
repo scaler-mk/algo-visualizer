@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ArrayList — basic operations</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+  .str { color: #a3d977; }
+
+  .arraylist-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px 18px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 130px;
+  }
+  .arr-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .arr-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .arr-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .arr-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin-bottom: 6px;
+    min-height: 60px;
+    align-items: center;
+  }
+  .arr-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 13px;
+  }
+  .arr-cell {
+    min-width: 60px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+  }
+  .arr-cell.added {
+    background: rgba(163, 217, 119, 0.2);
+    border-color: var(--green);
+    color: var(--green);
+    animation: pop-in 0.4s ease-out;
+  }
+  .arr-cell.accessed {
+    background: rgba(93, 173, 236, 0.2);
+    border-color: var(--blue);
+    color: var(--blue);
+    transform: translateY(-6px);
+    box-shadow: 0 6px 0 -2px rgba(93, 173, 236, 0.3);
+  }
+  .arr-cell.removing {
+    background: rgba(229, 115, 115, 0.2);
+    border-color: var(--red);
+    color: var(--red);
+    animation: shake-out 0.5s ease-out;
+  }
+  .arr-cell.set-new {
+    background: rgba(240, 160, 75, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+    animation: pop-in 0.4s ease-out;
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.6); opacity: 0; }
+    60% { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes shake-out {
+    0% { transform: translateX(0); opacity: 1; }
+    50% { transform: translateX(8px); opacity: 0.5; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+
+  .idx-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin-top: 4px;
+  }
+  .idx-cell {
+    min-width: 60px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .idx-cell.highlighted {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .console-output {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 130px;
+    max-height: 230px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .console-output .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .console-line {
+    display: block;
+    color: #a3d977;
+    line-height: 1.7;
+  }
+  .console-line.fresh {
+    background: rgba(163, 217, 119, 0.08);
+    margin-left: -8px; padding-left: 8px;
+    border-left: 2px solid var(--green);
+  }
+  .console-line .prompt { color: var(--muted); margin-right: 6px; }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 13px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.18); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ArrayList — five basic operations, live</h1>
+  <div class="sub">The five-method interface: <span style="color:var(--green)">add</span>, <span style="color:var(--blue)">get</span>, <span style="color:var(--purple)">size</span>, <span style="color:var(--red)">remove</span>, <span style="color:var(--accent)">set</span>. Each one mutates or reads the list. Watch how the contents and size pill update in real time.</div>
+
+  <div class="controls">
+    <div style="display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE — runs top to bottom</div>
+      <div class="codebox" id="codebox">
+<div class="cl" id="c1">ArrayList&lt;Integer&gt; arr = <span class="kw">new</span> ArrayList&lt;Integer&gt;();</div>
+<div class="cl" id="c2">System.out.println(arr);</div>
+<div class="cl" id="c3">arr.<span class="meth">add</span>(<span class="num">2</span>);</div>
+<div class="cl" id="c4">arr.<span class="meth">add</span>(-<span class="num">1</span>);</div>
+<div class="cl" id="c5">arr.<span class="meth">add</span>(<span class="num">5</span>);</div>
+<div class="cl" id="c6">System.out.println(arr);</div>
+<div class="cl" id="c7">System.out.println(<span class="str">"2nd element is: "</span> + arr.<span class="meth">get</span>(<span class="num">2</span>));</div>
+<div class="cl" id="c8">System.out.println(<span class="str">"Size is: "</span> + arr.<span class="meth">size</span>());</div>
+<div class="cl" id="c9">arr.<span class="meth">remove</span>(<span class="num">1</span>);</div>
+<div class="cl" id="c10">System.out.println(arr);</div>
+<div class="cl" id="c11">arr.<span class="meth">set</span>(<span class="num">1</span>, <span class="num">8</span>);</div>
+<div class="cl" id="c12">System.out.println(arr);</div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ARRAYLIST STATE</div>
+      <div class="arraylist-display">
+        <div class="arr-header">
+          <span class="arr-name">arr</span>
+          <span class="arr-size-pill" id="sizePill">size = 0</span>
+        </div>
+        <div class="arr-row" id="arrRow"></div>
+        <div class="idx-row" id="idxRow"></div>
+      </div>
+
+      <div class="console-output" id="console">
+        <span class="lbl">CONSOLE OUTPUT</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const steps = [
+    { line: 1, action: 'init',
+      trace: `create new empty <span class="formula-piece fp orange">ArrayList&lt;Integer&gt;</span> — capacity grows automatically as needed`,
+      desc: 'declare empty ArrayList' },
+    { line: 2, action: 'print', output: '[]',
+      trace: `print empty list → <span class="formula-piece fp green">[]</span>`,
+      desc: 'print empty list' },
+    { line: 3, action: 'add', value: 2, idx: 0,
+      trace: `<span class="formula-piece fp purple">add(2)</span> — append 2 at the end (index 0). size becomes 1.`,
+      desc: 'add 2' },
+    { line: 4, action: 'add', value: -1, idx: 1,
+      trace: `<span class="formula-piece fp purple">add(-1)</span> — append -1 at end (index 1). size becomes 2.`,
+      desc: 'add -1' },
+    { line: 5, action: 'add', value: 5, idx: 2,
+      trace: `<span class="formula-piece fp purple">add(5)</span> — append 5 at end (index 2). size becomes 3.`,
+      desc: 'add 5' },
+    { line: 6, action: 'print', output: '[2, -1, 5]',
+      trace: `print list → <span class="formula-piece fp green">[2, -1, 5]</span>`,
+      desc: 'print after adds' },
+    { line: 7, action: 'get', idx: 2, output: '2nd element is: 5',
+      trace: `<span class="formula-piece fp blue">get(2)</span> — read value at index 2 → returns <span class="formula-piece fp orange">5</span>. Index 2 means the THIRD element.`,
+      desc: 'get(2) returns 5' },
+    { line: 8, action: 'size', output: 'Size is: 3',
+      trace: `<span class="formula-piece fp purple">size()</span> — returns the count of elements → <span class="formula-piece fp orange">3</span>`,
+      desc: 'size() returns 3' },
+    { line: 9, action: 'remove', idx: 1,
+      trace: `<span class="formula-piece fp red">remove(1)</span> — remove element at index 1 (value -1). Index 2 shifts down to index 1. size becomes 2.`,
+      desc: 'remove index 1' },
+    { line: 10, action: 'print', output: '[2, 5]',
+      trace: `print list → <span class="formula-piece fp green">[2, 5]</span> — element shifted to fill the gap`,
+      desc: 'print after remove' },
+    { line: 11, action: 'set', idx: 1, value: 8,
+      trace: `<span class="formula-piece fp orange">set(1, 8)</span> — overwrite the value at index 1 with 8. size unchanged.`,
+      desc: 'set(1, 8)' },
+    { line: 12, action: 'print', output: '[2, 8]',
+      trace: `print list → <span class="formula-piece fp green">[2, 8]</span>`,
+      desc: 'final state' }
+  ];
+
+  let stepIdx = -1;
+  let arr = [];
+  let highlightCells = {};
+  let consoleLines = [];
+  let timer = null;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    stepIdx = -1;
+    arr = [];
+    highlightCells = {};
+    consoleLines = [];
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('stepLbl').textContent = `${steps.length} operations to walk through`;
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('stepBtn').disabled = false;
+    renderArr();
+    renderConsole();
+  }
+
+  function renderArr() {
+    const r = document.getElementById('arrRow');
+    const ir = document.getElementById('idxRow');
+    document.getElementById('sizePill').textContent = `size = ${arr.length}`;
+
+    if (arr.length === 0) {
+      r.innerHTML = '<span class="arr-empty">— empty list —</span>';
+      ir.innerHTML = '';
+      return;
+    }
+
+    let h = '', ih = '';
+    for (let k = 0; k < arr.length; k++) {
+      const hl = highlightCells[k];
+      let cls = 'arr-cell';
+      if (hl) cls += ' ' + hl;
+      h += `<div class="${cls}">${arr[k]}</div>`;
+      ih += `<div class="idx-cell${hl ? ' highlighted' : ''}">${k}</div>`;
+    }
+    r.innerHTML = h;
+    ir.innerHTML = ih;
+  }
+
+  function renderConsole() {
+    const c = document.getElementById('console');
+    let h = '<span class="lbl">CONSOLE OUTPUT</span>';
+    if (consoleLines.length === 0) {
+      h += '<span style="color: var(--muted); font-style: italic; font-family: Georgia, serif;">— nothing printed yet —</span>';
+    } else {
+      consoleLines.forEach((l, i) => {
+        const fresh = i === consoleLines.length - 1 ? ' fresh' : '';
+        h += `<span class="console-line${fresh}"><span class="prompt">›</span>${l}</span>`;
+      });
+    }
+    c.innerHTML = h;
+    c.scrollTop = c.scrollHeight;
+  }
+
+  function step() {
+    if (stepIdx >= steps.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      return;
+    }
+    stepIdx++;
+    const s = steps[stepIdx];
+
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('c' + s.line).className = 'cl taken';
+
+    highlightCells = {};
+
+    if (s.action === 'init') {
+      arr = [];
+    } else if (s.action === 'add') {
+      arr.push(s.value);
+      highlightCells[s.idx] = 'added';
+    } else if (s.action === 'print') {
+      consoleLines.push(s.output);
+    } else if (s.action === 'get') {
+      highlightCells[s.idx] = 'accessed';
+      consoleLines.push(s.output);
+    } else if (s.action === 'size') {
+      for (let k = 0; k < arr.length; k++) highlightCells[k] = 'accessed';
+      consoleLines.push(s.output);
+    } else if (s.action === 'remove') {
+      highlightCells[s.idx] = 'removing';
+      renderArr();
+      setTimeout(() => {
+        arr.splice(s.idx, 1);
+        highlightCells = {};
+        renderArr();
+      }, 350);
+    } else if (s.action === 'set') {
+      arr[s.idx] = s.value;
+      highlightCells[s.idx] = 'set-new';
+    }
+
+    document.getElementById('traceText').innerHTML = s.trace;
+    document.getElementById('stepLbl').textContent = `step ${stepIdx + 1} of ${steps.length} — ${s.desc}`;
+    renderArr();
+    renderConsole();
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (stepIdx >= steps.length - 1) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1100);
+  }
+
+  reset();
+</script>
+</body>
+</html>

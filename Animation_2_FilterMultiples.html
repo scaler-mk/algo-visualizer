@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multiples of 5 and 7 — filter pattern</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.skipped { opacity: 0.4; color: var(--muted); }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.v { border-left-color: var(--accent); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.v .val { color: var(--accent); }
+
+  .arraylist-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .arr-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .arr-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .arr-name.input { color: var(--purple); }
+  .arr-name.output { color: var(--green); }
+  .arr-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .arr-row {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+    min-height: 56px; align-items: center;
+  }
+  .arr-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 12px;
+  }
+  .arr-cell {
+    min-width: 56px;
+    height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 5px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+  }
+  .arr-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .arr-cell.passed {
+    background: rgba(163, 217, 119, 0.1);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .arr-cell.failed {
+    background: rgba(229, 115, 115, 0.05);
+    border-color: rgba(229, 115, 115, 0.3);
+    color: var(--muted);
+    opacity: 0.6;
+  }
+  .arr-cell.added {
+    background: rgba(163, 217, 119, 0.25);
+    border-color: var(--green);
+    color: var(--green);
+    animation: pop-in 0.4s ease-out;
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.18); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .check-display {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 80px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .check-lbl {
+    font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px;
+  }
+  .check-row {
+    display: flex; gap: 8px; align-items: center; margin: 6px 0;
+    font-size: 13px;
+  }
+  .check-pill {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 12px;
+    min-width: 110px;
+    text-align: center;
+  }
+  .check-pill.ok { background: rgba(163, 217, 119, 0.15); color: var(--green); }
+  .check-pill.fail { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .check-pill.pending { background: var(--panel-2); color: var(--muted); }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Multiples of 5 and 7 — the filter pattern</h1>
+  <div class="sub">Sweep through the input list. Each value gets tested by the predicate. Passing values get appended to the output list. Output starts empty and grows as we find matches.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px;">
+        <button class="qb" onclick="loadInput([5, 7, 70, 50, 35])">script (5, 7, 70, 50, 35)</button>
+        <button class="qb" onclick="loadInput([35, 14, 70, 105, 21, 140])">all multiples</button>
+        <button class="qb" onclick="loadInput([1, 2, 3, 4, 6])">none match</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1">ArrayList&lt;Integer&gt; ans = <span class="kw">new</span> ArrayList&lt;&gt;();</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; arr.<span class="meth">size</span>(); i++) {</div>
+<div class="cl" id="c3">  <span class="kw">int</span> val = arr.<span class="meth">get</span>(i);</div>
+<div class="cl" id="c4">  <span class="kw">if</span> (val % <span class="num">5</span> == <span class="num">0</span> &amp;&amp; val % <span class="num">7</span> == <span class="num">0</span>)</div>
+<div class="cl" id="c5">    ans.<span class="meth">add</span>(val);</div>
+<div class="cl" id="c6">}</div>
+<div class="cl" id="c7"><span class="kw">return</span> ans;</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i (loop index)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell v">
+          <div class="lbl">val</div>
+          <div class="val" id="stateV">—</div>
+        </div>
+      </div>
+
+      <div class="check-display" id="checkDisplay">
+        <div class="check-lbl">PREDICATE CHECK</div>
+        <div style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 13px;">— press Step to begin —</div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">LISTS</div>
+      <div class="arraylist-display">
+        <div class="arr-header">
+          <span class="arr-name input">arr (input)</span>
+          <span class="arr-size-pill" id="inSize">size = 0</span>
+        </div>
+        <div class="arr-row" id="inRow"></div>
+      </div>
+
+      <div class="arraylist-display">
+        <div class="arr-header">
+          <span class="arr-name output">ans (output)</span>
+          <span class="arr-size-pill" id="outSize">size = 0</span>
+        </div>
+        <div class="arr-row" id="outRow"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let input = [5, 7, 70, 50, 35];
+  let i = -1;
+  let cellStates = []; // null | 'passed' | 'failed'
+  let output = [];
+  let phase = 'idle'; // idle | check | done
+  let timer = null;
+
+  function loadInput(arr) {
+    input = arr.slice();
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = -1;
+    cellStates = input.map(() => null);
+    output = [];
+    phase = 'idle';
+
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateV').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('checkDisplay').innerHTML = `<div class="check-lbl">PREDICATE CHECK</div><div style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 13px;">— press Step to begin —</div>`;
+    ['c1','c2','c3','c4','c5','c6','c7'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('c1').className = 'cl taken';
+
+    renderInput();
+    renderOutput();
+    document.getElementById('stepLbl').textContent = `${input.length} elements to filter`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderInput() {
+    const r = document.getElementById('inRow');
+    document.getElementById('inSize').textContent = `size = ${input.length}`;
+    if (input.length === 0) {
+      r.innerHTML = '<span class="arr-empty">— empty —</span>';
+      return;
+    }
+    let h = '';
+    for (let k = 0; k < input.length; k++) {
+      let cls = 'arr-cell';
+      if (k === i && phase === 'check') cls += ' current';
+      else if (cellStates[k] === 'passed') cls += ' passed';
+      else if (cellStates[k] === 'failed') cls += ' failed';
+      h += `<div class="${cls}">${input[k]}</div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function renderOutput() {
+    const r = document.getElementById('outRow');
+    document.getElementById('outSize').textContent = `size = ${output.length}`;
+    if (output.length === 0) {
+      r.innerHTML = '<span class="arr-empty">— empty —</span>';
+      return;
+    }
+    let h = '';
+    for (let k = 0; k < output.length; k++) {
+      const fresh = k === output.length - 1 && phase === 'check' && cellStates[i] === 'passed';
+      h += `<div class="arr-cell${fresh ? ' added' : ' passed'}">${output[k]}</div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function highlight(arr) {
+    ['c1','c2','c3','c4','c5','c6','c7'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    if (i + 1 >= input.length) {
+      phase = 'done';
+      highlight([['c7', 'taken']]);
+      document.getElementById('traceText').innerHTML =
+        `<span class="formula-piece fp green">DONE — return ans = [${output.join(', ')}]</span>`;
+      document.getElementById('stepLbl').textContent = `complete — ${output.length} of ${input.length} matched`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      renderInput();
+      renderOutput();
+      return;
+    }
+
+    i++;
+    phase = 'check';
+    const val = input[i];
+    const mod5 = val % 5 === 0;
+    const mod7 = val % 7 === 0;
+    const passes = mod5 && mod7;
+
+    document.getElementById('stateI').textContent = i;
+    document.getElementById('stateV').textContent = val;
+
+    const checkHtml = `
+      <div class="check-lbl">PREDICATE CHECK — val = ${val}</div>
+      <div class="check-row">
+        <span class="check-pill ${mod5 ? 'ok' : 'fail'}">${val} % 5 ${mod5 ? '= 0 ✓' : '≠ 0 ✗'}</span>
+        <span style="color: var(--muted)">AND</span>
+        <span class="check-pill ${mod7 ? 'ok' : 'fail'}">${val} % 7 ${mod7 ? '= 0 ✓' : '≠ 0 ✗'}</span>
+      </div>
+      <div class="check-row" style="margin-top: 10px;">
+        <span style="color: var(--muted); font-size: 11px;">verdict →</span>
+        <span class="check-pill ${passes ? 'ok' : 'fail'}">${passes ? 'KEEP — append to ans' : 'SKIP'}</span>
+      </div>
+    `;
+    document.getElementById('checkDisplay').innerHTML = checkHtml;
+
+    if (passes) {
+      cellStates[i] = 'passed';
+      output.push(val);
+      highlight([['c2', 'eval'], ['c3', 'taken'], ['c4', 'taken'], ['c5', 'taken']]);
+      document.getElementById('traceText').innerHTML =
+        `val = <span class="formula-piece fp orange">${val}</span> passes both — <span class="formula-piece fp green">add(${val})</span> to ans`;
+      document.getElementById('stepLbl').textContent = `i = ${i}, val = ${val} → MATCH`;
+    } else {
+      cellStates[i] = 'failed';
+      highlight([['c2', 'eval'], ['c3', 'taken'], ['c4', 'eval']]);
+      const reason = !mod5 && !mod7 ? 'fails both' : !mod5 ? 'not divisible by 5' : 'not divisible by 7';
+      document.getElementById('traceText').innerHTML =
+        `val = <span class="formula-piece fp orange">${val}</span> — <span class="formula-piece fp red">${reason}</span>, skip`;
+      document.getElementById('stepLbl').textContent = `i = ${i}, val = ${val} → skip`;
+    }
+
+    renderInput();
+    renderOutput();
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 850);
+  }
+
+  reset();
+</script>
+</body>
+</html>

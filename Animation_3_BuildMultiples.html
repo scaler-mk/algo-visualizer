@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>First B multiples of A — build pattern</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-row { display: flex; align-items: center; gap: 8px; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 5px;
+    width: 60px;
+    text-align: center;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.p { border-left-color: var(--accent); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.p .val { color: var(--accent); }
+
+  .formula-display {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 22px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    min-height: 80px;
+    display: flex; align-items: center; justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    transition: all 0.3s;
+  }
+  .formula-display .term {
+    padding: 4px 12px;
+    border-radius: 6px;
+  }
+  .formula-display .term-a { background: rgba(93, 173, 236, 0.15); color: var(--blue); }
+  .formula-display .term-i { background: rgba(192, 132, 232, 0.15); color: var(--purple); }
+  .formula-display .term-result { background: rgba(240, 160, 75, 0.2); color: var(--accent); }
+  .formula-display .op { color: var(--muted); font-size: 18px; }
+
+  .arraylist-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .arr-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .arr-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--green);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .arr-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .arr-row {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+    min-height: 60px; align-items: center;
+  }
+  .arr-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 13px;
+  }
+  .arr-cell {
+    min-width: 64px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+  }
+  .arr-cell.fresh {
+    background: rgba(240, 160, 75, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+    animation: pop-in 0.4s ease-out;
+  }
+  .arr-cell.placed {
+    background: rgba(163, 217, 119, 0.12);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5) translateY(-30px); opacity: 0; }
+    60% { transform: scale(1.18) translateY(0); }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 13px;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>First B multiples of A — the build pattern</h1>
+  <div class="sub">Loop counter <span style="color:var(--purple)">i</span> ticks from 1 to B. Each step computes <span style="color:var(--blue)">A</span> × <span style="color:var(--purple)">i</span> and appends the result to the answer list. The list <em>grows</em> — there's no input list to filter, just construction.</div>
+
+  <div class="controls">
+    <div class="input-group">
+      <span class="ctl-label">A (multiplier)</span>
+      <input type="number" class="num-input" id="aIn" value="3" min="1" max="20" oninput="reset()">
+    </div>
+    <div class="input-group">
+      <span class="ctl-label">B (count)</span>
+      <input type="number" class="num-input" id="bIn" value="5" min="1" max="12" oninput="reset()">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px;">
+        <button class="qb" onclick="setAB(3, 5)">A=3, B=5 (script)</button>
+        <button class="qb" onclick="setAB(2, 4)">A=2, B=4</button>
+        <button class="qb" onclick="setAB(7, 3)">A=7, B=3</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1">ArrayList&lt;Integer&gt; ans = <span class="kw">new</span> ArrayList&lt;&gt;();</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= B; i++) {</div>
+<div class="cl" id="c3">  ans.<span class="meth">add</span>(A * i);</div>
+<div class="cl" id="c4">}</div>
+<div class="cl" id="c5"><span class="kw">return</span> ans;</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i (counter)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell p">
+          <div class="lbl">A × i</div>
+          <div class="val" id="stateP">—</div>
+        </div>
+      </div>
+
+      <div class="formula-display" id="formula">
+        <span style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 14px;">— press Step to begin —</span>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">RESULT</div>
+      <div class="arraylist-display">
+        <div class="arr-header">
+          <span class="arr-name">ans</span>
+          <span class="arr-size-pill" id="ansSize">size = 0</span>
+        </div>
+        <div class="arr-row" id="ansRow"></div>
+      </div>
+
+      <div style="background: rgba(240, 160, 75, 0.06); border-left: 3px solid var(--accent); padding: 14px 16px; border-radius: 4px; font-size: 12px; line-height: 1.6; font-family: Georgia, serif; font-style: italic; color: var(--ink);">
+        <strong style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">Build vs filter →</strong> notice there's no input list to scan — the loop counter <em>generates</em> values directly. The answer list builds up linearly: one element per loop iteration, exactly B elements at the end.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let A = 3, B = 5;
+  let i = 0; // 0 = idle, 1..B = active
+  let ans = [];
+  let phase = 'idle'; // idle | active | done
+  let timer = null;
+
+  function setAB(a, b) {
+    document.getElementById('aIn').value = a;
+    document.getElementById('bIn').value = b;
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    A = parseInt(document.getElementById('aIn').value) || 1;
+    B = parseInt(document.getElementById('bIn').value) || 1;
+    if (B > 12) { B = 12; document.getElementById('bIn').value = 12; }
+    if (B < 1) { B = 1; document.getElementById('bIn').value = 1; }
+    i = 0;
+    ans = [];
+    phase = 'idle';
+
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateP').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('formula').innerHTML = '<span style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 14px;">— press Step to begin —</span>';
+    ['c1','c2','c3','c4','c5'].forEach(id => document.getElementById(id).className = 'cl');
+    document.getElementById('c1').className = 'cl taken';
+
+    renderAns();
+    document.getElementById('stepLbl').textContent = `A = ${A}, B = ${B} → ${B} multiple${B === 1 ? '' : 's'} to compute`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderAns() {
+    const r = document.getElementById('ansRow');
+    document.getElementById('ansSize').textContent = `size = ${ans.length}`;
+    if (ans.length === 0) {
+      r.innerHTML = '<span class="arr-empty">— empty list, ready to grow —</span>';
+      return;
+    }
+    let h = '';
+    for (let k = 0; k < ans.length; k++) {
+      const isFresh = k === ans.length - 1 && phase === 'active';
+      h += `<div class="arr-cell ${isFresh ? 'fresh' : 'placed'}">${ans[k]}</div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function highlight(arr) {
+    ['c1','c2','c3','c4','c5'].forEach(id => document.getElementById(id).className = 'cl');
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    if (i + 1 > B) {
+      phase = 'done';
+      highlight([['c5', 'taken']]);
+      document.getElementById('traceText').innerHTML =
+        `<span class="formula-piece fp green">DONE — return ans = [${ans.join(', ')}]</span>`;
+      document.getElementById('stepLbl').textContent = `complete — ${ans.length} multiples of ${A}`;
+      document.getElementById('formula').innerHTML = `<span style="color: var(--green); font-family: Georgia, serif; font-style: italic;">all ${B} multiples computed</span>`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      renderAns();
+      return;
+    }
+
+    i++;
+    phase = 'active';
+    const product = A * i;
+    ans.push(product);
+
+    highlight([['c2', 'eval'], ['c3', 'taken']]);
+    document.getElementById('stateI').textContent = i;
+    document.getElementById('stateP').textContent = product;
+
+    document.getElementById('formula').innerHTML = `
+      <span class="term term-a">A = ${A}</span>
+      <span class="op">×</span>
+      <span class="term term-i">i = ${i}</span>
+      <span class="op">=</span>
+      <span class="term term-result">${product}</span>
+    `;
+
+    document.getElementById('traceText').innerHTML =
+      `i = <span class="formula-piece fp purple">${i}</span> → compute <span class="formula-piece fp blue">${A}</span> × <span class="formula-piece fp purple">${i}</span> = <span class="formula-piece fp orange">${product}</span> → <span class="formula-piece fp green">add(${product})</span>`;
+    document.getElementById('stepLbl').textContent = `iteration ${i} of ${B}`;
+
+    renderAns();
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 750);
+  }
+
+  reset();
+</script>
+</body>
+</html>

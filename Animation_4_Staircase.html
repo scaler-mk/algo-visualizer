@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Numeric staircase — 2D ArrayList build</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 5px;
+    width: 60px;
+    text-align: center;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 0.95fr 1.05fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.outer { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.inner { background: rgba(93, 173, 236, 0.18); opacity: 1; color: var(--blue); border-left: 2px solid var(--blue); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.r { border-left-color: var(--purple); }
+  .state-cell.c { border-left-color: var(--blue); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; }
+  .state-cell.r .val { color: var(--purple); }
+  .state-cell.c .val { color: var(--blue); }
+
+  .ans-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 220px;
+  }
+  .ans-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .ans-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .ans-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .row-stack {
+    display: flex; flex-direction: column; gap: 8px;
+    align-items: flex-start;
+  }
+  .ans-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 13px;
+    padding: 30px;
+    text-align: center;
+    width: 100%;
+  }
+  .stair-row {
+    display: flex; align-items: center; gap: 10px;
+    transition: all 0.4s;
+  }
+  .row-label {
+    color: var(--purple);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 32px;
+    text-align: right;
+  }
+  .row-label.active { color: var(--accent); }
+  .stair-cells {
+    display: flex; gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(192, 132, 232, 0.05);
+    border: 1px dashed rgba(192, 132, 232, 0.3);
+    transition: all 0.3s;
+  }
+  .stair-row.active .stair-cells {
+    background: rgba(240, 160, 75, 0.08);
+    border-color: var(--accent);
+    border-style: solid;
+  }
+  .stair-row.completed .stair-cells {
+    background: rgba(163, 217, 119, 0.06);
+    border-color: rgba(163, 217, 119, 0.3);
+  }
+  .stair-cells.empty {
+    min-width: 60px;
+    min-height: 50px;
+    background: transparent;
+    border-style: dashed;
+    border-color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 11px;
+  }
+  .stair-cells.empty.fresh {
+    animation: pulse 0.6s ease-out;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(240, 160, 75, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(240, 160, 75, 0); }
+  }
+  .stair-cell {
+    width: 50px; height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 5px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.3s;
+  }
+  .stair-cell.fresh {
+    background: rgba(240, 160, 75, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+    animation: pop-in 0.4s ease-out;
+  }
+  .stair-cell.placed {
+    background: rgba(163, 217, 119, 0.1);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Numeric staircase — building a 2D ArrayList</h1>
+  <div class="sub"><span style="color:var(--purple)">Outer loop</span> creates a fresh inner list for each row. <span style="color:var(--blue)">Inner loop</span> fills it with 1, 2, ..., row. The result is a list whose elements are themselves lists — <em>jagged</em>, not rectangular.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N (rows)</span>
+      <input type="number" class="num-input" id="nIn" value="3" min="1" max="6" oninput="reset()">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px;">
+        <button class="qb" onclick="setN(3)">N = 3 (script)</button>
+        <button class="qb" onclick="setN(4)">N = 4</button>
+        <button class="qb" onclick="setN(5)">N = 5</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1">ArrayList&lt;ArrayList&lt;Integer&gt;&gt; ans = <span class="kw">new</span> ArrayList&lt;&gt;();</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> row = <span class="num">1</span>; row &lt;= N; row++) {</div>
+<div class="cl" id="c3">  ArrayList&lt;Integer&gt; rw = <span class="kw">new</span> ArrayList&lt;&gt;();</div>
+<div class="cl" id="c4">  <span class="kw">for</span> (<span class="kw">int</span> col = <span class="num">1</span>; col &lt;= row; col++) {</div>
+<div class="cl" id="c5">    rw.<span class="meth">add</span>(col);</div>
+<div class="cl" id="c6">  }</div>
+<div class="cl" id="c7">  ans.<span class="meth">add</span>(rw);</div>
+<div class="cl" id="c8">}</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell r">
+          <div class="lbl">row</div>
+          <div class="val" id="stateR">—</div>
+        </div>
+        <div class="state-cell c">
+          <div class="lbl">col</div>
+          <div class="val" id="stateC">—</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">2D ARRAYLIST BUILDING</div>
+      <div class="ans-display">
+        <div class="ans-header">
+          <span class="ans-name">ans</span>
+          <span class="ans-size-pill" id="ansSize">size = 0</span>
+        </div>
+        <div class="row-stack" id="rowStack"></div>
+      </div>
+
+      <div style="background: rgba(192, 132, 232, 0.06); border-left: 3px solid var(--purple); padding: 14px 16px; border-radius: 4px; font-size: 12px; line-height: 1.6; font-family: Georgia, serif; font-style: italic; color: var(--ink);">
+        <strong style="color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace;">Two adds, two scopes →</strong> the inner add appends a number to the current row. The outer add appends the whole row to the staircase. Two levels, two operations of the same name.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let N = 3;
+  let row = 0; // 1..N when active
+  let col = 0;
+  let ans = []; // [[1], [1,2], [1,2,3]] etc - completed rows
+  let currentRow = null; // in-progress row, or null
+  let phase = 'idle'; // idle | newRow | innerAdd | outerAdd | done
+  let timer = null;
+
+  function setN(n) {
+    document.getElementById('nIn').value = n;
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    N = parseInt(document.getElementById('nIn').value) || 1;
+    if (N > 6) { N = 6; document.getElementById('nIn').value = 6; }
+    if (N < 1) { N = 1; document.getElementById('nIn').value = 1; }
+
+    row = 0; col = 0;
+    ans = [];
+    currentRow = null;
+    phase = 'idle';
+
+    document.getElementById('stateR').textContent = '—';
+    document.getElementById('stateC').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    ['c1','c2','c3','c4','c5','c6','c7','c8'].forEach(id => document.getElementById(id).className = 'cl');
+    document.getElementById('c1').className = 'cl taken';
+
+    renderStack();
+    document.getElementById('stepLbl').textContent = `N = ${N} → staircase will have ${N} rows of lengths 1..${N}`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderStack() {
+    const r = document.getElementById('rowStack');
+    document.getElementById('ansSize').textContent = `size = ${ans.length + (currentRow !== null ? 1 : 0)}`;
+
+    let h = '';
+    if (ans.length === 0 && currentRow === null) {
+      h = '<div class="ans-empty">— empty 2D list, ready to build —</div>';
+    } else {
+      // Completed rows
+      ans.forEach((rwArr, idx) => {
+        h += `<div class="stair-row completed">`;
+        h += `<div class="row-label">[${idx}]</div>`;
+        h += `<div class="stair-cells">`;
+        rwArr.forEach(v => {
+          h += `<div class="stair-cell placed">${v}</div>`;
+        });
+        h += `</div></div>`;
+      });
+      // Current row in progress
+      if (currentRow !== null) {
+        h += `<div class="stair-row active">`;
+        h += `<div class="row-label active">[${ans.length}]</div>`;
+        if (currentRow.length === 0) {
+          const fresh = phase === 'newRow' ? ' fresh' : '';
+          h += `<div class="stair-cells empty${fresh}">empty row, ready to fill</div>`;
+        } else {
+          h += `<div class="stair-cells">`;
+          currentRow.forEach((v, i) => {
+            const isFresh = i === currentRow.length - 1 && phase === 'innerAdd';
+            h += `<div class="stair-cell ${isFresh ? 'fresh' : 'placed'}">${v}</div>`;
+          });
+          h += `</div>`;
+        }
+        h += `</div>`;
+      }
+    }
+    r.innerHTML = h;
+  }
+
+  function highlight(arr) {
+    ['c1','c2','c3','c4','c5','c6','c7','c8'].forEach(id => document.getElementById(id).className = 'cl');
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    // State machine
+    if (phase === 'idle' || phase === 'outerAdd') {
+      // Start a new row (or finish if done)
+      if (row + 1 > N) {
+        phase = 'done';
+        highlight([]);
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">DONE — staircase of ${N} rows complete</span>`;
+        document.getElementById('stepLbl').textContent = 'complete';
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        renderStack();
+        return;
+      }
+      row++;
+      col = 0;
+      currentRow = [];
+      phase = 'newRow';
+      highlight([['c2', 'outer'], ['c3', 'taken']]);
+      document.getElementById('stateR').textContent = row;
+      document.getElementById('stateC').textContent = '—';
+      document.getElementById('traceText').innerHTML =
+        `row = <span class="formula-piece fp purple">${row}</span> — create empty inner list <span class="formula-piece fp orange">rw</span>`;
+      document.getElementById('stepLbl').textContent = `start row ${row} of ${N} — fresh inner ArrayList`;
+      renderStack();
+      return;
+    }
+
+    if (phase === 'newRow' || phase === 'innerAdd') {
+      // Try to add to current row
+      if (col + 1 > row) {
+        // Inner loop done — outer add
+        ans.push(currentRow);
+        currentRow = null;
+        phase = 'outerAdd';
+        highlight([['c7', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `inner loop done — append the whole row to <span class="formula-piece fp purple">ans</span>`;
+        document.getElementById('stepLbl').textContent = `row ${row} complete — added to ans`;
+        renderStack();
+        return;
+      }
+      col++;
+      currentRow.push(col);
+      phase = 'innerAdd';
+      highlight([['c4', 'inner'], ['c5', 'taken']]);
+      document.getElementById('stateC').textContent = col;
+      document.getElementById('traceText').innerHTML =
+        `col = <span class="formula-piece fp blue">${col}</span> → <span class="formula-piece fp green">rw.add(${col})</span> — append to current row`;
+      document.getElementById('stepLbl').textContent = `row ${row}, col ${col}`;
+      renderStack();
+      return;
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 700);
+  }
+
+  reset();
+</script>
+</body>
+</html>
