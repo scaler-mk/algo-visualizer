@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reverse a number — digit by digit</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 110px;
+  }
+  .num-input:focus { outline: none; border-color: var(--accent); }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .var-display {
+    background: #0d1117;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 28px 24px;
+    text-align: center;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+  }
+  .var-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .var-value {
+    font-size: 48px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+  .var-display.n .var-value { color: var(--blue); }
+  .var-display.rev .var-value { color: var(--green); }
+  .var-display.d .var-value { color: var(--accent); font-size: 36px; }
+
+  .digit-strip {
+    display: flex; gap: 4px; justify-content: center;
+    margin-top: 12px;
+    min-height: 30px;
+  }
+  .digit {
+    display: inline-block;
+    min-width: 36px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--panel-2);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    transition: all 0.5s;
+  }
+  .digit.peeled {
+    background: rgba(240, 160, 75, 0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+    animation: lift 0.6s ease-out;
+  }
+  .digit.added {
+    background: rgba(163, 217, 119, 0.15);
+    border-color: var(--green);
+    color: var(--green);
+    animation: drop 0.5s ease-out;
+  }
+  @keyframes lift {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+    100% { transform: translateY(0); }
+  }
+  @keyframes drop {
+    0% { transform: translateY(-12px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .iter-card {
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+    transition: all 0.3s;
+  }
+  .iter-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .iter-card .text { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; }
+  .formula-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  .formula-piece {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.15); color: var(--green); }
+  .fp.orange { background: rgba(240, 160, 75, 0.15); color: var(--accent); }
+  .fp.blue { background: rgba(93, 173, 236, 0.15); color: var(--blue); }
+  .fp.eq { color: var(--muted); padding: 0 4px; }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+
+  .arrow-between {
+    text-align: center;
+    color: var(--accent);
+    font-size: 32px;
+    margin: 8px 0;
+  }
+  .footer-tip {
+    margin-top: 20px;
+    padding: 14px 18px;
+    background: rgba(192, 132, 232, 0.06);
+    border-left: 3px solid var(--purple);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.6;
+  }
+  .footer-tip strong { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reverse a number — peel a digit, paste it on the other side</h1>
+  <div class="sub"><code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">N % 10</code> peels off the last digit. <code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">N / 10</code> shifts the rest right.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="6531">
+    </div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button class="qb" onclick="set(6531)">6531</button>
+      <button class="qb" onclick="set(3450)">3450</button>
+      <button class="qb" onclick="set(1234)">1234</button>
+      <button class="qb" onclick="set(7)">7</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="var-display n" id="nBox">
+      <div class="var-label">N (shrinking)</div>
+      <div class="var-value" id="nVal">—</div>
+      <div class="digit-strip" id="nStrip"></div>
+    </div>
+
+    <div class="var-display rev" id="revBox">
+      <div class="var-label">REVERSE (growing)</div>
+      <div class="var-value" id="revVal">—</div>
+      <div class="digit-strip" id="revStrip"></div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">int</span> reverse = <span class="num">0</span>;</div>
+<div class="cl" id="c2"><span class="kw">while</span> (N &gt; <span class="num">0</span>) {</div>
+<div class="cl" id="c3">  <span class="kw">int</span> d = N % <span class="num">10</span>;</div>
+<div class="cl" id="c4">  reverse = reverse * <span class="num">10</span> + d;</div>
+<div class="cl" id="c5">  N = N / <span class="num">10</span>;</div>
+<div class="cl" id="c6">}</div>
+<div class="cl" id="c7">print(reverse);</div>
+      </div>
+
+      <div class="footer-tip">
+        <strong>Why "× 10 + d"?</strong> If reverse holds 13 and the new digit is 5, we want 135. Multiplying by 10 makes room (13 → 130), then adding d slots it in (130 + 5 = 135).
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">CURRENT ITERATION</div>
+
+      <div class="iter-card">
+        <div class="lbl">d = N % 10  (peel last digit)</div>
+        <div class="text" id="dStep">— press Step —</div>
+      </div>
+
+      <div class="arrow-between">↓</div>
+
+      <div class="iter-card" style="border-left-color: var(--green);">
+        <div class="lbl">reverse = reverse × 10 + d</div>
+        <div class="text" id="revStep">—</div>
+      </div>
+
+      <div class="arrow-between">↓</div>
+
+      <div class="iter-card" style="border-left-color: var(--blue);">
+        <div class="lbl">N = N / 10  (shift right)</div>
+        <div class="text" id="nStep">—</div>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let N = 0;
+  let originalN = 0;
+  let reverse = 0;
+  let iterCount = 0;
+  let done = false;
+  let timer = null;
+  let lastDigitPeeled = null;
+
+  document.getElementById('nIn').oninput = reset;
+  function set(n) { document.getElementById('nIn').value = n; reset(); }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    originalN = +document.getElementById('nIn').value || 0;
+    N = originalN;
+    reverse = 0;
+    iterCount = 0;
+    done = false;
+    lastDigitPeeled = null;
+    renderState();
+    ['c1','c2','c3','c4','c5','c6','c7'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('c1').className = 'cl taken';
+    document.getElementById('dStep').textContent = '— press Step —';
+    document.getElementById('revStep').textContent = '—';
+    document.getElementById('nStep').textContent = '—';
+    document.getElementById('stepLbl').textContent = 'iteration 0 — N = ' + originalN + ', reverse = 0';
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderState() {
+    document.getElementById('nVal').textContent = N;
+    document.getElementById('revVal').textContent = reverse;
+
+    // Render digit strips
+    renderStrip('nStrip', String(N), null);
+    renderStrip('revStrip', String(reverse), null);
+  }
+
+  function renderStrip(id, str, highlightChar) {
+    const el = document.getElementById(id);
+    if (str === '0' && id === 'revStrip') { el.innerHTML = ''; return; }
+    if (str === '0' && id === 'nStrip') { el.innerHTML = ''; return; }
+    let html = '';
+    for (let k = 0; k < str.length; k++) {
+      html += `<span class="digit">${str[k]}</span>`;
+    }
+    el.innerHTML = html;
+  }
+
+  function step() {
+    if (done) return;
+    if (N === 0) {
+      // either originalN was 0 or we reached the end
+      done = true;
+      document.getElementById('c2').className = 'cl';
+      document.getElementById('c7').className = 'cl taken';
+      document.getElementById('stepLbl').textContent = `done — final reverse = ${reverse}`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      return;
+    }
+
+    iterCount++;
+    const d = N % 10;
+    const newReverse = reverse * 10 + d;
+    const newN = Math.floor(N / 10);
+
+    // Update card text
+    document.getElementById('dStep').innerHTML = `${N} % 10  =  <span class="formula-piece fp orange">${d}</span>`;
+    document.getElementById('revStep').innerHTML =
+      `<span class="formula-piece fp green">${reverse}</span> × 10 + <span class="formula-piece fp orange">${d}</span> = <span class="formula-piece fp green">${newReverse}</span>`;
+    document.getElementById('nStep').innerHTML =
+      `<span class="formula-piece fp blue">${N}</span> / 10 = <span class="formula-piece fp blue">${newN}</span>`;
+
+    // Highlight code lines
+    ['c1','c2','c3','c4','c5','c6','c7'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('c2').className = 'cl eval';
+    document.getElementById('c3').className = 'cl taken';
+    document.getElementById('c4').className = 'cl taken';
+    document.getElementById('c5').className = 'cl taken';
+
+    // Animate the digit moving
+    // First, mark last digit of N as 'peeled'
+    const nStrip = document.getElementById('nStrip');
+    if (nStrip.children.length > 0) {
+      nStrip.children[nStrip.children.length - 1].classList.add('peeled');
+    }
+
+    // Update state after a short delay so the animation shows
+    setTimeout(() => {
+      reverse = newReverse;
+      N = newN;
+      renderState();
+      // mark the newly added digit (rightmost of reverse) as 'added'
+      const revStrip = document.getElementById('revStrip');
+      if (revStrip.children.length > 0) {
+        revStrip.children[revStrip.children.length - 1].classList.add('added');
+      }
+    }, 300);
+
+    document.getElementById('stepLbl').textContent =
+      `iter ${iterCount} — peeled ${d}, N: ${N} → ${newN}, reverse: ${reverse} → ${newReverse}`;
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (done || N === 0) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1100);
+  }
+
+  reset();
+</script>
+</body>
+</html>

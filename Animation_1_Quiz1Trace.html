@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quiz 1 — predict the trace</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 12px; align-items: center;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .ghost-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .step-info {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: 0.95fr 1.05fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 6px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 6px; }
+  .cl.failed { background: rgba(229, 115, 115, 0.08); opacity: 0.7; color: var(--red); }
+  .kw { color: #5dadec; }
+  .str { color: var(--green); }
+  .num { color: #f0a04b; }
+  .com { color: var(--muted); font-style: italic; }
+
+  table.trace {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  table.trace th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    border-bottom: 1px solid var(--line);
+  }
+  table.trace td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.4s;
+  }
+  table.trace tr.iter-row td { background: var(--panel-2); }
+  table.trace tr.hidden td { opacity: 0; }
+  table.trace tr.revealing td { opacity: 1; }
+  td.iter-tag { color: var(--muted); font-size: 10px; letter-spacing: 0.05em; font-style: italic; font-family: Georgia, serif; }
+  td.start-val { color: var(--accent); font-weight: 600; }
+  td.cond-pass { color: var(--green); }
+  td.cond-fail { color: var(--red); font-weight: 600; }
+  td.body-val { color: var(--blue); }
+  td.end-val { color: var(--accent); font-weight: 600; }
+  .placeholder { color: var(--muted); opacity: 0.4; font-style: italic; }
+  .output-block {
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .output-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .output-text { font-size: 18px; color: var(--ink); min-height: 28px; }
+  .output-text.empty { color: var(--muted); font-style: italic; font-size: 13px; }
+  .verdict {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.5;
+    border-left: 3px solid var(--accent);
+    background: rgba(240, 160, 75, 0.06);
+    display: none;
+  }
+  .verdict.shown { display: block; }
+  .verdict strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .state-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 0 6px;
+  }
+  .state-pill.i { background: rgba(240, 160, 75, 0.15); color: var(--accent); }
+  .live-state {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--blue);
+    font-size: 13px;
+  }
+  .live-state .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Quiz 1 — predict the trace, then reveal</h1>
+  <div class="sub">Pause on each iteration. Ask the class what i becomes next, then click Step.</div>
+
+  <div class="controls">
+    <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+    <button class="ghost-btn" onclick="autoplay()">Auto-play</button>
+    <button class="ghost-btn" onclick="reset()">Reset</button>
+    <span class="step-info" id="stepInfo">click Step to begin</span>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">int</span> i = <span class="num">1</span>;</div>
+<div class="cl" id="c2"><span class="kw">while</span> (i &lt;= <span class="num">10</span>) {</div>
+<div class="cl" id="c3">  i = i * i;</div>
+<div class="cl" id="c4">  System.out.print(i + <span class="str">" "</span>);</div>
+<div class="cl" id="c5">  i++;</div>
+<div class="cl" id="c6">}</div>
+      </div>
+
+      <div class="live-state">
+        <div class="lbl">CURRENT STATE</div>
+        <div>i = <span class="state-pill i" id="livei">—</span></div>
+      </div>
+
+      <div class="output-block">
+        <div class="output-label">OUTPUT</div>
+        <div class="output-text empty" id="output">— press Step to begin —</div>
+      </div>
+
+      <div class="verdict" id="verdict"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ITERATION TABLE</div>
+      <table class="trace" id="traceTable">
+        <thead>
+          <tr>
+            <th></th>
+            <th>i (start)</th>
+            <th>i ≤ 10?</th>
+            <th>i = i × i</th>
+            <th>print</th>
+            <th>i++</th>
+          </tr>
+        </thead>
+        <tbody id="traceBody">
+          <tr id="row1" class="iter-row hidden">
+            <td class="iter-tag">iter 1</td>
+            <td class="start-val">1</td>
+            <td class="cond-pass">✓ true</td>
+            <td class="body-val">1 × 1 = 1</td>
+            <td class="body-val">1</td>
+            <td class="end-val">→ 2</td>
+          </tr>
+          <tr id="row2" class="iter-row hidden">
+            <td class="iter-tag">iter 2</td>
+            <td class="start-val">2</td>
+            <td class="cond-pass">✓ true</td>
+            <td class="body-val">2 × 2 = 4</td>
+            <td class="body-val">4</td>
+            <td class="end-val">→ 5</td>
+          </tr>
+          <tr id="row3" class="iter-row hidden">
+            <td class="iter-tag">iter 3</td>
+            <td class="start-val">5</td>
+            <td class="cond-pass">✓ true</td>
+            <td class="body-val">5 × 5 = 25</td>
+            <td class="body-val">25</td>
+            <td class="end-val">→ 26</td>
+          </tr>
+          <tr id="row4" class="iter-row hidden">
+            <td class="iter-tag">iter 4</td>
+            <td class="start-val">26</td>
+            <td class="cond-fail" colspan="5">✗ false  →  exit loop</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Iterations: each Step reveals one row. After all 4 rows, show verdict.
+  const iters = [
+    { i: 1, mid: 1, print: 1, next: 2 },
+    { i: 2, mid: 4, print: 4, next: 5 },
+    { i: 5, mid: 25, print: 25, next: 26 },
+    { i: 26, exit: true }
+  ];
+  let stepIdx = 0;
+  let outputBuf = [];
+  let timer = null;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    stepIdx = 0;
+    outputBuf = [];
+    [1,2,3,4].forEach(k => {
+      const r = document.getElementById('row' + k);
+      r.classList.remove('revealing');
+      r.classList.add('hidden');
+    });
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('output').className = 'output-text empty';
+    document.getElementById('output').textContent = '— press Step to begin —';
+    document.getElementById('livei').textContent = '—';
+    document.getElementById('stepInfo').textContent = 'click Step to begin';
+    document.getElementById('verdict').className = 'verdict';
+    document.getElementById('verdict').innerHTML = '';
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function step() {
+    if (stepIdx >= iters.length) return;
+    const it = iters[stepIdx];
+    stepIdx++;
+
+    const row = document.getElementById('row' + stepIdx);
+    row.classList.remove('hidden');
+    row.classList.add('revealing');
+
+    // highlight code lines
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    if (stepIdx === 1) {
+      document.getElementById('c1').className = 'cl taken';
+    }
+
+    if (it.exit) {
+      document.getElementById('c2').className = 'cl failed';
+      document.getElementById('livei').textContent = it.i;
+      document.getElementById('stepInfo').textContent = `iter ${stepIdx} — condition fails, loop exits`;
+
+      // verdict
+      const v = document.getElementById('verdict');
+      v.className = 'verdict shown';
+      v.innerHTML = `<strong>Output:</strong> 1 4 25 — only 3 prints, even though we expected the loop to "go up to 10". The trick was <strong>i = i × i</strong> jumping i from 5 → 25 in one step, then i++ pushed it to 26, and the condition failed.`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+    } else {
+      document.getElementById('c2').className = 'cl taken';
+      document.getElementById('c3').className = 'cl taken';
+      document.getElementById('c4').className = 'cl taken';
+      document.getElementById('c5').className = 'cl taken';
+      document.getElementById('livei').textContent = it.next;
+      outputBuf.push(it.print);
+      const out = document.getElementById('output');
+      out.className = 'output-text';
+      out.textContent = outputBuf.join(' ');
+      document.getElementById('stepInfo').textContent = `iter ${stepIdx} — i went from ${it.i} → ${it.next}`;
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (stepIdx >= iters.length) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1000);
+  }
+
+  reset();
+</script>
+</body>
+</html>

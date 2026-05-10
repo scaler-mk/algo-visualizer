@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Count digits</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 110px;
+  }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .var-display {
+    background: #0d1117;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .var-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .var-value-N {
+    font-size: 42px;
+    font-weight: 600;
+    color: var(--blue);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .var-value-cnt {
+    font-size: 42px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .digit-strip {
+    display: flex; gap: 4px; justify-content: center;
+    margin-top: 10px;
+    min-height: 30px;
+  }
+  .digit {
+    display: inline-block;
+    min-width: 32px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: 600;
+    background: var(--panel-2);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    transition: all 0.5s;
+  }
+  .digit.peeled {
+    background: rgba(229, 115, 115, 0.2);
+    border-color: var(--red);
+    color: var(--red);
+    animation: lift 0.6s ease-out;
+  }
+  @keyframes lift {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-12px); opacity: 0.4; }
+    100% { transform: translateY(0); }
+  }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .iter-list {
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 12px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .iter-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 1fr 60px;
+    gap: 10px;
+    padding: 8px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-bottom: 4px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .iter-row.shown { opacity: 1; background: rgba(0,0,0,0.18); }
+  .iter-row .it-tag { color: var(--muted); font-size: 10px; font-style: italic; font-family: Georgia, serif; }
+  .iter-row .it-N { color: var(--blue); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .iter-row .it-N strong { color: var(--accent); }
+  .iter-row .it-cnt { color: var(--accent); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+  .summary-block {
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: rgba(163, 217, 119, 0.06);
+    border-left: 3px solid var(--green);
+    border-radius: 4px;
+    display: none;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  .summary-block.shown { display: block; }
+  .summary-block strong { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Count digits — divide by 10 until nothing's left</h1>
+  <div class="sub">Each iteration peels one digit and bumps count. When N hits 0, count holds the answer.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="10101">
+    </div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button class="qb" onclick="set(7)">7</button>
+      <button class="qb" onclick="set(100)">100</button>
+      <button class="qb" onclick="set(10101)">10101</button>
+      <button class="qb" onclick="set(99999)">99999</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">int</span> count = <span class="num">0</span>;</div>
+<div class="cl" id="c2"><span class="kw">while</span> (N &gt; <span class="num">0</span>) {</div>
+<div class="cl" id="c3">  count++;</div>
+<div class="cl" id="c4">  N = N / <span class="num">10</span>;</div>
+<div class="cl" id="c5">}</div>
+<div class="cl" id="c6">print(count);</div>
+      </div>
+
+      <div class="var-display">
+        <div class="var-label">N (shrinks each step)</div>
+        <div class="var-value-N" id="nVal">—</div>
+        <div class="digit-strip" id="nStrip"></div>
+      </div>
+
+      <div class="var-display">
+        <div class="var-label">COUNT (grows each step)</div>
+        <div class="var-value-cnt" id="cntVal">0</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ITERATION LOG</div>
+      <div class="iter-list" id="iterList">
+        <div style="color: var(--muted); font-size: 12px; font-style: italic; padding: 8px;">— press Step to begin —</div>
+      </div>
+
+      <div class="summary-block" id="summary"></div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let N = 0;
+  let originalN = 0;
+  let count = 0;
+  let done = false;
+  let timer = null;
+  let iterations = [];
+
+  document.getElementById('nIn').oninput = reset;
+  function set(n) { document.getElementById('nIn').value = n; reset(); }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    originalN = +document.getElementById('nIn').value || 0;
+    N = originalN;
+    count = 0;
+    done = false;
+    iterations = [];
+
+    if (originalN === 0) {
+      // Special case: 0 has 1 digit
+      document.getElementById('nVal').textContent = 0;
+      document.getElementById('cntVal').textContent = 1;
+      renderStrip('nStrip', '0');
+      document.getElementById('iterList').innerHTML = '<div style="color: var(--muted); font-size: 12px; padding: 8px; font-style: italic;">N = 0 is a special case — count = 1</div>';
+      const s = document.getElementById('summary');
+      s.className = 'summary-block shown';
+      s.innerHTML = `<strong>0 has 1 digit</strong> — handled as a special case before the loop.`;
+      document.getElementById('stepLbl').textContent = 'special case: 0';
+      document.getElementById('stepBtn').disabled = true;
+      return;
+    }
+
+    document.getElementById('nVal').textContent = N;
+    document.getElementById('cntVal').textContent = 0;
+    renderStrip('nStrip', String(N));
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('c1').className = 'cl taken';
+    document.getElementById('iterList').innerHTML = '<div style="color: var(--muted); font-size: 12px; padding: 8px; font-style: italic;">— press Step to begin —</div>';
+    document.getElementById('summary').className = 'summary-block';
+    document.getElementById('summary').innerHTML = '';
+    document.getElementById('stepLbl').textContent = `iter 0 — N = ${originalN}, count = 0`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderStrip(id, str) {
+    const el = document.getElementById(id);
+    let html = '';
+    for (let k = 0; k < str.length; k++) {
+      html += `<span class="digit">${str[k]}</span>`;
+    }
+    el.innerHTML = html;
+  }
+
+  function step() {
+    if (done) return;
+    if (N <= 0) {
+      done = true;
+      document.getElementById('c2').className = 'cl';
+      document.getElementById('c6').className = 'cl taken';
+      const s = document.getElementById('summary');
+      s.className = 'summary-block shown';
+      s.innerHTML = `<strong>${originalN}</strong> has <strong>${count}</strong> digit${count === 1 ? '' : 's'} — needed ${count} iteration${count === 1 ? '' : 's'} to reduce to 0.`;
+      document.getElementById('stepLbl').textContent = 'done';
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      return;
+    }
+
+    const oldN = N;
+    const peeledDigit = N % 10;
+    count++;
+    document.getElementById('cntVal').textContent = count;
+
+    // Highlight current peeled digit
+    const nStrip = document.getElementById('nStrip');
+    if (nStrip.children.length > 0) {
+      nStrip.children[nStrip.children.length - 1].classList.add('peeled');
+    }
+
+    // Highlight code
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('c2').className = 'cl eval';
+    document.getElementById('c3').className = 'cl taken';
+    document.getElementById('c4').className = 'cl taken';
+
+    setTimeout(() => {
+      N = Math.floor(N / 10);
+      document.getElementById('nVal').textContent = N;
+      renderStrip('nStrip', N === 0 ? '' : String(N));
+
+      // Add to iteration list
+      const iterList = document.getElementById('iterList');
+      if (iterations.length === 0) iterList.innerHTML = '';
+      const row = document.createElement('div');
+      row.className = 'iter-row';
+      row.innerHTML = `
+        <div class="it-tag">iter ${count}</div>
+        <div class="it-N">${oldN}</div>
+        <div class="it-N">→ ${N}</div>
+        <div class="it-cnt">cnt = ${count}</div>
+      `;
+      iterList.appendChild(row);
+      setTimeout(() => row.classList.add('shown'), 30);
+      iterations.push({oldN, newN: N, count});
+    }, 300);
+
+    document.getElementById('stepLbl').textContent = `iter ${count} — N: ${oldN} → ${Math.floor(oldN/10)}, count = ${count}`;
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (done || N <= 0) { clearInterval(timer); timer = null; if (!done) step(); return; }
+      step();
+    }, 800);
+  }
+
+  reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Factor loop — three modes, one skeleton</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .seg {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .seg button.active {
+    background: var(--accent);
+    color: #1a1d23;
+    font-weight: 600;
+  }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 80px;
+  }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .str { color: #a3d977; }
+
+  .iter-grid {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    padding: 12px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    margin-bottom: 14px;
+    min-height: 50px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .iter-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    padding: 5px 9px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #0d1117;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    transition: all 0.3s;
+  }
+  .iter-pill.current {
+    background: rgba(240, 160, 75, 0.2);
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: scale(1.1);
+  }
+  .iter-pill.divisor {
+    background: rgba(163, 217, 119, 0.15);
+    color: var(--green);
+    border-color: var(--green);
+  }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+  }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 22px; color: var(--accent); font-weight: 600; }
+
+  .verdict-box {
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    border-left: 3px solid var(--line);
+    transition: all 0.3s;
+  }
+  .verdict-box.divisor { border-left-color: var(--green); background: rgba(163, 217, 119, 0.06); }
+  .verdict-box.skip { border-left-color: var(--muted); }
+  .verdict-box .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .verdict-box .text { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+  .running-sum {
+    margin-top: 12px; padding: 10px 14px;
+    background: rgba(192, 132, 232, 0.08);
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    display: none;
+  }
+  .running-sum.shown { display: block; }
+  .running-sum .lbl { color: var(--purple); font-size: 9px; letter-spacing: 0.1em; }
+
+  .result-block {
+    padding: 16px 18px;
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .result-block.success { border-color: var(--green); }
+  .result-block.fail { border-color: var(--red); }
+  .result-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .result-text { font-size: 18px; color: var(--ink); }
+  .result-text.empty { color: var(--muted); font-style: italic; font-size: 13px; }
+  .result-text.success { color: var(--green); }
+  .result-text.fail { color: var(--red); }
+
+  .skeleton-note {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(192, 132, 232, 0.06);
+    border-left: 3px solid var(--purple);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .skeleton-note strong { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The factor loop — three problems, one skeleton</h1>
+  <div class="sub">All three modes loop i from 1 to N and check <code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">N % i == 0</code>. Only the accumulator changes.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">MODE</span>
+      <div class="seg" id="modeSeg">
+        <button class="active" data-m="count">count factors</button>
+        <button data-m="prime">is prime?</button>
+        <button data-m="perfect">is perfect?</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="6">
+    </div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button class="qb" onclick="set(6)">6</button>
+      <button class="qb" onclick="set(12)">12</button>
+      <button class="qb" onclick="set(7)">7</button>
+      <button class="qb" onclick="set(28)">28</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="state-grid">
+        <div class="state-cell">
+          <div class="lbl">N</div>
+          <div class="val" id="stateN">—</div>
+        </div>
+        <div class="state-cell">
+          <div class="lbl">i</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+      </div>
+
+      <div class="state-grid" style="grid-template-columns: 1fr;">
+        <div class="state-cell">
+          <div class="lbl" id="accLbl">DIVISOR COUNT</div>
+          <div class="val" id="accVal">0</div>
+        </div>
+      </div>
+
+      <div class="skeleton-note">
+        <strong>Same skeleton →</strong> all three modes use the loop <code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">for (i=1; i≤N; i++)</code> with <code style="background:#0d1117;color:var(--blue);padding:1px 6px;border-radius:3px;">N % i == 0</code> as the divisor check. Only what we accumulate changes.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">DIVISOR PILLS</div>
+      <div class="iter-grid" id="iterGrid"></div>
+
+      <div class="verdict-box" id="verdictBox">
+        <div class="lbl" id="verdictLbl">CURRENT</div>
+        <div class="text" id="verdictText">— press Step to begin —</div>
+      </div>
+
+      <div class="running-sum" id="runningSum">
+        <div class="lbl">RUNNING SUM (proper divisors)</div>
+        <div id="sumText">—</div>
+      </div>
+
+      <div class="result-block" id="resultBox">
+        <div class="result-label">RESULT</div>
+        <div class="result-text empty" id="resultText">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const modes = {
+    count: {
+      title: 'count factors',
+      accLabel: 'DIVISOR COUNT',
+      iLimit: (N) => N,
+      showSum: false,
+      code: [
+        '<span class="kw">int</span> cnt = <span class="num">0</span>;',
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {',
+        '  <span class="kw">if</span> (N % i == <span class="num">0</span>) {',
+        '    cnt++;',
+        '  }',
+        '}',
+        '<span class="com">// cnt = number of factors</span>'
+      ],
+      result: (N, divs, sum) => `${N} has ${divs.length} factor${divs.length === 1 ? '' : 's'}: {${divs.join(', ')}}`,
+      resultClass: () => 'success'
+    },
+    prime: {
+      title: 'is prime?',
+      accLabel: 'DIVISOR COUNT',
+      iLimit: (N) => N,
+      showSum: false,
+      code: [
+        '<span class="kw">int</span> cnt = <span class="num">0</span>;',
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {',
+        '  <span class="kw">if</span> (N % i == <span class="num">0</span>) {',
+        '    cnt++;',
+        '  }',
+        '}',
+        '<span class="kw">return</span> (cnt == <span class="num">2</span>);'
+      ],
+      result: (N, divs) => {
+        const isPrime = divs.length === 2;
+        return isPrime ? `${N} is PRIME — exactly 2 factors` : `${N} is NOT prime — has ${divs.length} factor${divs.length === 1 ? '' : 's'}`;
+      },
+      resultClass: (N, divs) => divs.length === 2 ? 'success' : 'fail'
+    },
+    perfect: {
+      title: 'is perfect?',
+      accLabel: 'SUM OF PROPER DIVISORS',
+      iLimit: (N) => N - 1,
+      showSum: true,
+      code: [
+        '<span class="kw">int</span> sum = <span class="num">0</span>;',
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt; N; i++) {',
+        '  <span class="kw">if</span> (N % i == <span class="num">0</span>) {',
+        '    sum += i;',
+        '  }',
+        '}',
+        '<span class="kw">return</span> (sum == N);'
+      ],
+      result: (N, divs, sum) => {
+        const isPerfect = sum === N;
+        const sumStr = divs.length > 0 ? divs.join(' + ') + ' = ' + sum : '0';
+        return isPerfect
+          ? `${N} = ${sumStr} → PERFECT ✓`
+          : `${N} ≠ ${sumStr}  →  not perfect`;
+      },
+      resultClass: (N, divs, sum) => sum === N ? 'success' : 'fail'
+    }
+  };
+
+  let mode = 'count';
+  let i = 0;
+  let acc = 0; // count or sum depending on mode
+  let divs = [];
+  let done = false;
+  let timer = null;
+
+  document.getElementById('modeSeg').onclick = e => {
+    if (e.target.tagName !== 'BUTTON') return;
+    document.getElementById('modeSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    mode = e.target.dataset.m;
+    reset();
+  };
+
+  document.getElementById('nIn').oninput = reset;
+  function set(n) { document.getElementById('nIn').value = n; reset(); }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = 0;
+    acc = 0;
+    divs = [];
+    done = false;
+
+    const m = modes[mode];
+    const N = +document.getElementById('nIn').value || 1;
+
+    // Render code
+    const cb = document.getElementById('codebox');
+    cb.innerHTML = m.code.map((line, idx) => `<div class="cl" id="c${idx}">${line}</div>`).join('');
+    document.getElementById('c0').className = 'cl taken';
+
+    document.getElementById('accLbl').textContent = m.accLabel;
+    document.getElementById('accVal').textContent = 0;
+    document.getElementById('stateN').textContent = N;
+    document.getElementById('stateI').textContent = '—';
+
+    renderIterGrid(m.iLimit(N));
+
+    document.getElementById('verdictBox').className = 'verdict-box';
+    document.getElementById('verdictLbl').textContent = 'CURRENT';
+    document.getElementById('verdictText').textContent = '— press Step to begin —';
+
+    document.getElementById('runningSum').className = m.showSum ? 'running-sum shown' : 'running-sum';
+    document.getElementById('sumText').textContent = m.showSum ? '0' : '—';
+
+    document.getElementById('resultBox').className = 'result-block';
+    document.getElementById('resultText').className = 'result-text empty';
+    document.getElementById('resultText').textContent = '—';
+
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderIterGrid(limit) {
+    const grid = document.getElementById('iterGrid');
+    let html = '';
+    for (let k = 1; k <= limit; k++) {
+      html += `<div class="iter-pill" id="pill${k}">${k}</div>`;
+    }
+    grid.innerHTML = html;
+  }
+
+  function step() {
+    if (done) return;
+    const m = modes[mode];
+    const N = +document.getElementById('nIn').value || 1;
+    const limit = m.iLimit(N);
+
+    if (i >= limit) {
+      finish();
+      return;
+    }
+
+    i++;
+    document.getElementById('stateI').textContent = i;
+
+    if (i > 1) {
+      const prev = document.getElementById(`pill${i-1}`);
+      if (prev) prev.classList.remove('current');
+    }
+    const pill = document.getElementById(`pill${i}`);
+    if (pill) pill.classList.add('current');
+
+    // Highlight relevant code lines
+    Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+    document.getElementById('c1').className = 'cl eval';
+    document.getElementById('c2').className = 'cl eval';
+
+    const isDiv = N % i === 0;
+    if (isDiv) {
+      divs.push(i);
+      if (mode === 'perfect') {
+        acc += i;
+      } else {
+        acc++;
+      }
+      document.getElementById('accVal').textContent = acc;
+
+      if (pill) {
+        pill.classList.remove('current');
+        pill.classList.add('divisor');
+      }
+      document.getElementById('c3').className = 'cl taken';
+
+      document.getElementById('verdictBox').className = 'verdict-box divisor';
+      document.getElementById('verdictLbl').textContent = `✓ i = ${i} divides ${N}`;
+      document.getElementById('verdictText').textContent = mode === 'perfect'
+        ? `${N} % ${i} == 0  →  add ${i} to sum`
+        : `${N} % ${i} == 0  →  cnt++`;
+
+      if (m.showSum) {
+        document.getElementById('sumText').textContent = divs.join(' + ') + ' = ' + acc;
+      }
+    } else {
+      document.getElementById('verdictBox').className = 'verdict-box skip';
+      document.getElementById('verdictLbl').textContent = `i = ${i}`;
+      document.getElementById('verdictText').textContent = `${N} % ${i} ≠ 0  →  skip`;
+    }
+
+    if (i >= limit) {
+      setTimeout(finish, 200);
+    }
+  }
+
+  function finish() {
+    done = true;
+    const m = modes[mode];
+    const N = +document.getElementById('nIn').value || 1;
+
+    Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+    document.getElementById('c0').className = 'cl taken';
+    Array.from(document.getElementById('codebox').children).forEach((el, idx) => {
+      if (idx === m.code.length - 1) el.className = 'cl taken';
+    });
+
+    const cls = m.resultClass(N, divs, acc);
+    document.getElementById('resultBox').className = 'result-block ' + cls;
+    document.getElementById('resultText').className = 'result-text ' + cls;
+    document.getElementById('resultText').textContent = m.result(N, divs, acc);
+
+    document.getElementById('verdictBox').className = 'verdict-box';
+    document.getElementById('verdictLbl').textContent = 'DONE';
+    document.getElementById('verdictText').textContent = `loop completed — ${divs.length} divisor${divs.length === 1 ? '' : 's'} found`;
+
+    document.getElementById('stepBtn').disabled = true;
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (done) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 350);
+  }
+
+  reset();
+</script>
+</body>
+</html>
