@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hollow pyramid — three regions per row</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .seg {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .seg button.active { background: var(--accent); color: #1a1d23; font-weight: 600; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 70px;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.outer { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.left { background: rgba(93, 173, 236, 0.18); opacity: 1; color: var(--blue); border-left: 2px solid var(--blue); padding-left: 4px; }
+  .cl.middle { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.right { background: rgba(163, 217, 119, 0.18); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.taken { opacity: 0.7; }
+  .kw { color: #5dadec; }
+  .str { color: #a3d977; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--accent); }
+  .state-cell.left { border-left-color: var(--blue); }
+  .state-cell.mid { border-left-color: var(--purple); }
+  .state-cell.right { border-left-color: var(--green); }
+  .state-cell .lbl { font-size: 8px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 16px; font-weight: 600; }
+  .state-cell.i .val { color: var(--accent); }
+  .state-cell.left .val { color: var(--blue); }
+  .state-cell.mid .val { color: var(--purple); }
+  .state-cell.right .val { color: var(--green); }
+
+  .grid-view {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 18px 14px;
+    border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-height: 200px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .grid-row {
+    display: flex;
+    gap: 2px;
+    transition: all 0.3s;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .grid-row.current-row { background: rgba(240, 160, 75, 0.06); }
+  .cell {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.03);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+  }
+  .cell.current-left {
+    background: rgba(93, 173, 236, 0.3);
+    border-color: var(--blue);
+    color: var(--blue);
+    transform: scale(1.15);
+  }
+  .cell.left-filled {
+    background: rgba(93, 173, 236, 0.12);
+    border-color: var(--blue);
+    color: var(--blue);
+  }
+  .cell.current-mid {
+    background: rgba(192, 132, 232, 0.3);
+    border-color: var(--purple);
+    color: var(--purple);
+    transform: scale(1.15);
+  }
+  .cell.mid-filled {
+    background: rgba(192, 132, 232, 0.1);
+    border-color: rgba(192, 132, 232, 0.3);
+    color: var(--purple);
+  }
+  .cell.current-right {
+    background: rgba(163, 217, 119, 0.3);
+    border-color: var(--green);
+    color: var(--green);
+    transform: scale(1.15);
+  }
+  .cell.right-filled {
+    background: rgba(163, 217, 119, 0.15);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .cell.row-done { opacity: 0.6; }
+
+  .formula-box {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .formula-box .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .formula-box .text { color: var(--ink); font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+  .formula-piece { padding: 2px 8px; border-radius: 4px; font-weight: 600; margin: 0 2px; display: inline-block; }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+
+  .insight {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: rgba(240, 160, 75, 0.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .insight strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hollow pyramid — three regions, three loops, one row</h1>
+  <div class="sub">Each row is split: <span style="color:var(--blue)">left stars</span> → <span style="color:var(--purple)">middle spaces</span> → <span style="color:var(--green)">right stars</span>. Three little loops, one after another.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">VARIANT</span>
+      <div class="seg" id="modeSeg">
+        <button class="active" data-m="hollow">hollow (P8)</button>
+        <button data-m="inverted">inverted (P9)</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="5" min="1" max="6">
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i (row)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell left">
+          <div class="lbl" id="leftLbl">LEFT *</div>
+          <div class="val" id="stateLeft">—</div>
+        </div>
+        <div class="state-cell mid">
+          <div class="lbl" id="midLbl">MID space</div>
+          <div class="val" id="stateMid">—</div>
+        </div>
+        <div class="state-cell right">
+          <div class="lbl" id="rightLbl">RIGHT *</div>
+          <div class="val" id="stateRight">—</div>
+        </div>
+      </div>
+
+      <div class="formula-box">
+        <div class="lbl">CURRENT ROW BREAKDOWN</div>
+        <div class="text" id="formulaText">— press Step to begin —</div>
+      </div>
+
+      <div class="insight">
+        <strong>Mental model →</strong> stop thinking "row by row" and start thinking "left stars + spaces + right stars". Each segment has its own little loop with its own bound.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">OUTPUT</div>
+      <div class="grid-view" id="grid"></div>
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const modes = {
+    hollow: {
+      title: 'hollow',
+      // Regular hollow: row 1 = full base, row N = single * + spaces + single *
+      // Stars per side: N - i + 1
+      // Spaces in middle: (i - 1) * 2
+      starsCount: (i, N) => N - i + 1,
+      spacesCount: (i, N) => (i - 1) * 2,
+      formula: (i, N) => `<span class="formula-piece fp blue">${N-i+1} *</span> + <span class="formula-piece fp purple">${(i-1)*2} space${(i-1)*2 === 1 ? '' : 's'}</span> + <span class="formula-piece fp green">${N-i+1} *</span>`,
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {',
+        '  <span class="com">// LEFT stars: N - i + 1</span>',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= N - i + <span class="num">1</span>; j++) print(<span class="str">"*"</span>);',
+        '  <span class="com">// MIDDLE spaces: (i - 1) * 2</span>',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= (i - <span class="num">1</span>) * <span class="num">2</span>; j++) print(<span class="str">" "</span>);',
+        '  <span class="com">// RIGHT stars: N - i + 1</span>',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= N - i + <span class="num">1</span>; j++) print(<span class="str">"*"</span>);',
+        '  System.out.println();',
+        '}'
+      ]
+    },
+    inverted: {
+      title: 'inverted hollow',
+      // Inverted hollow: row 1 = single * + spaces + single *, row N = full base
+      // Stars per side: i
+      // Spaces in middle: 2 * (N - i)
+      starsCount: (i, N) => i,
+      spacesCount: (i, N) => 2 * (N - i),
+      formula: (i, N) => `<span class="formula-piece fp blue">${i} *</span> + <span class="formula-piece fp purple">${2*(N-i)} space${2*(N-i) === 1 ? '' : 's'}</span> + <span class="formula-piece fp green">${i} *</span>`,
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {',
+        '  <span class="com">// LEFT stars: i</span>',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= i; j++) print(<span class="str">"*"</span>);',
+        '  <span class="com">// MIDDLE spaces: 2 * (N - i)</span>',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= <span class="num">2</span> * (N - i); j++) print(<span class="str">" "</span>);',
+        '  <span class="com">// RIGHT stars: i</span>',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= i; j++) print(<span class="str">"*"</span>);',
+        '  System.out.println();',
+        '}'
+      ]
+    }
+  };
+
+  let mode = 'hollow';
+  let N = 5;
+  let i = 0, j = 0;
+  // phase: idle | left | mid | right | newline | done
+  let phase = 'idle';
+  let timer = null;
+
+  document.getElementById('modeSeg').onclick = e => {
+    if (e.target.tagName !== 'BUTTON') return;
+    document.getElementById('modeSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    mode = e.target.dataset.m;
+    reset();
+  };
+  document.getElementById('nIn').oninput = reset;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    N = +document.getElementById('nIn').value || 1;
+    i = 0; j = 0;
+    phase = 'idle';
+
+    const m = modes[mode];
+    const cb = document.getElementById('codebox');
+    cb.innerHTML = m.code.map((line, idx) => `<div class="cl" id="c${idx}">${line}</div>`).join('');
+
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateLeft').textContent = '—';
+    document.getElementById('stateMid').textContent = '—';
+    document.getElementById('stateRight').textContent = '—';
+
+    document.getElementById('formulaText').innerHTML = '— press Step to begin —';
+    renderGrid();
+    document.getElementById('stepLbl').textContent = `${m.title} pyramid, N = ${N}`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderGrid() {
+    const m = modes[mode];
+    const g = document.getElementById('grid');
+    let html = '';
+    for (let r = 1; r <= N; r++) {
+      const left = m.starsCount(r, N);
+      const mid = m.spacesCount(r, N);
+      const right = m.starsCount(r, N);
+      const isCurrentRow = r === i && phase !== 'done';
+      html += `<div class="grid-row${isCurrentRow ? ' current-row' : ''}">`;
+
+      // LEFT stars
+      for (let c = 1; c <= left; c++) {
+        let cls = 'cell';
+        let content = '';
+        if (r < i) { cls += ' left-filled row-done'; content = '*'; }
+        else if (r === i && phase === 'left' && c < j) { cls += ' left-filled'; content = '*'; }
+        else if (r === i && phase === 'left' && c === j) { cls += ' current-left'; content = '*'; }
+        else if (r === i && (phase === 'mid' || phase === 'right' || phase === 'newline')) { cls += ' left-filled'; content = '*'; }
+        html += `<div class="${cls}">${content}</div>`;
+      }
+      // MIDDLE spaces
+      for (let c = 1; c <= mid; c++) {
+        let cls = 'cell';
+        let content = '';
+        if (r < i) { cls += ' mid-filled row-done'; content = '·'; }
+        else if (r === i && phase === 'mid' && c < j) { cls += ' mid-filled'; content = '·'; }
+        else if (r === i && phase === 'mid' && c === j) { cls += ' current-mid'; content = '·'; }
+        else if (r === i && (phase === 'right' || phase === 'newline')) { cls += ' mid-filled'; content = '·'; }
+        html += `<div class="${cls}">${content}</div>`;
+      }
+      // RIGHT stars
+      for (let c = 1; c <= right; c++) {
+        let cls = 'cell';
+        let content = '';
+        if (r < i) { cls += ' right-filled row-done'; content = '*'; }
+        else if (r === i && phase === 'right' && c < j) { cls += ' right-filled'; content = '*'; }
+        else if (r === i && phase === 'right' && c === j) { cls += ' current-right'; content = '*'; }
+        else if (r === i && phase === 'newline') { cls += ' right-filled'; content = '*'; }
+        html += `<div class="${cls}">${content}</div>`;
+      }
+      html += '</div>';
+    }
+    g.innerHTML = html;
+  }
+
+  function highlight(klassFor) {
+    const m = modes[mode];
+    Array.from(document.getElementById('codebox').children).forEach(el => el.className = 'cl');
+    klassFor.forEach(([id, cls]) => {
+      const el = document.getElementById('c' + id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function updateFormula() {
+    const m = modes[mode];
+    document.getElementById('formulaText').innerHTML = `row <strong>${i}</strong>: ${m.formula(i, N)}`;
+    document.getElementById('stateLeft').textContent = m.starsCount(i, N);
+    document.getElementById('stateMid').textContent = m.spacesCount(i, N);
+    document.getElementById('stateRight').textContent = m.starsCount(i, N);
+  }
+
+  function step() {
+    const m = modes[mode];
+
+    if (phase === 'idle') {
+      i = 1;
+      const left = m.starsCount(i, N);
+      if (left > 0) {
+        j = 1;
+        phase = 'left';
+        highlight([[0, 'outer'], [2, 'left']]);
+      } else if (m.spacesCount(i, N) > 0) {
+        j = 1;
+        phase = 'mid';
+        highlight([[0, 'outer'], [4, 'middle']]);
+      } else {
+        j = 1;
+        phase = 'right';
+        highlight([[0, 'outer'], [6, 'right']]);
+      }
+      document.getElementById('stateI').textContent = i;
+      updateFormula();
+      renderGrid();
+      document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}`;
+      return;
+    }
+
+    if (phase === 'left') {
+      const left = m.starsCount(i, N);
+      if (j < left) {
+        j++;
+        highlight([[2, 'left']]);
+      } else {
+        // Move to mid
+        const mid = m.spacesCount(i, N);
+        if (mid > 0) {
+          j = 1;
+          phase = 'mid';
+          highlight([[4, 'middle']]);
+        } else {
+          // Skip mid, go to right
+          const right = m.starsCount(i, N);
+          if (right > 0) {
+            j = 1;
+            phase = 'right';
+            highlight([[6, 'right']]);
+          } else {
+            phase = 'newline';
+            highlight([[7, 'taken']]);
+          }
+        }
+      }
+      renderGrid();
+      document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}, j = ${j}`;
+      return;
+    }
+
+    if (phase === 'mid') {
+      const mid = m.spacesCount(i, N);
+      if (j < mid) {
+        j++;
+        highlight([[4, 'middle']]);
+      } else {
+        // Move to right
+        const right = m.starsCount(i, N);
+        if (right > 0) {
+          j = 1;
+          phase = 'right';
+          highlight([[6, 'right']]);
+        } else {
+          phase = 'newline';
+          highlight([[7, 'taken']]);
+        }
+      }
+      renderGrid();
+      document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}, j = ${j}`;
+      return;
+    }
+
+    if (phase === 'right') {
+      const right = m.starsCount(i, N);
+      if (j < right) {
+        j++;
+        highlight([[6, 'right']]);
+      } else {
+        phase = 'newline';
+        highlight([[7, 'taken']]);
+      }
+      renderGrid();
+      document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}, j = ${j}`;
+      return;
+    }
+
+    if (phase === 'newline') {
+      if (i < N) {
+        i++;
+        const left = m.starsCount(i, N);
+        if (left > 0) {
+          j = 1;
+          phase = 'left';
+          highlight([[0, 'outer'], [2, 'left']]);
+        } else if (m.spacesCount(i, N) > 0) {
+          j = 1;
+          phase = 'mid';
+          highlight([[0, 'outer'], [4, 'middle']]);
+        } else {
+          j = 1;
+          phase = 'right';
+          highlight([[0, 'outer'], [6, 'right']]);
+        }
+        document.getElementById('stateI').textContent = i;
+        updateFormula();
+        renderGrid();
+        document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}`;
+      } else {
+        phase = 'done';
+        highlight([]);
+        renderGrid();
+        document.getElementById('stepLbl').textContent = 'done';
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 250);
+  }
+
+  reset();
+</script>
+</body>
+</html>

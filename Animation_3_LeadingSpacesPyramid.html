@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Leading spaces pyramid</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 70px;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.outer { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.spaces { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.stars { background: rgba(163, 217, 119, 0.15); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.taken { opacity: 1; color: var(--green); }
+  .kw { color: #5dadec; }
+  .str { color: #a3d977; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--accent); }
+  .state-cell.sp { border-left-color: var(--purple); }
+  .state-cell.st { border-left-color: var(--green); }
+  .state-cell .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; }
+  .state-cell.i .val { color: var(--accent); }
+  .state-cell.sp .val { color: var(--purple); }
+  .state-cell.st .val { color: var(--green); }
+
+  .grid-view {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 18px 14px;
+    border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-height: 220px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .grid-row {
+    display: flex;
+    gap: 2px;
+    transition: all 0.3s;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .grid-row.current-row {
+    background: rgba(240, 160, 75, 0.06);
+  }
+  .cell {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.03);
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+  }
+  .cell.space-current {
+    background: rgba(192, 132, 232, 0.25);
+    border-color: var(--purple);
+    transform: scale(1.15);
+  }
+  .cell.space-filled {
+    background: rgba(192, 132, 232, 0.1);
+    border-color: rgba(192, 132, 232, 0.3);
+    color: var(--purple);
+  }
+  .cell.star-current {
+    background: rgba(163, 217, 119, 0.25);
+    border-color: var(--green);
+    color: var(--green);
+    transform: scale(1.15);
+  }
+  .cell.star-filled {
+    background: rgba(163, 217, 119, 0.12);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .cell.row-done { background: rgba(163, 217, 119, 0.06); color: rgba(163, 217, 119, 0.6); }
+
+  .formula-box {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    line-height: 1.7;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .formula-box .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .formula-box .text { color: var(--ink); font-size: 13px; }
+  .formula-piece { padding: 2px 8px; border-radius: 4px; font-weight: 600; margin: 0 2px; display: inline-block; }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Leading spaces pyramid — first spaces, then stars</h1>
+  <div class="sub">Two inner loops per row. <span style="color:var(--purple)">Purple</span> = spaces phase, <span style="color:var(--green)">green</span> = stars phase.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="4" min="1" max="6">
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {</div>
+<div class="cl" id="c2">  <span class="com">// phase 1: spaces</span></div>
+<div class="cl" id="c3">  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= N - i; j++) {</div>
+<div class="cl" id="c4">    System.out.print(<span class="str">" "</span>);</div>
+<div class="cl" id="c5">  }</div>
+<div class="cl" id="c6">  <span class="com">// phase 2: stars</span></div>
+<div class="cl" id="c7">  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= <span class="num">2</span>*i - <span class="num">1</span>; j++) {</div>
+<div class="cl" id="c8">    System.out.print(<span class="str">"*"</span>);</div>
+<div class="cl" id="c9">  }</div>
+<div class="cl" id="c10">  System.out.println();</div>
+<div class="cl" id="c11">}</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i (row)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell sp">
+          <div class="lbl">SPACES (N − i)</div>
+          <div class="val" id="stateSp">—</div>
+        </div>
+        <div class="state-cell st">
+          <div class="lbl">STARS (2i − 1)</div>
+          <div class="val" id="stateSt">—</div>
+        </div>
+      </div>
+
+      <div class="formula-box">
+        <div class="lbl">CURRENT ROW DECOMPOSITION</div>
+        <div class="text" id="formulaText">— press Step to begin —</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">OUTPUT</div>
+      <div class="grid-view" id="grid"></div>
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let N = 4;
+  let i = 0, j = 0;
+  // phase: idle | spaces | stars | newline | done
+  let phase = 'idle';
+  let timer = null;
+
+  document.getElementById('nIn').oninput = reset;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    N = +document.getElementById('nIn').value || 1;
+    i = 0; j = 0;
+    phase = 'idle';
+
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateSp').textContent = '—';
+    document.getElementById('stateSt').textContent = '—';
+
+    [1,2,3,4,5,6,7,8,9,10,11].forEach(id => {
+      const el = document.getElementById('c' + id);
+      if (el) el.className = 'cl';
+    });
+
+    document.getElementById('formulaText').innerHTML = '— press Step to begin —';
+    renderGrid();
+    document.getElementById('stepLbl').textContent = `pyramid, N = ${N}`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function spacesFor(row) { return N - row; }
+  function starsFor(row) { return 2 * row - 1; }
+
+  function renderGrid() {
+    const g = document.getElementById('grid');
+    let html = '';
+    for (let r = 1; r <= N; r++) {
+      const sp = spacesFor(r);
+      const st = starsFor(r);
+      const isCurrentRow = r === i && phase !== 'done';
+      html += `<div class="grid-row${isCurrentRow ? ' current-row' : ''}">`;
+
+      // spaces
+      for (let c = 1; c <= sp; c++) {
+        let cls = 'cell';
+        let content = '';
+        if (r < i) { cls += ' row-done'; content = '·'; }
+        else if (r === i && phase === 'spaces' && c < j) { cls += ' space-filled'; content = '·'; }
+        else if (r === i && phase === 'spaces' && c === j) { cls += ' space-current'; content = '·'; }
+        else if (r === i && (phase === 'stars' || phase === 'newline')) { cls += ' space-filled'; content = '·'; }
+        html += `<div class="${cls}">${content}</div>`;
+      }
+      // stars
+      for (let c = 1; c <= st; c++) {
+        let cls = 'cell';
+        let content = '';
+        if (r < i) { cls += ' row-done'; content = '*'; }
+        else if (r === i && phase === 'stars' && c < j) { cls += ' star-filled'; content = '*'; }
+        else if (r === i && phase === 'stars' && c === j) { cls += ' star-current'; content = '*'; }
+        else if (r === i && phase === 'newline') { cls += ' star-filled'; content = '*'; }
+        html += `<div class="${cls}">${content}</div>`;
+      }
+      html += '</div>';
+    }
+    g.innerHTML = html;
+  }
+
+  function highlight(arr) {
+    [1,2,3,4,5,6,7,8,9,10,11].forEach(id => {
+      const el = document.getElementById('c' + id);
+      if (el) el.className = 'cl';
+    });
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById('c' + id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'idle') {
+      i = 1;
+      const sp = spacesFor(i);
+      // If sp == 0 (i==N), skip to stars phase
+      if (sp > 0) {
+        j = 1;
+        phase = 'spaces';
+        highlight([[1,'outer'],[3,'spaces'],[4,'taken']]);
+      } else {
+        j = 1;
+        phase = 'stars';
+        highlight([[1,'outer'],[7,'stars'],[8,'taken']]);
+      }
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('stateSp').textContent = sp;
+      document.getElementById('stateSt').textContent = starsFor(i);
+      updateFormula();
+      renderGrid();
+      document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}`;
+      return;
+    }
+
+    if (phase === 'spaces') {
+      const sp = spacesFor(i);
+      if (j < sp) {
+        j++;
+        highlight([[3,'spaces'],[4,'taken']]);
+      } else {
+        // spaces done, start stars
+        const st = starsFor(i);
+        if (st > 0) {
+          j = 1;
+          phase = 'stars';
+          highlight([[7,'stars'],[8,'taken']]);
+        } else {
+          phase = 'newline';
+          highlight([[10,'taken']]);
+        }
+      }
+      renderGrid();
+      document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}, j = ${j}`;
+      return;
+    }
+
+    if (phase === 'stars') {
+      const st = starsFor(i);
+      if (j < st) {
+        j++;
+        highlight([[7,'stars'],[8,'taken']]);
+      } else {
+        phase = 'newline';
+        highlight([[10,'taken']]);
+      }
+      renderGrid();
+      document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}, j = ${j}`;
+      return;
+    }
+
+    if (phase === 'newline') {
+      if (i < N) {
+        i++;
+        const sp = spacesFor(i);
+        if (sp > 0) {
+          j = 1;
+          phase = 'spaces';
+          highlight([[1,'outer'],[3,'spaces'],[4,'taken']]);
+        } else {
+          j = 1;
+          phase = 'stars';
+          highlight([[1,'outer'],[7,'stars'],[8,'taken']]);
+        }
+        document.getElementById('stateI').textContent = i;
+        document.getElementById('stateSp').textContent = spacesFor(i);
+        document.getElementById('stateSt').textContent = starsFor(i);
+        updateFormula();
+        renderGrid();
+        document.getElementById('stepLbl').textContent = `row ${i} — phase: ${phase}`;
+      } else {
+        phase = 'done';
+        highlight([]);
+        renderGrid();
+        document.getElementById('stepLbl').textContent = 'done';
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+    }
+  }
+
+  function updateFormula() {
+    const sp = spacesFor(i);
+    const st = starsFor(i);
+    document.getElementById('formulaText').innerHTML =
+      `row <strong>${i}</strong>: <span class="formula-piece fp purple">${sp} space${sp === 1 ? '' : 's'}</span> + <span class="formula-piece fp green">${st} star${st === 1 ? '' : 's'}</span>`;
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 280);
+  }
+
+  reset();
+</script>
+</body>
+</html>

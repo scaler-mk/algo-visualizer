@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stair patterns — three variants</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .seg {
+    display: flex;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .seg button.active { background: var(--accent); color: #1a1d23; font-weight: 600; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 70px;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.outer { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.inner { background: rgba(93, 173, 236, 0.18); opacity: 1; color: var(--blue); border-left: 2px solid var(--blue); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .str { color: #a3d977; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.j { border-left-color: var(--blue); }
+  .state-cell.lim { border-left-color: var(--accent); }
+  .state-cell .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.j .val { color: var(--blue); }
+  .state-cell.lim .val { color: var(--accent); }
+
+  .grid-view {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 18px 14px;
+    border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-height: 200px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .grid-row {
+    display: flex;
+    gap: 2px;
+    transition: all 0.3s;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .grid-row.current-row {
+    background: rgba(192, 132, 232, 0.1);
+  }
+  .cell {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+  }
+  .cell.current {
+    background: rgba(240, 160, 75, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.15);
+  }
+  .cell.filled {
+    background: rgba(163, 217, 119, 0.15);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .cell.row-done { background: rgba(163, 217, 119, 0.06); color: rgba(163, 217, 119, 0.7); }
+
+  .formula-box {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    line-height: 1.7;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .formula-box .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .formula-box .text { color: var(--ink); font-size: 13px; }
+  .formula-box .text strong { color: var(--accent); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Triangle patterns — change one bound, change everything</h1>
+  <div class="sub">Three problems, the same outer loop. Only the inner loop's upper bound (and what it prints) changes.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PATTERN</span>
+      <div class="seg" id="modeSeg">
+        <button class="active" data-m="stair">stair (P3)</button>
+        <button data-m="numeric">numeric (P4)</button>
+        <button data-m="inverted">inverted (P5)</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="4" min="1" max="8">
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell j">
+          <div class="lbl">j</div>
+          <div class="val" id="stateJ">—</div>
+        </div>
+        <div class="state-cell lim">
+          <div class="lbl" id="limLbl">UPPER BOUND</div>
+          <div class="val" id="stateLim">—</div>
+        </div>
+      </div>
+
+      <div class="formula-box">
+        <div class="lbl">FORMULA FOR THIS ROW</div>
+        <div class="text" id="formulaText">— pick a pattern and press Step —</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">OUTPUT</div>
+      <div class="grid-view" id="grid"></div>
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const modes = {
+    stair: {
+      title: 'stair',
+      limLabel: 'j ≤ i',
+      jLimit: (i, N) => i,
+      printChar: () => '*',
+      formula: (i, N) => `row <strong>${i}</strong>: print <strong>*</strong> for j = 1 to <strong>${i}</strong>  →  ${i} star${i === 1 ? '' : 's'}`,
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= i; j++) {',
+        '    System.out.print(<span class="str">"*"</span>);',
+        '  }',
+        '  System.out.println();',
+        '}'
+      ],
+      innerLine: 1
+    },
+    numeric: {
+      title: 'numeric',
+      limLabel: 'j ≤ i',
+      jLimit: (i, N) => i,
+      printChar: (j) => String(j),
+      formula: (i, N) => `row <strong>${i}</strong>: print <strong>j</strong> for j = 1 to <strong>${i}</strong>  →  numbers 1 to ${i}`,
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= i; j++) {',
+        '    System.out.print(j);',
+        '  }',
+        '  System.out.println();',
+        '}'
+      ],
+      innerLine: 1
+    },
+    inverted: {
+      title: 'inverted half pyramid',
+      limLabel: 'j ≤ N-i+1',
+      jLimit: (i, N) => N - i + 1,
+      printChar: () => '*',
+      formula: (i, N) => `row <strong>${i}</strong>: print <strong>*</strong> for j = 1 to <strong>${N - i + 1}</strong> (= N - i + 1)  →  ${N - i + 1} star${N - i + 1 === 1 ? '' : 's'}`,
+      code: [
+        '<span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {',
+        '  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= N - i + <span class="num">1</span>; j++) {',
+        '    System.out.print(<span class="str">"*"</span>);',
+        '  }',
+        '  System.out.println();',
+        '}'
+      ],
+      innerLine: 1
+    }
+  };
+
+  let mode = 'stair';
+  let N = 4;
+  let i = 0, j = 0;
+  let phase = 'idle';
+  let timer = null;
+  let cells = []; // 2D array tracking what's been printed
+
+  document.getElementById('modeSeg').onclick = e => {
+    if (e.target.tagName !== 'BUTTON') return;
+    document.getElementById('modeSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    mode = e.target.dataset.m;
+    reset();
+  };
+  document.getElementById('nIn').oninput = reset;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    N = +document.getElementById('nIn').value || 1;
+    i = 0; j = 0;
+    phase = 'idle';
+    cells = [];
+    for (let r = 1; r <= N; r++) cells.push([]);
+
+    const m = modes[mode];
+    const cb = document.getElementById('codebox');
+    cb.innerHTML = m.code.map((line, idx) => `<div class="cl" id="c${idx}">${line}</div>`).join('');
+
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateJ').textContent = '—';
+    document.getElementById('limLbl').textContent = m.limLabel;
+    document.getElementById('stateLim').textContent = '—';
+
+    document.getElementById('formulaText').innerHTML = '— press Step to begin —';
+    renderGrid();
+    document.getElementById('stepLbl').textContent = `${m.title} pattern, N = ${N}`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderGrid() {
+    const m = modes[mode];
+    const g = document.getElementById('grid');
+    let html = '';
+    for (let r = 1; r <= N; r++) {
+      const limit = m.jLimit(r, N);
+      const isCurrentRow = r === i && phase !== 'done';
+      html += `<div class="grid-row${isCurrentRow ? ' current-row' : ''}">`;
+      for (let c = 1; c <= limit; c++) {
+        let cls = 'cell';
+        let content = '';
+        if (r < i) {
+          cls += ' row-done';
+          content = m.printChar(c, r);
+        } else if (r === i && c < j) {
+          cls += ' filled';
+          content = m.printChar(c, r);
+        } else if (r === i && c === j && phase === 'inner') {
+          cls += ' current';
+          content = m.printChar(c, r);
+        } else if (r === i && phase === 'newline') {
+          cls += ' filled';
+          content = m.printChar(c, r);
+        }
+        html += `<div class="${cls}">${content}</div>`;
+      }
+      html += '</div>';
+    }
+    g.innerHTML = html;
+  }
+
+  function step() {
+    const m = modes[mode];
+
+    if (phase === 'idle') {
+      i = 1; j = 1;
+      phase = 'inner';
+      highlightCode(['outer', 'inner', 'taken', null, null, null]);
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('stateJ').textContent = j;
+      document.getElementById('stateLim').textContent = m.jLimit(i, N);
+      document.getElementById('formulaText').innerHTML = m.formula(i, N);
+      renderGrid();
+      document.getElementById('stepLbl').textContent = `row ${i}, printing ${m.printChar(j, i)}`;
+      return;
+    }
+
+    if (phase === 'inner') {
+      const limit = m.jLimit(i, N);
+      if (j < limit) {
+        j++;
+        highlightCode([null, 'inner', 'taken', null, null, null]);
+        document.getElementById('stateJ').textContent = j;
+        renderGrid();
+        document.getElementById('stepLbl').textContent = `row ${i}, printing ${m.printChar(j, i)}`;
+      } else {
+        phase = 'newline';
+        highlightCode([null, null, null, null, 'taken', null]);
+        renderGrid();
+        document.getElementById('stepLbl').textContent = `row ${i} complete`;
+      }
+      return;
+    }
+
+    if (phase === 'newline') {
+      if (i < N) {
+        i++; j = 1;
+        phase = 'inner';
+        highlightCode(['outer', 'inner', 'taken', null, null, null]);
+        document.getElementById('stateI').textContent = i;
+        document.getElementById('stateJ').textContent = j;
+        document.getElementById('stateLim').textContent = m.jLimit(i, N);
+        document.getElementById('formulaText').innerHTML = m.formula(i, N);
+        renderGrid();
+        document.getElementById('stepLbl').textContent = `row ${i}, printing ${m.printChar(j, i)}`;
+      } else {
+        phase = 'done';
+        highlightCode([null, null, null, null, null, null]);
+        renderGrid();
+        document.getElementById('stepLbl').textContent = 'done';
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+    }
+  }
+
+  function highlightCode(klasses) {
+    const m = modes[mode];
+    klasses.forEach((k, idx) => {
+      const el = document.getElementById('c' + idx);
+      if (!el) return;
+      el.className = 'cl' + (k ? ' ' + k : '');
+    });
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 350);
+  }
+
+  reset();
+</script>
+</body>
+</html>

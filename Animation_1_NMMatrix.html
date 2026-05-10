@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>N × M matrix — nested loops</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 70px;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 6px; }
+  .cl.outer { background: rgba(192, 132, 232, 0.18); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 6px; }
+  .cl.inner { background: rgba(93, 173, 236, 0.18); opacity: 1; color: var(--blue); border-left: 2px solid var(--blue); padding-left: 6px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 6px; }
+  .kw { color: #5dadec; }
+  .str { color: #a3d977; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.j { border-left-color: var(--blue); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 22px; font-weight: 600; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.j .val { color: var(--blue); }
+
+  .grid-view {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 24px;
+    border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 200px;
+  }
+  .grid-row {
+    display: flex;
+    gap: 4px;
+    transition: all 0.3s;
+  }
+  .grid-row.current-row {
+    background: rgba(192, 132, 232, 0.1);
+    border-radius: 4px;
+    padding: 2px;
+  }
+  .cell {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid transparent;
+    color: var(--muted);
+    font-size: 18px;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+  .cell.current {
+    background: rgba(240, 160, 75, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.15);
+  }
+  .cell.filled {
+    background: rgba(163, 217, 119, 0.15);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .cell.row-done {
+    background: rgba(163, 217, 119, 0.08);
+    border-color: rgba(163, 217, 119, 0.3);
+    color: var(--green);
+  }
+
+  .phase-box {
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--line);
+    transition: all 0.3s;
+  }
+  .phase-box.outer { border-left-color: var(--purple); background: rgba(192, 132, 232, 0.06); }
+  .phase-box.inner { border-left-color: var(--blue); background: rgba(93, 173, 236, 0.06); }
+  .phase-box.newline { border-left-color: var(--accent); background: rgba(240, 160, 75, 0.06); }
+  .phase-box .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .phase-box .text { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+
+  .legend {
+    display: flex; gap: 16px; padding: 10px 14px;
+    background: var(--panel-2); border-radius: 5px;
+    margin-bottom: 14px; font-size: 11px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .leg-swatch { width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>N × M matrix — outer loop walks rows, inner loop fills columns</h1>
+  <div class="sub"><span style="color:var(--purple)">i</span> climbs row by row. For each i, <span style="color:var(--blue)">j</span> sweeps left to right. Then a newline. Repeat.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N (rows)</span>
+      <input type="number" class="num-input" id="nIn" value="3" min="1" max="6">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">M (cols)</span>
+      <input type="number" class="num-input" id="mIn" value="4" min="1" max="8">
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="leg-swatch" style="background:#c084e8"></span>i (outer / row)</div>
+    <div class="legend-item"><span class="leg-swatch" style="background:#5dadec"></span>j (inner / column)</div>
+    <div class="legend-item"><span class="leg-swatch" style="background:#f0a04b"></span>currently printing</div>
+    <div class="legend-item"><span class="leg-swatch" style="background:#a3d977"></span>already printed</div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {</div>
+<div class="cl" id="c2">  <span class="kw">for</span> (<span class="kw">int</span> j = <span class="num">1</span>; j &lt;= M; j++) {</div>
+<div class="cl" id="c3">    System.out.print(<span class="str">"*"</span>);</div>
+<div class="cl" id="c4">  }</div>
+<div class="cl" id="c5">  System.out.println();</div>
+<div class="cl" id="c6">}</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i (row)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell j">
+          <div class="lbl">j (col)</div>
+          <div class="val" id="stateJ">—</div>
+        </div>
+      </div>
+
+      <div class="phase-box" id="phaseBox">
+        <div class="lbl" id="phaseLbl">PHASE</div>
+        <div class="text" id="phaseText">— press Step to begin —</div>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">OUTPUT GRID</div>
+      <div class="grid-view" id="grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let N = 3, M = 4;
+  let i = 0, j = 0;
+  let phase = 'idle'; // idle | inner | newline | done
+  let timer = null;
+  let totalSteps = 0;
+  let printedSteps = 0;
+
+  document.getElementById('nIn').oninput = reset;
+  document.getElementById('mIn').oninput = reset;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    N = +document.getElementById('nIn').value || 1;
+    M = +document.getElementById('mIn').value || 1;
+    i = 0; j = 0;
+    phase = 'idle';
+    totalSteps = 0;
+    printedSteps = 0;
+
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateJ').textContent = '—';
+
+    ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+
+    document.getElementById('phaseBox').className = 'phase-box';
+    document.getElementById('phaseLbl').textContent = 'PHASE';
+    document.getElementById('phaseText').textContent = '— press Step to begin —';
+
+    renderGrid();
+    document.getElementById('stepLbl').textContent = `grid: ${N} × ${M} = ${N*M} cells to fill`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderGrid() {
+    const g = document.getElementById('grid');
+    let html = '';
+    for (let r = 1; r <= N; r++) {
+      const isCurrentRow = r === i && phase !== 'done';
+      html += `<div class="grid-row${isCurrentRow ? ' current-row' : ''}">`;
+      for (let c = 1; c <= M; c++) {
+        let cls = 'cell';
+        if (r < i) cls += ' row-done';
+        else if (r === i && c < j) cls += ' filled';
+        else if (r === i && c === j && phase === 'inner') cls += ' current';
+        else if (r === i && phase === 'newline') cls += ' filled';
+        html += `<div class="${cls}">${(r < i || (r === i && (c < j || phase === 'newline')) || (r === i && c === j && phase === 'inner')) ? '*' : ''}</div>`;
+      }
+      html += '</div>';
+    }
+    g.innerHTML = html;
+  }
+
+  function step() {
+    // Phase machine:
+    // idle → inner (i=1, j=1, print *)
+    // inner → inner (j++) until j > M, then newline
+    // newline → inner (i++, j=1, print *) or done
+
+    if (phase === 'idle') {
+      i = 1; j = 1;
+      phase = 'inner';
+      ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+      document.getElementById('c1').className = 'cl outer';
+      document.getElementById('c2').className = 'cl inner';
+      document.getElementById('c3').className = 'cl taken';
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('stateJ').textContent = j;
+      document.getElementById('phaseBox').className = 'phase-box inner';
+      document.getElementById('phaseLbl').textContent = 'INNER LOOP — print *';
+      document.getElementById('phaseText').textContent = `print * at (row ${i}, col ${j})`;
+      printedSteps++;
+      document.getElementById('stepLbl').textContent = `printed ${printedSteps} of ${N*M}`;
+      renderGrid();
+      return;
+    }
+
+    if (phase === 'inner') {
+      // We just printed at (i, j). Advance j.
+      if (j < M) {
+        j++;
+        ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+        document.getElementById('c2').className = 'cl inner';
+        document.getElementById('c3').className = 'cl taken';
+        document.getElementById('stateJ').textContent = j;
+        document.getElementById('phaseBox').className = 'phase-box inner';
+        document.getElementById('phaseLbl').textContent = `INNER LOOP — j = ${j}`;
+        document.getElementById('phaseText').textContent = `print * at (row ${i}, col ${j})`;
+        printedSteps++;
+        document.getElementById('stepLbl').textContent = `printed ${printedSteps} of ${N*M}`;
+      } else {
+        // Inner done, do newline
+        phase = 'newline';
+        ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+        document.getElementById('c5').className = 'cl taken';
+        document.getElementById('phaseBox').className = 'phase-box newline';
+        document.getElementById('phaseLbl').textContent = 'NEWLINE — println()';
+        document.getElementById('phaseText').textContent = `row ${i} complete, drop cursor to next line`;
+        document.getElementById('stepLbl').textContent = `row ${i} done`;
+      }
+      renderGrid();
+      return;
+    }
+
+    if (phase === 'newline') {
+      if (i < N) {
+        i++; j = 1;
+        phase = 'inner';
+        ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+        document.getElementById('c1').className = 'cl outer';
+        document.getElementById('c2').className = 'cl inner';
+        document.getElementById('c3').className = 'cl taken';
+        document.getElementById('stateI').textContent = i;
+        document.getElementById('stateJ').textContent = j;
+        document.getElementById('phaseBox').className = 'phase-box outer';
+        document.getElementById('phaseLbl').textContent = `OUTER LOOP — i = ${i}`;
+        document.getElementById('phaseText').textContent = `print * at (row ${i}, col ${j})`;
+        printedSteps++;
+        document.getElementById('stepLbl').textContent = `printed ${printedSteps} of ${N*M}`;
+      } else {
+        phase = 'done';
+        ['c1','c2','c3','c4','c5','c6'].forEach(id => document.getElementById(id).className = 'cl');
+        document.getElementById('phaseBox').className = 'phase-box';
+        document.getElementById('phaseLbl').textContent = 'DONE';
+        document.getElementById('phaseText').textContent = `${N*M} cells printed across ${N} rows`;
+        document.getElementById('stepLbl').textContent = 'done';
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+      renderGrid();
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 350);
+  }
+
+  reset();
+</script>
+</body>
+</html>
