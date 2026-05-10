@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>break — prime check</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 80px;
+  }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.prime { border-color: rgba(163, 217, 119, 0.5); color: var(--green); }
+  .qb.composite { border-color: rgba(229, 115, 115, 0.5); color: var(--red); }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.8;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.broken { background: rgba(229, 115, 115, 0.18); opacity: 1; color: var(--red); border-left: 2px solid var(--red); padding-left: 4px; font-weight: 600; }
+  .kw { color: #5dadec; }
+  .str { color: var(--green); }
+  .num { color: #f0a04b; }
+  .com { color: var(--muted); font-style: italic; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    text-align: center;
+  }
+  .state-cell .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 20px; color: var(--accent); font-weight: 600; }
+
+  .iter-grid {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 12px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    margin-bottom: 14px;
+    min-height: 60px;
+  }
+  .iter-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #0d1117;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    transition: all 0.3s;
+  }
+  .iter-pill.current {
+    background: rgba(240, 160, 75, 0.2);
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: scale(1.1);
+  }
+  .iter-pill.divisor {
+    background: rgba(163, 217, 119, 0.15);
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .iter-pill.skipped {
+    opacity: 0.3;
+    border-style: dashed;
+  }
+  .iter-pill.broken {
+    background: rgba(229, 115, 115, 0.18);
+    color: var(--red);
+    border-color: var(--red);
+    font-weight: 700;
+  }
+
+  .verdict-box {
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    transition: all 0.3s;
+  }
+  .verdict-box.found { border-color: var(--green); background: rgba(163, 217, 119, 0.06); }
+  .verdict-box.broken { border-color: var(--red); background: rgba(229, 115, 115, 0.06); }
+  .verdict-box .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .verdict-box .text { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+  .result-block {
+    padding: 16px 18px;
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .result-block.prime { border-color: var(--green); }
+  .result-block.notprime { border-color: var(--red); }
+  .result-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .result-text { font-size: 18px; color: var(--ink); }
+  .result-text.empty { color: var(--muted); font-style: italic; font-size: 13px; }
+  .result-text.prime { color: var(--green); }
+  .result-text.notprime { color: var(--red); }
+
+  .savings {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(229, 115, 115, 0.06);
+    border-left: 3px solid var(--red);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.5;
+    display: none;
+  }
+  .savings.shown { display: block; }
+  .savings strong { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>break — exit early when there's nothing left to learn</h1>
+  <div class="sub">Once we see more than 2 divisors, we know N isn't prime. Why keep checking?</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="12" min="2" max="50">
+    </div>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <span class="ctl-label" style="margin-right:4px;">primes</span>
+      <button class="qb prime" onclick="set(7)">7</button>
+      <button class="qb prime" onclick="set(13)">13</button>
+      <button class="qb prime" onclick="set(17)">17</button>
+      <span class="ctl-label" style="margin: 0 4px 0 8px;">composites</span>
+      <button class="qb composite" onclick="set(12)">12</button>
+      <button class="qb composite" onclick="set(15)">15</button>
+      <button class="qb composite" onclick="set(20)">20</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">int</span> divisorCount = <span class="num">0</span>;</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {</div>
+<div class="cl" id="c3">  <span class="kw">if</span> (N % i == <span class="num">0</span>) {</div>
+<div class="cl" id="c4">    divisorCount++;</div>
+<div class="cl" id="c5">    <span class="kw">if</span> (divisorCount &gt; <span class="num">2</span>) {</div>
+<div class="cl" id="c6">      <span class="kw">break</span>; <span class="com">// exit early</span></div>
+<div class="cl" id="c7">    }</div>
+<div class="cl" id="c8">  }</div>
+<div class="cl" id="c9">}</div>
+<div class="cl" id="c10"><span class="kw">if</span> (divisorCount == <span class="num">2</span>) print(<span class="str">"prime"</span>);</div>
+<div class="cl" id="c11"><span class="kw">else</span> print(<span class="str">"not prime"</span>);</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell">
+          <div class="lbl">N</div>
+          <div class="val" id="stateN">—</div>
+        </div>
+        <div class="state-cell">
+          <div class="lbl">i</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell">
+          <div class="lbl">DIVISORS</div>
+          <div class="val" id="stateDiv">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ITERATIONS</div>
+      <div class="iter-grid" id="iterGrid"></div>
+
+      <div class="verdict-box" id="verdictBox">
+        <div class="lbl" id="verdictLbl">CURRENT STEP</div>
+        <div class="text" id="verdictText">— press Step to begin —</div>
+      </div>
+
+      <div class="result-block" id="resultBox">
+        <div class="result-label">RESULT</div>
+        <div class="result-text empty" id="resultText">—</div>
+      </div>
+
+      <div class="savings" id="savings"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let i = 0;
+  let divisorCount = 0;
+  let broken = false;
+  let done = false;
+  let timer = null;
+
+  document.getElementById('nIn').oninput = reset;
+
+  function set(n) { document.getElementById('nIn').value = n; reset(); }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = 0;
+    divisorCount = 0;
+    broken = false;
+    done = false;
+    const N = +document.getElementById('nIn').value;
+    document.getElementById('stateN').textContent = N;
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateDiv').textContent = 0;
+    renderIterGrid(N);
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('verdictBox').className = 'verdict-box';
+    document.getElementById('verdictLbl').textContent = 'CURRENT STEP';
+    document.getElementById('verdictText').textContent = '— press Step to begin —';
+    document.getElementById('resultBox').className = 'result-block';
+    document.getElementById('resultText').className = 'result-text empty';
+    document.getElementById('resultText').textContent = '—';
+    document.getElementById('savings').className = 'savings';
+    document.getElementById('savings').textContent = '';
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderIterGrid(N) {
+    const grid = document.getElementById('iterGrid');
+    let html = '';
+    for (let k = 1; k <= N; k++) {
+      html += `<div class="iter-pill" id="pill${k}">${k}</div>`;
+    }
+    grid.innerHTML = html;
+  }
+
+  function step() {
+    const N = +document.getElementById('nIn').value;
+    if (done) return;
+
+    i++;
+    document.getElementById('stateI').textContent = i;
+
+    // mark current iteration
+    if (i > 1) {
+      // remove 'current' from previous
+      const prev = document.getElementById(`pill${i-1}`);
+      if (prev && prev.classList.contains('current')) prev.classList.remove('current');
+    }
+    const pill = document.getElementById(`pill${i}`);
+    pill.classList.add('current');
+
+    // Highlight code
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11'].forEach(id => {
+      document.getElementById(id).className = 'cl';
+    });
+    document.getElementById('c2').className = 'cl eval';
+    document.getElementById('c3').className = 'cl eval';
+
+    const isDiv = N % i === 0;
+    if (isDiv) {
+      divisorCount++;
+      document.getElementById('stateDiv').textContent = divisorCount;
+      pill.classList.remove('current');
+      pill.classList.add('divisor');
+      document.getElementById('c4').className = 'cl taken';
+      document.getElementById('c5').className = 'cl eval';
+
+      if (divisorCount > 2) {
+        // BREAK
+        broken = true;
+        done = true;
+        pill.classList.remove('divisor');
+        pill.classList.add('broken');
+        document.getElementById('c6').className = 'cl broken';
+
+        // mark remaining as skipped
+        for (let k = i + 1; k <= N; k++) {
+          document.getElementById(`pill${k}`).classList.add('skipped');
+        }
+        document.getElementById('verdictBox').className = 'verdict-box broken';
+        document.getElementById('verdictLbl').textContent = '✗ BREAK';
+        document.getElementById('verdictText').textContent = `divisorCount = ${divisorCount} (> 2) — exit immediately`;
+
+        // result
+        document.getElementById('c11').className = 'cl taken';
+        document.getElementById('resultBox').className = 'result-block notprime';
+        document.getElementById('resultText').className = 'result-text notprime';
+        document.getElementById('resultText').textContent = `${N} is not a prime number`;
+
+        // savings
+        const saved = N - i;
+        if (saved > 0) {
+          const sv = document.getElementById('savings');
+          sv.className = 'savings shown';
+          sv.innerHTML = `<strong>break saved ${saved} iteration${saved === 1 ? '' : 's'}</strong> — without break, the loop would have kept going to i = ${N}.`;
+        }
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        return;
+      } else {
+        document.getElementById('verdictBox').className = 'verdict-box found';
+        document.getElementById('verdictLbl').textContent = `✓ i = ${i} divides N`;
+        document.getElementById('verdictText').textContent = `divisorCount = ${divisorCount}`;
+      }
+    } else {
+      document.getElementById('verdictBox').className = 'verdict-box';
+      document.getElementById('verdictLbl').textContent = `i = ${i}`;
+      document.getElementById('verdictText').textContent = `${N} % ${i} ≠ 0 — not a divisor`;
+    }
+
+    // check end
+    if (i >= N) {
+      done = true;
+      // clean current marker
+      pill.classList.remove('current');
+      // result
+      const isPrime = divisorCount === 2;
+      if (isPrime) {
+        document.getElementById('c10').className = 'cl taken';
+        document.getElementById('resultBox').className = 'result-block prime';
+        document.getElementById('resultText').className = 'result-text prime';
+        document.getElementById('resultText').textContent = `${N} is a prime number`;
+      } else {
+        document.getElementById('c11').className = 'cl taken';
+        document.getElementById('resultBox').className = 'result-block notprime';
+        document.getElementById('resultText').className = 'result-text notprime';
+        document.getElementById('resultText').textContent = `${N} is not a prime number`;
+      }
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (done) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 500);
+  }
+
+  reset();
+</script>
+</body>
+</html>

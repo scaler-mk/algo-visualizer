@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>for loop trace</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: 70px;
+  }
+  .num-input:focus { outline: none; border-color: var(--accent); }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .ghost-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .for-line {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 18px 16px;
+    font-size: 15px;
+    line-height: 1.6;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .slot {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    margin: 0 2px;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+  }
+  .slot.init { background: rgba(192, 132, 232, 0.12); color: var(--purple); }
+  .slot.cond { background: rgba(93, 173, 236, 0.12); color: var(--blue); }
+  .slot.upd { background: rgba(240, 160, 75, 0.12); color: var(--accent); }
+  .slot.active { box-shadow: 0 0 0 2px currentColor; transform: scale(1.04); }
+  .slot.done { opacity: 0.5; }
+  .slot.failed { opacity: 0.5; text-decoration: line-through; text-decoration-color: var(--red); }
+
+  .body-line {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .body-line.active { opacity: 1; background: rgba(163, 217, 119, 0.06); border-color: var(--green); }
+  .kw { color: #5dadec; }
+  .str { color: var(--green); }
+  .num { color: #f0a04b; }
+
+  .legend {
+    display: flex; gap: 16px; margin-bottom: 16px;
+    padding: 12px 14px; background: var(--panel-2);
+    border-radius: 5px; font-size: 11px;
+  }
+  .leg-item { display: flex; align-items: center; gap: 6px; }
+  .leg-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 12px 16px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+  }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 22px; color: var(--accent); font-weight: 600; }
+
+  .phase-block {
+    padding: 14px 16px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--line);
+    margin-bottom: 14px;
+    transition: all 0.3s;
+  }
+  .phase-block.init { border-left-color: var(--purple); background: rgba(192, 132, 232, 0.06); }
+  .phase-block.cond-t { border-left-color: var(--green); background: rgba(163, 217, 119, 0.06); }
+  .phase-block.cond-f { border-left-color: var(--red); background: rgba(229, 115, 115, 0.06); }
+  .phase-block.body { border-left-color: var(--green); background: rgba(163, 217, 119, 0.06); }
+  .phase-block.upd { border-left-color: var(--accent); background: rgba(240, 160, 75, 0.06); }
+  .phase-block .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .phase-block .text { font-size: 14px; font-family: 'JetBrains Mono', monospace; }
+
+  .output-block {
+    padding: 14px 16px;
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+  }
+  .output-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .output-text { font-size: 18px; color: var(--ink); min-height: 28px; word-break: break-all; }
+  .output-text.empty { color: var(--muted); font-style: italic; font-size: 13px; }
+
+  .iter-counter {
+    font-size: 11px; color: var(--muted);
+    margin-top: 8px;
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+
+  .timing-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: rgba(192, 132, 232, 0.06);
+    border-left: 3px solid var(--purple);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .timing-note strong { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>for loop — three slots, different schedules</h1>
+  <div class="sub"><span style="color:var(--purple)">init</span> runs once. <span style="color:var(--blue)">condition</span> runs every iteration. <span style="color:var(--accent)">update</span> runs at the end of each iteration. Watch them light up.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="4" min="1" max="20">
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="ghost-btn" onclick="autoplay()">Auto-play</button>
+      <button class="ghost-btn" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+
+      <div class="legend">
+        <div class="leg-item"><span class="leg-swatch" style="background:#c084e8"></span>init</div>
+        <div class="leg-item"><span class="leg-swatch" style="background:#5dadec"></span>condition</div>
+        <div class="leg-item"><span class="leg-swatch" style="background:#f0a04b"></span>update</div>
+        <div class="leg-item"><span class="leg-swatch" style="background:#a3d977"></span>body</div>
+      </div>
+
+      <div class="for-line">
+<span class="kw">for</span> (<span class="slot init" id="sInit"><span class="kw">int</span> i = <span class="num">1</span></span>; <span class="slot cond" id="sCond">i &lt;= N</span>; <span class="slot upd" id="sUpd">i++</span>) {
+      </div>
+      <div class="body-line" id="bodyLine">  System.out.print(i + <span class="str">" "</span>);</div>
+      <div class="for-line" style="padding: 8px 16px; font-size: 13px;">}</div>
+
+      <div class="panel-title">STATE</div>
+      <div class="state-grid">
+        <div class="state-cell">
+          <div class="lbl">N</div>
+          <div class="val" id="stateN">—</div>
+        </div>
+        <div class="state-cell">
+          <div class="lbl">i</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+      </div>
+      <div class="iter-counter" id="iterLabel">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION</div>
+
+      <div class="phase-block" id="phaseBlock">
+        <div class="lbl" id="phaseLbl">PHASE</div>
+        <div class="text" id="phaseText">— press Step to begin —</div>
+      </div>
+
+      <div class="output-block">
+        <div class="output-label">OUTPUT</div>
+        <div class="output-text empty" id="output">—</div>
+      </div>
+
+      <div class="timing-note">
+        <strong>Watch closely:</strong> when you press Step the very first time, only the <span style="color:var(--purple)">init</span> slot fires. From then on, you'll see <span style="color:var(--blue)">cond</span> → <span style="color:var(--accent);">body</span> → <span style="color:var(--accent)">upd</span> → <span style="color:var(--blue)">cond</span> → ... over and over. Init never runs again.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let phase = 'idle'; // idle | init | check | body | update | done
+  let i = null;
+  let outputBuf = [];
+  let iterCount = 0;
+  let initDone = false;
+  let timer = null;
+
+  document.getElementById('nIn').oninput = reset;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    phase = 'idle';
+    i = null;
+    outputBuf = [];
+    iterCount = 0;
+    initDone = false;
+
+    document.getElementById('sInit').className = 'slot init';
+    document.getElementById('sCond').className = 'slot cond';
+    document.getElementById('sUpd').className = 'slot upd';
+    document.getElementById('bodyLine').className = 'body-line';
+
+    document.getElementById('stateN').textContent = '—';
+    document.getElementById('stateI').textContent = '—';
+
+    const pb = document.getElementById('phaseBlock');
+    pb.className = 'phase-block';
+    document.getElementById('phaseLbl').textContent = 'PHASE';
+    document.getElementById('phaseText').textContent = '— press Step to begin —';
+
+    document.getElementById('output').className = 'output-text empty';
+    document.getElementById('output').textContent = '—';
+    document.getElementById('iterLabel').textContent = 'not started';
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function step() {
+    const N = +document.getElementById('nIn').value;
+
+    if (phase === 'idle') {
+      // INIT
+      i = 1;
+      initDone = true;
+      document.getElementById('stateN').textContent = N;
+      document.getElementById('stateI').textContent = i;
+      // highlight init slot
+      document.getElementById('sInit').className = 'slot init active';
+      document.getElementById('sCond').className = 'slot cond';
+      document.getElementById('sUpd').className = 'slot upd';
+      document.getElementById('bodyLine').className = 'body-line';
+
+      document.getElementById('phaseBlock').className = 'phase-block init';
+      document.getElementById('phaseLbl').textContent = 'INITIALIZATION (runs once)';
+      document.getElementById('phaseText').textContent = 'int i = 1';
+      document.getElementById('iterLabel').textContent = 'init done — i = 1, next: check condition';
+      phase = 'check';
+      return;
+    }
+    if (phase === 'check') {
+      const passed = i <= N;
+      document.getElementById('sInit').className = 'slot init done';
+      document.getElementById('sCond').className = 'slot cond active';
+      document.getElementById('sUpd').className = 'slot upd';
+      document.getElementById('bodyLine').className = 'body-line';
+
+      document.getElementById('phaseBlock').className = 'phase-block ' + (passed ? 'cond-t' : 'cond-f');
+      document.getElementById('phaseLbl').textContent = 'CONDITION CHECK';
+      document.getElementById('phaseText').innerHTML = `${i} &le; ${N} &nbsp; → &nbsp; <strong>${passed ? 'TRUE' : 'FALSE'}</strong>`;
+
+      if (passed) {
+        phase = 'body';
+        document.getElementById('iterLabel').textContent = `iteration ${iterCount + 1} — condition true, run body`;
+      } else {
+        phase = 'done';
+        document.getElementById('sCond').className = 'slot cond failed';
+        document.getElementById('iterLabel').textContent = `loop exits — total ${iterCount} iteration${iterCount === 1 ? '' : 's'}`;
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+      return;
+    }
+    if (phase === 'body') {
+      outputBuf.push(i);
+      const out = document.getElementById('output');
+      out.className = 'output-text';
+      out.textContent = outputBuf.join(' ');
+
+      document.getElementById('sInit').className = 'slot init done';
+      document.getElementById('sCond').className = 'slot cond done';
+      document.getElementById('sUpd').className = 'slot upd';
+      document.getElementById('bodyLine').className = 'body-line active';
+
+      document.getElementById('phaseBlock').className = 'phase-block body';
+      document.getElementById('phaseLbl').textContent = 'BODY';
+      document.getElementById('phaseText').textContent = `print(${i})`;
+      document.getElementById('iterLabel').textContent = `printed ${i} — next: update`;
+      phase = 'update';
+      return;
+    }
+    if (phase === 'update') {
+      const old = i;
+      i++;
+      iterCount++;
+      document.getElementById('stateI').textContent = i;
+
+      document.getElementById('sInit').className = 'slot init done';
+      document.getElementById('sCond').className = 'slot cond done';
+      document.getElementById('sUpd').className = 'slot upd active';
+      document.getElementById('bodyLine').className = 'body-line';
+
+      document.getElementById('phaseBlock').className = 'phase-block upd';
+      document.getElementById('phaseLbl').textContent = 'UPDATE';
+      document.getElementById('phaseText').textContent = `i++  →  ${old} becomes ${i}`;
+      document.getElementById('iterLabel').textContent = `i: ${old} → ${i} — back to condition check`;
+      phase = 'check';
+      return;
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 700);
+  }
+
+  reset();
+</script>
+</body>
+</html>
