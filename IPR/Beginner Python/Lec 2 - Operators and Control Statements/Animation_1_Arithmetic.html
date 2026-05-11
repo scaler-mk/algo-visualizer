@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Arithmetic operators — deep dive</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .text-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 5px;
+    text-align: center;
+    width: 110px;
+  }
+  .op-select {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .op-btn {
+    background: transparent;
+    border: 2px solid var(--line);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    min-width: 38px;
+  }
+  .op-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .op-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(240, 160, 75, 0.1); }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 26px;
+    margin-bottom: 18px;
+  }
+
+  .expression-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr 80px 1fr;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+
+  .operand-card {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px 18px;
+    border: 2px solid;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .operand-card.int { border-color: var(--green); }
+  .operand-card.float { border-color: var(--purple); }
+  .operand-card.str { border-color: var(--blue); }
+  .operand-card.bool { border-color: var(--accent); }
+  .operand-card.error { border-color: var(--red); }
+  .operand-card.unknown { border-color: var(--line); opacity: 0.5; }
+
+  .vc-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .vc-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    word-break: break-all;
+  }
+  .operand-card.int .vc-value { color: var(--green); }
+  .operand-card.float .vc-value { color: var(--purple); }
+  .operand-card.str .vc-value { color: var(--blue); }
+  .operand-card.bool .vc-value { color: var(--accent); }
+  .operand-card.error .vc-value { color: var(--red); font-size: 14px; }
+  .vc-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .operand-card.int .vc-type { color: rgba(163, 217, 119, 0.7); }
+  .operand-card.float .vc-type { color: rgba(192, 132, 232, 0.7); }
+  .operand-card.str .vc-type { color: rgba(93, 173, 236, 0.7); }
+  .operand-card.bool .vc-type { color: rgba(240, 160, 75, 0.7); }
+
+  .op-display {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(240, 160, 75, 0.1);
+    padding: 10px 0;
+    border-radius: 6px;
+  }
+  .op-display .op-name {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  .arrow-col {
+    text-align: center;
+  }
+  .arrow-svg { width: 60px; height: 30px; }
+
+  .verdict {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 18px;
+    border-left: 3px solid;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .verdict.ok { border-left-color: var(--green); background: rgba(163, 217, 119, 0.04); }
+  .verdict.warn { border-left-color: var(--accent); background: rgba(240, 160, 75, 0.04); }
+  .verdict.fail { border-left-color: var(--red); background: rgba(229, 115, 115, 0.04); }
+  .verdict.special { border-left-color: var(--purple); background: rgba(192, 132, 232, 0.04); }
+  .verdict strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+  }
+  .verdict.ok strong { color: var(--green); }
+  .verdict.warn strong { color: var(--accent); }
+  .verdict.fail strong { color: var(--red); }
+  .verdict.special strong { color: var(--purple); }
+
+  .type-rule-strip {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    font-size: 11.5px;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .type-rule-strip .label-tag {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+  .type-rule-strip .formula {
+    color: var(--ink);
+  }
+  .type-rule-strip .arrow { color: var(--muted); }
+  .type-rule-strip .result-type {
+    background: rgba(240, 160, 75, 0.15);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .preset-section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .preset-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .preset-grid {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Arithmetic operators — types in, types out</h1>
+  <div class="sub">Pick two values and an operator. See not just the result, but the <strong>type</strong> of the result and the surprises hiding in mixed-type arithmetic. <code style="color: var(--blue);">'Hi ' * 3</code> works. <code style="color: var(--red);">'1' + 1</code> doesn't.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">LEFT</span>
+      <input type="text" class="text-input" id="leftIn" value="10" oninput="apply()">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">OPERATOR</span>
+      <div class="op-select">
+        <button class="op-btn active" data-op="+" onclick="setOp('+')">+</button>
+        <button class="op-btn" data-op="-" onclick="setOp('-')">−</button>
+        <button class="op-btn" data-op="*" onclick="setOp('*')">*</button>
+        <button class="op-btn" data-op="/" onclick="setOp('/')">/</button>
+        <button class="op-btn" data-op="%" onclick="setOp('%')">%</button>
+        <button class="op-btn" data-op="//" onclick="setOp('//')">//</button>
+        <button class="op-btn" data-op="**" onclick="setOp('**')">**</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">RIGHT</span>
+      <input type="text" class="text-input" id="rightIn" value="3" oninput="apply()">
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="expression-row">
+      <div class="operand-card int" id="leftCard">
+        <div class="vc-label">LEFT OPERAND</div>
+        <div class="vc-value" id="leftVal">10</div>
+        <div class="vc-type" id="leftType">&lt;class 'int'&gt;</div>
+      </div>
+
+      <div class="op-display" id="opDisplay">
+        +
+        <span class="op-name">Addition</span>
+      </div>
+
+      <div class="operand-card int" id="rightCard">
+        <div class="vc-label">RIGHT OPERAND</div>
+        <div class="vc-value" id="rightVal">3</div>
+        <div class="vc-type" id="rightType">&lt;class 'int'&gt;</div>
+      </div>
+
+      <div class="arrow-col">
+        <svg class="arrow-svg" viewBox="0 0 60 30">
+          <defs>
+            <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#f0a04b"/>
+            </marker>
+          </defs>
+          <path d="M 4 15 L 54 15" stroke="#f0a04b" stroke-width="2" marker-end="url(#ar1)"/>
+        </svg>
+        <div style="font-size: 10px; color: var(--muted); font-family: Georgia, serif; font-style: italic;">evaluates to</div>
+      </div>
+
+      <div class="operand-card int" id="resultCard">
+        <div class="vc-label">RESULT</div>
+        <div class="vc-value" id="resultVal">13</div>
+        <div class="vc-type" id="resultType">&lt;class 'int'&gt;</div>
+      </div>
+    </div>
+
+    <div class="verdict ok" id="verdictBox">
+      <strong>int + int → int</strong> — both operands are integers, so the result stays an integer.
+    </div>
+
+    <div class="type-rule-strip" id="ruleStrip">
+      <span class="label-tag">TYPE RULE</span>
+      <span class="formula">int</span>
+      <span class="arrow">+</span>
+      <span class="formula">int</span>
+      <span class="arrow">→</span>
+      <span class="result-type">int</span>
+    </div>
+  </div>
+
+  <div class="preset-section">
+    <div class="preset-title">QUICK TRIES — click to load + compute (try them all to see the type surprises)</div>
+    <div class="preset-grid">
+      <button class="qb" onclick="loadPreset('10', '+', '3')">10 + 3</button>
+      <button class="qb" onclick="loadPreset('10', '/', '3')">10 / 3 → float?</button>
+      <button class="qb" onclick="loadPreset('10', '//', '3')">10 // 3 → int?</button>
+      <button class="qb" onclick="loadPreset('-8', '//', '3')">-8 // 3 (gotcha!)</button>
+      <button class="qb" onclick="loadPreset('10', '%', '3')">10 % 3</button>
+      <button class="qb" onclick="loadPreset('2', '**', '0.5')">2 ** 0.5 (sqrt)</button>
+      <button class="qb" onclick="loadPreset('&quot;Hi &quot;', '*', '3')">"Hi " * 3 (cool!)</button>
+      <button class="qb" onclick="loadPreset('&quot;abc&quot;', '+', '&quot;def&quot;')">"abc" + "def"</button>
+      <button class="qb" onclick="loadPreset('2.5', '+', 'True')">2.5 + True (!)</button>
+      <button class="qb" onclick="loadPreset('&quot;1&quot;', '+', '1')">"1" + 1 (fails)</button>
+      <button class="qb" onclick="loadPreset('5', '+', 'None')">5 + None (fails)</button>
+      <button class="qb" onclick="loadPreset('&quot;Hi&quot;', '*', '2.5')">"Hi" * 2.5 (fails)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentOp = '+';
+
+  function setOp(op) {
+    currentOp = op;
+    document.querySelectorAll('.op-btn').forEach(b => b.classList.toggle('active', b.dataset.op === op));
+    apply();
+  }
+
+  function loadPreset(l, op, r) {
+    document.getElementById('leftIn').value = l.replace(/&quot;/g, '"');
+    document.getElementById('rightIn').value = r.replace(/&quot;/g, '"');
+    setOp(op);
+  }
+
+  function detectType(raw) {
+    raw = raw.trim();
+    if (raw === '') return { type: 'unknown', value: null, display: '' };
+    if (raw === 'True') return { type: 'bool', value: true, display: 'True' };
+    if (raw === 'False') return { type: 'bool', value: false, display: 'False' };
+    if (raw === 'None') return { type: 'none', value: null, display: 'None' };
+    if ((raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) ||
+        (raw.startsWith("'") && raw.endsWith("'") && raw.length >= 2)) {
+      return { type: 'str', value: raw.substring(1, raw.length - 1), display: raw };
+    }
+    if (/^-?\d+$/.test(raw)) return { type: 'int', value: parseInt(raw, 10), display: raw };
+    if (/^-?\d+\.\d*$/.test(raw) || /^-?\d*\.\d+$/.test(raw)) return { type: 'float', value: parseFloat(raw), display: raw };
+    return { type: 'unknown', value: raw, display: raw };
+  }
+
+  const opNames = {
+    '+': 'Addition',
+    '-': 'Subtraction',
+    '*': 'Multiplication',
+    '/': 'True Division',
+    '%': 'Modulus',
+    '//': 'Floor Division',
+    '**': 'Exponentiation'
+  };
+
+  function renderCard(cardId, valId, typeId, inp) {
+    const card = document.getElementById(cardId);
+    const valEl = document.getElementById(valId);
+    const typeEl = document.getElementById(typeId);
+    if (inp.type === 'unknown' || inp.display === '') {
+      card.className = 'operand-card unknown';
+      valEl.textContent = '— enter value —';
+      typeEl.textContent = '';
+    } else if (inp.type === 'none') {
+      card.className = 'operand-card unknown';
+      valEl.textContent = 'None';
+      typeEl.innerHTML = "&lt;class 'NoneType'&gt;";
+    } else {
+      card.className = 'operand-card ' + inp.type;
+      valEl.textContent = inp.display;
+      typeEl.innerHTML = `&lt;class '${inp.type}'&gt;`;
+    }
+  }
+
+  function renderResult(rType, rDisplay, error) {
+    const card = document.getElementById('resultCard');
+    if (error) {
+      card.className = 'operand-card error';
+      document.getElementById('resultVal').textContent = error;
+      document.getElementById('resultType').textContent = '— failed —';
+    } else if (rType === '') {
+      card.className = 'operand-card unknown';
+      document.getElementById('resultVal').textContent = '—';
+      document.getElementById('resultType').textContent = '';
+    } else {
+      card.className = 'operand-card ' + rType;
+      document.getElementById('resultVal').textContent = rDisplay;
+      document.getElementById('resultType').innerHTML = `&lt;class '${rType}'&gt;`;
+    }
+  }
+
+  function compute(left, right, op) {
+    const lt = left.type;
+    const rt = right.type;
+
+    // Handle None - always errors with arithmetic
+    if (lt === 'none' || rt === 'none') {
+      return { error: `TypeError: unsupported operand type(s) for ${op}: '${lt === 'none' ? 'NoneType' : lt}' and '${rt === 'none' ? 'NoneType' : rt}'`,
+        verdictClass: 'fail',
+        verdictText: `<strong>${op} with None → TypeError</strong> — None has no arithmetic operations defined. You must check for None first (use <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">if x is None</code>).`,
+        ruleLeft: lt === 'none' ? 'None' : lt, ruleRight: rt === 'none' ? 'None' : rt, ruleResult: 'TypeError'
+      };
+    }
+
+    // String + string concatenation
+    if (op === '+' && lt === 'str' && rt === 'str') {
+      return { type: 'str', display: `'${left.value + right.value}'`,
+        verdictClass: 'ok',
+        verdictText: `<strong>str + str → str</strong> — Python concatenates the strings. Result type stays string.`,
+        ruleLeft: 'str', ruleRight: 'str', ruleResult: 'str'
+      };
+    }
+
+    // String + number = error
+    if (op === '+' && ((lt === 'str') !== (rt === 'str'))) {
+      const errType = (lt === 'str') ? rt : lt;
+      return { error: `TypeError: can only concatenate str (not "${errType}") to str`,
+        verdictClass: 'fail',
+        verdictText: `<strong>str + ${errType} → TypeError</strong> — Python does NOT auto-convert. You must explicitly cast: <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">str(num)</code> or <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">int(s)</code>.`,
+        ruleLeft: lt, ruleRight: rt, ruleResult: 'TypeError'
+      };
+    }
+
+    // String * int -> repeated string
+    if (op === '*' && ((lt === 'str' && rt === 'int') || (lt === 'int' && rt === 'str'))) {
+      const s = (lt === 'str') ? left.value : right.value;
+      const n = (lt === 'int') ? left.value : right.value;
+      if (n < 0) {
+        return { type: 'str', display: `''`,
+          verdictClass: 'special',
+          verdictText: `<strong>str * negative int → '' (empty string)</strong> — Python allows it but returns empty. Quirky but defined.`,
+          ruleLeft: lt, ruleRight: rt, ruleResult: 'str'
+        };
+      }
+      return { type: 'str', display: `'${s.repeat(n)}'`,
+        verdictClass: 'special',
+        verdictText: `<strong>str * int → str (repeated)</strong> — Python's neat trick. Multiplies the string n times. Try <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">'-' * 40</code> to draw a separator line.`,
+        ruleLeft: lt, ruleRight: rt, ruleResult: 'str'
+      };
+    }
+
+    // String * float = error
+    if (op === '*' && ((lt === 'str' && rt === 'float') || (lt === 'float' && rt === 'str'))) {
+      return { error: `TypeError: can't multiply sequence by non-int of type 'float'`,
+        verdictClass: 'fail',
+        verdictText: `<strong>str * float → TypeError</strong> — string multiplication only works with INTEGER counts. "Repeat 2.5 times" makes no sense.`,
+        ruleLeft: lt, ruleRight: rt, ruleResult: 'TypeError'
+      };
+    }
+
+    // String with anything other than + and * → error
+    if ((lt === 'str' || rt === 'str')) {
+      return { error: `TypeError: unsupported operand type(s) for ${op}: '${lt}' and '${rt}'`,
+        verdictClass: 'fail',
+        verdictText: `<strong>str ${op} ${lt === 'str' ? rt : lt} → TypeError</strong> — strings only support <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">+</code> (concat) and <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">*</code> (repeat with int).`,
+        ruleLeft: lt, ruleRight: rt, ruleResult: 'TypeError'
+      };
+    }
+
+    // Numeric operations - including bool (treated as int)
+    let lnum = left.value;
+    let rnum = right.value;
+    if (lt === 'bool') lnum = lnum ? 1 : 0;
+    if (rt === 'bool') rnum = rnum ? 1 : 0;
+
+    // Determine result type: float if any operand is float; bool counts as int unless / or **
+    let resultIsFloat = (lt === 'float' || rt === 'float');
+    if (op === '/') resultIsFloat = true;  // / always float
+
+    let r;
+    let extraVerdict = '';
+    let verdictClass = 'ok';
+
+    try {
+      if (op === '+') r = lnum + rnum;
+      else if (op === '-') r = lnum - rnum;
+      else if (op === '*') r = lnum * rnum;
+      else if (op === '/') {
+        if (rnum === 0) {
+          return { error: `ZeroDivisionError: division by zero`,
+            verdictClass: 'fail',
+            verdictText: `<strong>x / 0 → ZeroDivisionError</strong> — dividing by zero is undefined. Always check the divisor first.`,
+            ruleLeft: lt, ruleRight: rt, ruleResult: 'ZeroDivisionError'
+          };
+        }
+        r = lnum / rnum;
+        extraVerdict = ` Note: <code style="color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace;">/</code> ALWAYS returns a float in Python 3, even when result is exact.`;
+      }
+      else if (op === '%') {
+        if (rnum === 0) {
+          return { error: `ZeroDivisionError: integer modulo by zero`,
+            verdictClass: 'fail',
+            verdictText: `<strong>x % 0 → ZeroDivisionError</strong> — modulus by zero is undefined.`,
+            ruleLeft: lt, ruleRight: rt, ruleResult: 'ZeroDivisionError'
+          };
+        }
+        // Python's % follows divisor sign (different from C/Java!)
+        r = ((lnum % rnum) + rnum) % rnum;
+        if (lnum < 0 || rnum < 0) extraVerdict = ` Note: Python's <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">%</code> follows the sign of the DIVISOR (different from C/Java).`;
+      }
+      else if (op === '//') {
+        if (rnum === 0) {
+          return { error: `ZeroDivisionError: integer division or modulo by zero`,
+            verdictClass: 'fail',
+            verdictText: `<strong>x // 0 → ZeroDivisionError</strong> — floor division by zero is undefined.`,
+            ruleLeft: lt, ruleRight: rt, ruleResult: 'ZeroDivisionError'
+          };
+        }
+        r = Math.floor(lnum / rnum);
+        if ((lnum < 0) !== (rnum < 0)) {  // signs differ
+          extraVerdict = ` <strong>Gotcha →</strong> <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">//</code> rounds DOWN (towards −∞), not towards zero. <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">-8 // 3 = -3</code> (because -2.66 floors to -3, not -2).`;
+          verdictClass = 'warn';
+        }
+      }
+      else if (op === '**') {
+        r = Math.pow(lnum, rnum);
+        if (rt === 'float' && rnum > 0 && rnum < 1) {
+          extraVerdict = ` <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">x ** 0.5</code> computes the square root.`;
+        }
+      }
+    } catch (e) {
+      return { error: 'Computation error', verdictClass: 'fail', verdictText: 'Error', ruleLeft: lt, ruleRight: rt, ruleResult: 'Error' };
+    }
+
+    // Determine final type
+    let finalType;
+    if (op === '/') finalType = 'float';
+    else if (op === '**' && resultIsFloat) finalType = 'float';
+    else if (op === '**') {
+      // int ** int -> int, but negative exponent on int -> float
+      if ((lt === 'int' || lt === 'bool') && (rt === 'int' || rt === 'bool') && rnum >= 0) finalType = 'int';
+      else finalType = 'float';
+    }
+    else if (resultIsFloat) finalType = 'float';
+    else finalType = 'int';
+
+    // Display value
+    let display;
+    if (finalType === 'float') {
+      // Don't show like 2 - show 2.0
+      if (Number.isInteger(r)) display = r.toFixed(1);
+      else display = parseFloat(r.toPrecision(8)).toString();
+    } else {
+      display = r.toString();
+    }
+
+    // Verdict text
+    let ruleLeft = lt;
+    let ruleRight = rt;
+    let verdictText = `<strong>${lt} ${op} ${rt} → ${finalType}</strong> —`;
+    if (lt === 'bool' || rt === 'bool') {
+      verdictText += ` booleans are treated as integers in arithmetic: <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">True = 1</code>, <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">False = 0</code>.`;
+    } else if (lt === 'float' || rt === 'float') {
+      verdictText += ` mixed int/float ⇒ result is float.`;
+    } else {
+      verdictText += ` both operands ${lt}, result stays ${finalType}.`;
+    }
+    verdictText += extraVerdict;
+
+    return { type: finalType, display, verdictClass, verdictText, ruleLeft, ruleRight, ruleResult: finalType };
+  }
+
+  function apply() {
+    const leftRaw = document.getElementById('leftIn').value;
+    const rightRaw = document.getElementById('rightIn').value;
+    const op = currentOp;
+
+    const left = detectType(leftRaw);
+    const right = detectType(rightRaw);
+
+    renderCard('leftCard', 'leftVal', 'leftType', left);
+    renderCard('rightCard', 'rightVal', 'rightType', right);
+
+    document.getElementById('opDisplay').innerHTML = `${op === '*' ? '*' : op === '-' ? '−' : op}<span class="op-name">${opNames[op]}</span>`;
+
+    if (left.type === 'unknown' || right.type === 'unknown') {
+      renderResult('', '—');
+      document.getElementById('verdictBox').className = 'verdict';
+      document.getElementById('verdictBox').innerHTML = 'Enter valid values to see the result.';
+      return;
+    }
+
+    const result = compute(left, right, op);
+
+    if (result.error) {
+      renderResult('', '', result.error);
+    } else {
+      renderResult(result.type, result.display);
+    }
+
+    document.getElementById('verdictBox').className = 'verdict ' + result.verdictClass;
+    document.getElementById('verdictBox').innerHTML = result.verdictText;
+
+    document.getElementById('ruleStrip').innerHTML = `
+      <span class="label-tag">TYPE RULE</span>
+      <span class="formula">${result.ruleLeft}</span>
+      <span class="arrow">${op}</span>
+      <span class="formula">${result.ruleRight}</span>
+      <span class="arrow">→</span>
+      <span class="result-type">${result.ruleResult}</span>
+    `;
+  }
+
+  apply();
+</script>
+</body>
+</html>

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Comparison operators — surprises and chains</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .mode-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+  }
+  .tab {
+    padding: 8px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .text-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 5px;
+    text-align: center;
+    width: 110px;
+  }
+  .op-select {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .op-btn {
+    background: transparent;
+    border: 2px solid var(--line);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    min-width: 42px;
+  }
+  .op-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .op-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(240, 160, 75, 0.1); }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Single mode */
+  .single-stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 26px;
+    margin-bottom: 18px;
+  }
+  .single-expr-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr 70px 1fr;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+  .operand-card {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px 14px;
+    border: 2px solid;
+    text-align: center;
+  }
+  .operand-card.int { border-color: var(--green); }
+  .operand-card.float { border-color: var(--purple); }
+  .operand-card.str { border-color: var(--blue); }
+  .operand-card.bool { border-color: var(--accent); }
+  .operand-card.none { border-color: var(--muted); opacity: 0.6; }
+  .operand-card.unknown { border-color: var(--line); opacity: 0.4; }
+  .vc-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .vc-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 19px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    word-break: break-all;
+  }
+  .operand-card.int .vc-value { color: var(--green); }
+  .operand-card.float .vc-value { color: var(--purple); }
+  .operand-card.str .vc-value { color: var(--blue); }
+  .operand-card.bool .vc-value { color: var(--accent); }
+  .operand-card.none .vc-value { color: var(--muted); }
+  .vc-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .op-display {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(240, 160, 75, 0.1);
+    padding: 16px 0;
+    border-radius: 6px;
+  }
+
+  .arrow-col {
+    text-align: center;
+  }
+  .arrow-svg { width: 50px; height: 28px; }
+
+  .result-display {
+    border-radius: 8px;
+    padding: 18px 14px;
+    border: 2px solid;
+    text-align: center;
+  }
+  .result-display.true {
+    border-color: var(--green);
+    background: rgba(163, 217, 119, 0.06);
+  }
+  .result-display.false {
+    border-color: var(--red);
+    background: rgba(229, 115, 115, 0.06);
+  }
+  .result-display.error {
+    border-color: var(--red);
+    background: rgba(229, 115, 115, 0.05);
+  }
+  .result-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .result-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .result-display.true .result-val { color: var(--green); }
+  .result-display.false .result-val { color: var(--red); }
+  .result-display.error .result-val { color: var(--red); font-size: 13px; }
+  .result-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .explanation {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 18px;
+    border-left: 3px solid var(--accent);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .explanation.special { border-left-color: var(--purple); background: rgba(192, 132, 232, 0.04); }
+  .explanation.error { border-left-color: var(--red); background: rgba(229, 115, 115, 0.04); }
+  .explanation strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .preset-section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 18px;
+  }
+  .preset-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .preset-grid {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* Chained mode */
+  .chain-stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 26px;
+  }
+  .chain-controls {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+  .chain-controls .text-input { width: 70px; }
+  .chain-controls .op-btn { min-width: 36px; padding: 6px 10px; }
+  .chain-controls .grp {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .chain-controls .ctl-label { text-align: center; }
+
+  .chain-expr {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    text-align: center;
+    margin-bottom: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    color: var(--ink);
+    line-height: 1.7;
+  }
+  .chain-expr .num { color: var(--accent); font-weight: 600; }
+  .chain-expr .var { color: var(--blue); font-weight: 600; }
+  .chain-expr .op { color: var(--muted); margin: 0 6px; }
+  .chain-expr .pair-true { background: rgba(163, 217, 119, 0.15); border-bottom: 2px solid var(--green); padding: 2px 6px; border-radius: 3px; }
+  .chain-expr .pair-false { background: rgba(229, 115, 115, 0.15); border-bottom: 2px solid var(--red); padding: 2px 6px; border-radius: 3px; }
+
+  .chain-breakdown {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .chain-bd-title {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .chain-bd-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+  }
+  .chain-bd-row:last-child { border-bottom: none; }
+  .chain-bd-expr { color: var(--ink); }
+  .chain-bd-arrow { color: var(--muted); margin-left: auto; }
+  .chain-bd-result {
+    padding: 3px 12px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .chain-bd-result.true { background: rgba(163, 217, 119, 0.15); color: var(--green); }
+  .chain-bd-result.false { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+
+  .chain-final {
+    border-radius: 8px;
+    padding: 18px;
+    border: 2px solid;
+    text-align: center;
+  }
+  .chain-final.true { border-color: var(--green); background: rgba(163, 217, 119, 0.06); }
+  .chain-final.false { border-color: var(--red); background: rgba(229, 115, 115, 0.06); }
+  .chain-final-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+  .chain-final-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 700;
+  }
+  .chain-final.true .chain-final-val { color: var(--green); }
+  .chain-final.false .chain-final-val { color: var(--red); }
+
+  .chain-equiv {
+    background: var(--panel-2);
+    border-radius: 5px;
+    padding: 10px 14px;
+    font-size: 11.5px;
+    color: var(--muted);
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-top: 14px;
+  }
+  .chain-equiv strong {
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Comparison operators — and the chain trick</h1>
+  <div class="sub">Comparisons return <strong style="color: var(--green);">True</strong> or <strong style="color: var(--red);">False</strong>. Mostly they work like math — but Python has subtleties: <code>True == 1</code> is True, <code>2 == "2"</code> is False, and you can <strong>chain</strong> comparisons like <code>10 &lt; x &lt; 20</code>.</div>
+
+  <div class="mode-tabs">
+    <button class="tab active" id="tabSingle" onclick="setMode('single')">Single comparison</button>
+    <button class="tab" id="tabChain" onclick="setMode('chain')">Chained comparisons (Pythonic!)</button>
+  </div>
+
+  <!-- SINGLE MODE -->
+  <div id="singleMode">
+    <div class="controls">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <span class="ctl-label">LEFT</span>
+        <input type="text" class="text-input" id="leftIn" value="2" oninput="applySingle()">
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <span class="ctl-label">OPERATOR</span>
+        <div class="op-select">
+          <button class="op-btn active" data-op="==" onclick="setSingleOp('==')">==</button>
+          <button class="op-btn" data-op="!=" onclick="setSingleOp('!=')">!=</button>
+          <button class="op-btn" data-op="<" onclick="setSingleOp('<')">&lt;</button>
+          <button class="op-btn" data-op=">" onclick="setSingleOp('>')">&gt;</button>
+          <button class="op-btn" data-op="<=" onclick="setSingleOp('<=')">&le;</button>
+          <button class="op-btn" data-op=">=" onclick="setSingleOp('>=')">&ge;</button>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <span class="ctl-label">RIGHT</span>
+        <input type="text" class="text-input" id="rightIn" value="2.0" oninput="applySingle()">
+      </div>
+    </div>
+
+    <div class="single-stage">
+      <div class="single-expr-row">
+        <div class="operand-card int" id="leftCard">
+          <div class="vc-label">LEFT</div>
+          <div class="vc-value" id="leftVal">2</div>
+          <div class="vc-type" id="leftType">int</div>
+        </div>
+        <div class="op-display" id="opDisplay">==</div>
+        <div class="operand-card float" id="rightCard">
+          <div class="vc-label">RIGHT</div>
+          <div class="vc-value" id="rightVal">2.0</div>
+          <div class="vc-type" id="rightType">float</div>
+        </div>
+        <div class="arrow-col">
+          <svg class="arrow-svg" viewBox="0 0 50 28">
+            <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#f0a04b"/></marker></defs>
+            <path d="M 4 14 L 44 14" stroke="#f0a04b" stroke-width="2" marker-end="url(#ar3)"/>
+          </svg>
+        </div>
+        <div class="result-display true" id="resultDisp">
+          <div class="result-label">RESULT</div>
+          <div class="result-val" id="resultVal">True</div>
+          <div class="result-type">bool</div>
+        </div>
+      </div>
+
+      <div class="explanation special" id="explainBox">
+        <strong>2 == 2.0 → True</strong> — Python auto-converts the int to float for the comparison. Both equal the same number, so True. Notice: comparison returns a <strong>bool</strong>, regardless of operand types.
+      </div>
+    </div>
+
+    <div class="preset-section">
+      <div class="preset-title">QUICK TRIES — surprises in here</div>
+      <div class="preset-grid">
+        <button class="qb" onclick="loadSingle('2', '==', '2.0')">2 == 2.0</button>
+        <button class="qb" onclick="loadSingle('2', '==', '&quot;2&quot;')">2 == "2" (false!)</button>
+        <button class="qb" onclick="loadSingle('2', '==', 'None')">2 == None</button>
+        <button class="qb" onclick="loadSingle('False', '==', '0')">False == 0 (!!)</button>
+        <button class="qb" onclick="loadSingle('False', '==', '1')">False == 1 (Quiz 7)</button>
+        <button class="qb" onclick="loadSingle('True', '==', '1')">True == 1 (!!)</button>
+        <button class="qb" onclick="loadSingle('&quot;ABC&quot;', '==', '&quot;abc&quot;')">"ABC" == "abc"</button>
+        <button class="qb" onclick="loadSingle('&quot;abc&quot;', '!=', '&quot;abd&quot;')">"abc" != "abd"</button>
+        <button class="qb" onclick="loadSingle('2', '<', '&quot;2&quot;')">2 &lt; "2" (TypeError)</button>
+        <button class="qb" onclick="loadSingle('2', '<', '2.0001')">2 &lt; 2.0001</button>
+        <button class="qb" onclick="loadSingle('100', '>=', '32')">100 &gt;= 32</button>
+        <button class="qb" onclick="loadSingle('2', '==', '2.00001')">2 == 2.00001</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAIN MODE -->
+  <div id="chainMode" style="display: none;">
+    <div class="chain-stage">
+      <div class="chain-controls">
+        <div class="grp">
+          <span class="ctl-label">A</span>
+          <input type="text" class="text-input" id="cA" value="10" oninput="applyChain()">
+        </div>
+        <div class="grp">
+          <span class="ctl-label">OP1</span>
+          <div class="op-select">
+            <button class="op-btn" data-cop="0" data-op="<" onclick="setChainOp(0, '<')">&lt;</button>
+            <button class="op-btn" data-cop="0" data-op="<=" onclick="setChainOp(0, '<=')">≤</button>
+            <button class="op-btn" data-cop="0" data-op=">" onclick="setChainOp(0, '>')">&gt;</button>
+            <button class="op-btn" data-cop="0" data-op=">=" onclick="setChainOp(0, '>=')">≥</button>
+          </div>
+        </div>
+        <div class="grp">
+          <span class="ctl-label">x</span>
+          <input type="text" class="text-input" id="cX" value="15" oninput="applyChain()">
+        </div>
+        <div class="grp">
+          <span class="ctl-label">OP2</span>
+          <div class="op-select">
+            <button class="op-btn" data-cop="1" data-op="<" onclick="setChainOp(1, '<')">&lt;</button>
+            <button class="op-btn" data-cop="1" data-op="<=" onclick="setChainOp(1, '<=')">≤</button>
+            <button class="op-btn" data-cop="1" data-op=">" onclick="setChainOp(1, '>')">&gt;</button>
+            <button class="op-btn" data-cop="1" data-op=">=" onclick="setChainOp(1, '>=')">≥</button>
+          </div>
+        </div>
+        <div class="grp">
+          <span class="ctl-label">B</span>
+          <input type="text" class="text-input" id="cB" value="20" oninput="applyChain()">
+        </div>
+        <div class="grp" style="margin-left: auto;">
+          <span class="ctl-label">PRESETS</span>
+          <div style="display:flex; gap: 5px;">
+            <button class="qb" onclick="loadChain('10','<','15','<','20')">10 &lt; x &lt; 20</button>
+            <button class="qb" onclick="loadChain('18','<=','25','<=','60')">18 ≤ age ≤ 60</button>
+            <button class="qb" onclick="loadChain('10','<','5','<','20')">10 &lt; 5 &lt; 20 (no!)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chain-expr" id="chainExprDisplay"></div>
+
+      <div class="chain-breakdown">
+        <div class="chain-bd-title">PYTHON EVALUATES EACH PAIR SEPARATELY, THEN AND'S THEM</div>
+        <div id="chainBreakdown"></div>
+      </div>
+
+      <div class="chain-final true" id="chainFinal">
+        <div class="chain-final-label">FINAL RESULT</div>
+        <div class="chain-final-val" id="chainFinalVal">True</div>
+      </div>
+
+      <div class="chain-equiv">
+        <strong>Equivalent to:</strong> <span id="chainEquiv">(10 &lt; 15) and (15 &lt; 20)</span> &nbsp;·&nbsp; the chained form is shorter and reads naturally — like math notation. Use it whenever you'd combine two comparisons with <strong>and</strong>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let mode = 'single';
+  let singleOp = '==';
+  let chainOps = ['<', '<'];
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('tabSingle').classList.toggle('active', m === 'single');
+    document.getElementById('tabChain').classList.toggle('active', m === 'chain');
+    document.getElementById('singleMode').style.display = m === 'single' ? 'block' : 'none';
+    document.getElementById('chainMode').style.display = m === 'chain' ? 'block' : 'none';
+    if (m === 'chain') applyChain();
+  }
+
+  function setSingleOp(op) {
+    singleOp = op;
+    document.querySelectorAll('#singleMode .op-btn').forEach(b => b.classList.toggle('active', b.dataset.op === op));
+    applySingle();
+  }
+
+  function setChainOp(idx, op) {
+    chainOps[idx] = op;
+    document.querySelectorAll(`#chainMode .op-btn[data-cop="${idx}"]`).forEach(b => b.classList.toggle('active', b.dataset.op === op));
+    applyChain();
+  }
+
+  function loadSingle(l, op, r) {
+    document.getElementById('leftIn').value = l.replace(/&quot;/g, '"');
+    document.getElementById('rightIn').value = r.replace(/&quot;/g, '"');
+    setSingleOp(op);
+  }
+
+  function loadChain(a, op1, x, op2, b) {
+    document.getElementById('cA').value = a;
+    document.getElementById('cX').value = x;
+    document.getElementById('cB').value = b;
+    chainOps[0] = op1; chainOps[1] = op2;
+    document.querySelectorAll(`#chainMode .op-btn[data-cop="0"]`).forEach(btn => btn.classList.toggle('active', btn.dataset.op === op1));
+    document.querySelectorAll(`#chainMode .op-btn[data-cop="1"]`).forEach(btn => btn.classList.toggle('active', btn.dataset.op === op2));
+    applyChain();
+  }
+
+  function detectType(raw) {
+    raw = raw.trim();
+    if (raw === '') return { type: 'unknown', value: null, display: '' };
+    if (raw === 'True') return { type: 'bool', value: true, display: 'True' };
+    if (raw === 'False') return { type: 'bool', value: false, display: 'False' };
+    if (raw === 'None') return { type: 'none', value: null, display: 'None' };
+    if ((raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) ||
+        (raw.startsWith("'") && raw.endsWith("'") && raw.length >= 2)) {
+      return { type: 'str', value: raw.substring(1, raw.length - 1), display: raw };
+    }
+    if (/^-?\d+$/.test(raw)) return { type: 'int', value: parseInt(raw, 10), display: raw };
+    if (/^-?\d+\.\d*$/.test(raw) || /^-?\d*\.\d+$/.test(raw)) return { type: 'float', value: parseFloat(raw), display: raw };
+    return { type: 'unknown', value: raw, display: raw };
+  }
+
+  function renderOperand(cardId, valId, typeId, inp) {
+    const card = document.getElementById(cardId);
+    const v = document.getElementById(valId);
+    const t = document.getElementById(typeId);
+    if (inp.type === 'unknown') {
+      card.className = 'operand-card unknown';
+      v.textContent = '—';
+      t.textContent = '';
+    } else if (inp.type === 'none') {
+      card.className = 'operand-card none';
+      v.textContent = 'None';
+      t.textContent = 'NoneType';
+    } else {
+      card.className = 'operand-card ' + inp.type;
+      v.textContent = inp.display;
+      t.textContent = inp.type;
+    }
+  }
+
+  function compareValues(left, right, op) {
+    const lt = left.type, rt = right.type;
+
+    // Equality / inequality - allow any types
+    if (op === '==' || op === '!=') {
+      // None: any == None is False except None == None
+      if (lt === 'none' && rt === 'none') return { result: op === '==', special: 'none-eq' };
+      if (lt === 'none' || rt === 'none') return { result: op !== '==', special: 'none-cmp' };
+      // String vs number: always not equal
+      if ((lt === 'str') !== (rt === 'str')) {
+        return { result: op !== '==', special: 'cross-type-str' };
+      }
+      // Both strings
+      if (lt === 'str' && rt === 'str') {
+        const eq = left.value === right.value;
+        return { result: op === '==' ? eq : !eq, special: 'str-cmp' };
+      }
+      // Numeric (including bool which converts to 0/1)
+      let lnum = left.value, rnum = right.value;
+      if (lt === 'bool') lnum = lnum ? 1 : 0;
+      if (rt === 'bool') rnum = rnum ? 1 : 0;
+      const eq = lnum === rnum;
+      return { result: op === '==' ? eq : !eq, special: (lt === 'bool' || rt === 'bool') ? 'bool-num' : (lt !== rt ? 'mixed-num' : 'same-num') };
+    }
+
+    // Ordering - strings only compare to strings; numbers only compare to numbers/bools
+    if (lt === 'none' || rt === 'none') {
+      return { result: null, error: `TypeError: '${op}' not supported between instances of '${lt === 'none' ? 'NoneType' : lt}' and '${rt === 'none' ? 'NoneType' : rt}'`, special: 'order-none' };
+    }
+    if ((lt === 'str') !== (rt === 'str')) {
+      return { result: null, error: `TypeError: '${op}' not supported between instances of '${lt}' and '${rt}'`, special: 'order-mixed' };
+    }
+    // Both strings - lexicographic
+    if (lt === 'str' && rt === 'str') {
+      const cmp = left.value < right.value ? -1 : left.value > right.value ? 1 : 0;
+      let r;
+      if (op === '<') r = cmp < 0;
+      else if (op === '<=') r = cmp <= 0;
+      else if (op === '>') r = cmp > 0;
+      else if (op === '>=') r = cmp >= 0;
+      return { result: r, special: 'str-order' };
+    }
+    // Numeric
+    let lnum = left.value, rnum = right.value;
+    if (lt === 'bool') lnum = lnum ? 1 : 0;
+    if (rt === 'bool') rnum = rnum ? 1 : 0;
+    let r;
+    if (op === '<') r = lnum < rnum;
+    else if (op === '<=') r = lnum <= rnum;
+    else if (op === '>') r = lnum > rnum;
+    else if (op === '>=') r = lnum >= rnum;
+    return { result: r, special: (lt === 'bool' || rt === 'bool') ? 'bool-num' : 'num-order' };
+  }
+
+  function applySingle() {
+    const left = detectType(document.getElementById('leftIn').value);
+    const right = detectType(document.getElementById('rightIn').value);
+    renderOperand('leftCard', 'leftVal', 'leftType', left);
+    renderOperand('rightCard', 'rightVal', 'rightType', right);
+    document.getElementById('opDisplay').textContent = singleOp;
+
+    if (left.type === 'unknown' || right.type === 'unknown') {
+      document.getElementById('resultDisp').className = 'result-display';
+      document.getElementById('resultVal').textContent = '—';
+      document.getElementById('explainBox').className = 'explanation';
+      document.getElementById('explainBox').innerHTML = 'Enter valid values.';
+      return;
+    }
+
+    const cmp = compareValues(left, right, singleOp);
+
+    if (cmp.error) {
+      document.getElementById('resultDisp').className = 'result-display error';
+      document.getElementById('resultVal').textContent = cmp.error.split(':')[0];
+      document.getElementById('explainBox').className = 'explanation error';
+      document.getElementById('explainBox').innerHTML = `<strong>${left.display} ${singleOp} ${right.display} → TypeError</strong> — ${left.type} and ${right.type} cannot be ordered. Python won't auto-convert. Use <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">int(s)</code> or similar to bring both to the same type.`;
+      return;
+    }
+
+    const r = cmp.result;
+    document.getElementById('resultDisp').className = 'result-display ' + (r ? 'true' : 'false');
+    document.getElementById('resultVal').textContent = r ? 'True' : 'False';
+
+    // Build explanation
+    let exp = '', cls = '';
+    const ldisp = left.display, rdisp = right.display;
+
+    if (cmp.special === 'none-eq' || cmp.special === 'none-cmp') {
+      exp = `<strong>${ldisp} ${singleOp} ${rdisp} → ${r ? 'True' : 'False'}</strong> — None is equal only to itself. Any other comparison with None for equality is False.`;
+      cls = 'special';
+    } else if (cmp.special === 'cross-type-str') {
+      exp = `<strong>${ldisp} ${singleOp} ${rdisp} → ${r ? 'True' : 'False'}</strong> — Python does NOT auto-convert between numbers and strings. <code style="color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace;">"2"</code> is text; <code style="color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace;">2</code> is a number. Different things, so <strong>==</strong> is False.`;
+      cls = 'special';
+    } else if (cmp.special === 'mixed-num') {
+      exp = `<strong>${ldisp} ${singleOp} ${rdisp} → ${r ? 'True' : 'False'}</strong> — int and float ARE compatible. Python auto-converts the int to float, then compares the values numerically.`;
+      cls = 'ok';
+    } else if (cmp.special === 'bool-num') {
+      const bv = left.type === 'bool' ? (left.value ? 1 : 0) : (right.value ? 1 : 0);
+      exp = `<strong>${ldisp} ${singleOp} ${rdisp} → ${r ? 'True' : 'False'}</strong> — booleans are treated as integers: <strong>True = 1</strong>, <strong>False = 0</strong>. So this becomes a number-vs-number comparison.${(left.type === 'bool' && right.type === 'int') || (left.type === 'int' && right.type === 'bool') ? ' This is why <code style="color: var(--accent); font-style: normal; font-family: \'JetBrains Mono\', monospace;">True == 1</code> is True (and <code style="color: var(--accent); font-style: normal; font-family: \'JetBrains Mono\', monospace;">False == 0</code> is True)!' : ''}`;
+      cls = 'special';
+    } else if (cmp.special === 'str-cmp' || cmp.special === 'same-num') {
+      exp = `<strong>${ldisp} ${singleOp} ${rdisp} → ${r ? 'True' : 'False'}</strong> — straightforward same-type comparison.`;
+      cls = 'ok';
+    } else if (cmp.special === 'str-order') {
+      exp = `<strong>${ldisp} ${singleOp} ${rdisp} → ${r ? 'True' : 'False'}</strong> — strings are ordered lexicographically (character by character, using Unicode codes). Uppercase letters come before lowercase.`;
+      cls = 'special';
+    } else {
+      exp = `<strong>${ldisp} ${singleOp} ${rdisp} → ${r ? 'True' : 'False'}</strong>`;
+      cls = 'ok';
+    }
+    document.getElementById('explainBox').className = 'explanation ' + cls;
+    document.getElementById('explainBox').innerHTML = exp;
+  }
+
+  function applyChain() {
+    const a = detectType(document.getElementById('cA').value);
+    const x = detectType(document.getElementById('cX').value);
+    const b = detectType(document.getElementById('cB').value);
+
+    // Render expression
+    const opMap = { '<': '<', '<=': '≤', '>': '>', '>=': '≥' };
+    let exprHtml = '';
+    const cmp1 = compareValues(a, x, chainOps[0]);
+    const cmp2 = compareValues(x, b, chainOps[1]);
+    const cmp1OK = cmp1.result !== null && cmp1.result !== undefined && !cmp1.error;
+    const cmp2OK = cmp2.result !== null && cmp2.result !== undefined && !cmp2.error;
+    const cmp1Cls = cmp1OK ? (cmp1.result ? 'pair-true' : 'pair-false') : 'pair-false';
+    const cmp2Cls = cmp2OK ? (cmp2.result ? 'pair-true' : 'pair-false') : 'pair-false';
+
+    exprHtml = `<span class="${cmp1Cls}"><span class="num">${a.display}</span> <span class="op">${opMap[chainOps[0]] || chainOps[0]}</span> <span class="var">${x.display}</span></span> <span class="${cmp2Cls}"><span class="var">${x.display}</span> <span class="op">${opMap[chainOps[1]] || chainOps[1]}</span> <span class="num">${b.display}</span></span>`;
+    // Simpler rendering: a < x < b
+    exprHtml = `<span class="num">${a.display}</span> <span class="op">${opMap[chainOps[0]] || chainOps[0]}</span> <span class="var">${x.display}</span> <span class="op">${opMap[chainOps[1]] || chainOps[1]}</span> <span class="num">${b.display}</span>`;
+    document.getElementById('chainExprDisplay').innerHTML = exprHtml;
+
+    // Build breakdown
+    let bdHtml = '';
+    bdHtml += `<div class="chain-bd-row">
+      <span class="chain-bd-expr">${a.display} ${chainOps[0]} ${x.display}</span>
+      <span class="chain-bd-arrow">→</span>
+      <span class="chain-bd-result ${cmp1.result ? 'true' : 'false'}">${cmp1.result ? 'True' : 'False'}</span>
+    </div>`;
+    bdHtml += `<div class="chain-bd-row">
+      <span class="chain-bd-expr">${x.display} ${chainOps[1]} ${b.display}</span>
+      <span class="chain-bd-arrow">→</span>
+      <span class="chain-bd-result ${cmp2.result ? 'true' : 'false'}">${cmp2.result ? 'True' : 'False'}</span>
+    </div>`;
+    const finalResult = cmp1.result && cmp2.result;
+    bdHtml += `<div class="chain-bd-row" style="margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line);">
+      <span class="chain-bd-expr" style="color: var(--accent);">${cmp1.result ? 'True' : 'False'} AND ${cmp2.result ? 'True' : 'False'}</span>
+      <span class="chain-bd-arrow">→</span>
+      <span class="chain-bd-result ${finalResult ? 'true' : 'false'}">${finalResult ? 'True' : 'False'}</span>
+    </div>`;
+    document.getElementById('chainBreakdown').innerHTML = bdHtml;
+
+    // Final
+    document.getElementById('chainFinal').className = 'chain-final ' + (finalResult ? 'true' : 'false');
+    document.getElementById('chainFinalVal').textContent = finalResult ? 'True' : 'False';
+
+    // Equivalent
+    document.getElementById('chainEquiv').textContent = `(${a.display} ${chainOps[0]} ${x.display}) and (${x.display} ${chainOps[1]} ${b.display})`;
+  }
+
+  // Initialize chain mode default selected ops
+  document.querySelectorAll(`#chainMode .op-btn[data-cop="0"][data-op="<"]`).forEach(b => b.classList.add('active'));
+  document.querySelectorAll(`#chainMode .op-btn[data-cop="1"][data-op="<"]`).forEach(b => b.classList.add('active'));
+
+  applySingle();
+</script>
+</body>
+</html>

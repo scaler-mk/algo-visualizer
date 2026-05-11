@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Logical operators — and, or, not + short-circuit</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+
+  /* Truth tables */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 20px 22px;
+  }
+  .panel-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .truth-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .truth-table th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    padding: 6px 10px;
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+  .truth-table td {
+    background: #0d1117;
+    padding: 8px 10px;
+    text-align: center;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+  .truth-table .tval { color: var(--green); font-weight: 600; }
+  .truth-table .fval { color: var(--red); font-weight: 600; }
+  .truth-table .result-cell.true { background: rgba(163, 217, 119, 0.1); border-color: rgba(163, 217, 119, 0.4); }
+  .truth-table .result-cell.false { background: rgba(229, 115, 115, 0.1); border-color: rgba(229, 115, 115, 0.4); }
+
+  .table-explain {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11.5px;
+    color: var(--ink);
+    margin-top: 12px;
+    line-height: 1.55;
+    padding: 10px 14px;
+    background: rgba(240, 160, 75, 0.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+  }
+
+  /* Short-circuit section */
+  .shortcircuit-stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 26px;
+    margin-bottom: 18px;
+  }
+  .sc-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .sc-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 18px;
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+
+  .controls {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240, 160, 75, 0.1); }
+
+  .expr-flow {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 26px;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .expr-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    text-align: center;
+    margin-bottom: 28px;
+    line-height: 1.6;
+  }
+  .term {
+    padding: 6px 14px;
+    border-radius: 6px;
+    margin: 0 3px;
+    display: inline-block;
+    border: 2px solid var(--line);
+    background: var(--panel-2);
+    transition: all 0.4s;
+  }
+  .term.evaluating {
+    border-color: var(--accent);
+    background: rgba(240, 160, 75, 0.15);
+    color: var(--accent);
+    animation: pulse 0.6s ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  .term.true {
+    border-color: var(--green);
+    background: rgba(163, 217, 119, 0.1);
+    color: var(--green);
+  }
+  .term.false {
+    border-color: var(--red);
+    background: rgba(229, 115, 115, 0.1);
+    color: var(--red);
+  }
+  .term.skipped {
+    opacity: 0.3;
+    text-decoration: line-through;
+    text-decoration-color: var(--muted);
+    color: var(--muted);
+  }
+  .term.skipped::after {
+    content: '⊘ skipped';
+    display: block;
+    font-size: 9px;
+    color: var(--muted);
+    font-family: Georgia, serif;
+    font-style: italic;
+    text-decoration: none;
+    margin-top: 2px;
+    text-align: center;
+  }
+  .logical-op {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--purple);
+    font-weight: 600;
+    font-size: 18px;
+    margin: 0 4px;
+  }
+
+  .steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .step-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--line);
+    transition: all 0.4s;
+    opacity: 0.35;
+  }
+  .step-item.active {
+    opacity: 1;
+    border-left-color: var(--accent);
+    background: rgba(240, 160, 75, 0.08);
+  }
+  .step-item.done {
+    opacity: 0.95;
+    border-left-color: var(--green);
+  }
+  .step-num {
+    width: 22px; height: 22px;
+    background: var(--panel);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+  .step-item.active .step-num { background: var(--accent); color: var(--bg); }
+  .step-item.done .step-num { background: var(--green); color: var(--bg); }
+  .step-desc {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .step-desc strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .final-result {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: 8px;
+    border: 2px solid;
+    text-align: center;
+  }
+  .final-result.true {
+    border-color: var(--green);
+    background: rgba(163, 217, 119, 0.06);
+  }
+  .final-result.false {
+    border-color: var(--red);
+    background: rgba(229, 115, 115, 0.06);
+  }
+  .final-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+  .final-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .final-result.true .final-val { color: var(--green); }
+  .final-result.false .final-val { color: var(--red); }
+
+  .devops-note {
+    background: rgba(93, 173, 236, 0.06);
+    border-left: 3px solid var(--blue);
+    padding: 14px 18px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .devops-note strong {
+    color: var(--blue);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .devops-note code {
+    background: rgba(255,255,255,0.04);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Logical operators — and, or, not (with short-circuit)</h1>
+  <div class="sub">Truth tables on top. Below, see <strong>short-circuit evaluation</strong> — Python stops as soon as it knows the answer. This is what makes <code>x != 0 and (10 / x) > 5</code> safe.</div>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="panel-title">AND — both must be True</div>
+      <table class="truth-table">
+        <thead>
+          <tr><th>A</th><th>B</th><th>A and B</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="tval">True</span></td><td><span class="tval">True</span></td><td class="result-cell true"><span class="tval">True</span></td></tr>
+          <tr><td><span class="tval">True</span></td><td><span class="fval">False</span></td><td class="result-cell false"><span class="fval">False</span></td></tr>
+          <tr><td><span class="fval">False</span></td><td><span class="tval">True</span></td><td class="result-cell false"><span class="fval">False</span></td></tr>
+          <tr><td><span class="fval">False</span></td><td><span class="fval">False</span></td><td class="result-cell false"><span class="fval">False</span></td></tr>
+        </tbody>
+      </table>
+      <div class="table-explain">
+        AND is True only when <strong>everything</strong> is True. If the FIRST is False, Python knows the answer is False without checking B — that's short-circuiting.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">OR — at least one must be True</div>
+      <table class="truth-table">
+        <thead>
+          <tr><th>A</th><th>B</th><th>A or B</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="tval">True</span></td><td><span class="tval">True</span></td><td class="result-cell true"><span class="tval">True</span></td></tr>
+          <tr><td><span class="tval">True</span></td><td><span class="fval">False</span></td><td class="result-cell true"><span class="tval">True</span></td></tr>
+          <tr><td><span class="fval">False</span></td><td><span class="tval">True</span></td><td class="result-cell true"><span class="tval">True</span></td></tr>
+          <tr><td><span class="fval">False</span></td><td><span class="fval">False</span></td><td class="result-cell false"><span class="fval">False</span></td></tr>
+        </tbody>
+      </table>
+      <div class="table-explain">
+        OR is True if <strong>any</strong> operand is True. If the FIRST is True, Python knows the answer is True without checking B.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom: 18px;">
+    <div class="panel-title">NOT — flips the value</div>
+    <div style="display: flex; gap: 30px; align-items: center; padding: 4px 8px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px;">
+        <span class="logical-op">not</span> <span style="color: var(--green); font-weight: 600;">True</span>
+        <span style="color: var(--muted); margin: 0 8px;">→</span>
+        <span style="color: var(--red); font-weight: 600;">False</span>
+      </div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px;">
+        <span class="logical-op">not</span> <span style="color: var(--red); font-weight: 600;">False</span>
+        <span style="color: var(--muted); margin: 0 8px;">→</span>
+        <span style="color: var(--green); font-weight: 600;">True</span>
+      </div>
+      <div style="font-family: Georgia, serif; font-style: italic; font-size: 12px; color: var(--muted); margin-left: auto;">Pronounced "not". Returns the opposite boolean.</div>
+    </div>
+  </div>
+
+  <div class="shortcircuit-stage">
+    <div class="sc-title">Short-circuit evaluation — see Python skip work</div>
+    <div class="sc-sub">Python evaluates left-to-right and stops as soon as the answer is determined. Pick a scenario and step through.</div>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIO</span>
+      <button class="qb active" id="sc1" onclick="loadScenario(1)">False and (1/0) — no crash!</button>
+      <button class="qb" id="sc2" onclick="loadScenario(2)">True or (1/0) — no crash!</button>
+      <button class="qb" id="sc3" onclick="loadScenario(3)">True and (not False)</button>
+      <button class="qb" id="sc4" onclick="loadScenario(4)">False or True</button>
+      <button class="qb" id="sc5" onclick="loadScenario(5)">count &gt; 0 and (total/count) &gt; 10</button>
+      <button class="qb" style="margin-left:auto;" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+
+    <div class="expr-flow">
+      <div class="expr-display" id="exprDisplay"></div>
+      <div class="steps-list" id="stepsList"></div>
+      <div class="final-result" id="finalResult" style="display: none;">
+        <div class="final-label" id="finalLabel">FINAL RESULT</div>
+        <div class="final-val" id="finalVal">—</div>
+      </div>
+    </div>
+
+    <div class="devops-note">
+      <strong>DevOps practical →</strong> short-circuiting is what makes safe-check patterns possible. <code>if user is not None and user.is_admin:</code> never errors even when <code>user</code> is None. <code>if file_exists(path) and read(path):</code> only reads if the file exists. This is one of the most useful idioms in real Python scripts.
+    </div>
+  </div>
+</div>
+
+<script>
+  const scenarios = {
+    1: {
+      expr: '<span class="term" id="t0">False</span><span class="logical-op">and</span><span class="term" id="t1">(1 / 0)</span>',
+      values: ['False', '(1 / 0)'],
+      types: ['bool', 'expr'],
+      op: 'and',
+      steps: [
+        { activeTerms: [0], desc: 'Python evaluates the <strong>LEFT side</strong> of <strong>and</strong>: this is <strong>False</strong>.', term0Class: 'false', term1Class: '' },
+        { activeTerms: [], desc: 'For <strong>and</strong>, if the left side is <strong>False</strong>, the result is already determined to be <strong>False</strong>. Python <strong>skips</strong> evaluating the right side entirely.', term0Class: 'false', term1Class: 'skipped' },
+        { activeTerms: [], desc: 'The right side <strong>(1 / 0)</strong> would have raised <strong>ZeroDivisionError</strong> — but Python never ran it. <strong>Short-circuit saved us.</strong>', term0Class: 'false', term1Class: 'skipped', final: 'False' }
+      ]
+    },
+    2: {
+      expr: '<span class="term" id="t0">True</span><span class="logical-op">or</span><span class="term" id="t1">(1 / 0)</span>',
+      values: ['True', '(1 / 0)'],
+      types: ['bool', 'expr'],
+      op: 'or',
+      steps: [
+        { activeTerms: [0], desc: 'Python evaluates the <strong>LEFT side</strong> of <strong>or</strong>: this is <strong>True</strong>.', term0Class: 'true', term1Class: '' },
+        { activeTerms: [], desc: 'For <strong>or</strong>, if the left side is <strong>True</strong>, the result is already determined to be <strong>True</strong>. Python <strong>skips</strong> the right side.', term0Class: 'true', term1Class: 'skipped' },
+        { activeTerms: [], desc: 'The right side <strong>(1 / 0)</strong> would have crashed — but it never ran. Same protection, just with <strong>or</strong> instead of <strong>and</strong>.', term0Class: 'true', term1Class: 'skipped', final: 'True' }
+      ]
+    },
+    3: {
+      expr: '<span class="term" id="t0">True</span><span class="logical-op">and</span><span class="term" id="t1"><span class="logical-op" style="font-size:14px;">not</span> False</span>',
+      values: ['True', '(not False)'],
+      types: ['bool', 'expr'],
+      op: 'and',
+      steps: [
+        { activeTerms: [0], desc: 'Evaluate <strong>LEFT side</strong>: this is <strong>True</strong>. For <strong>and</strong>, we MUST check the right side to know the answer.', term0Class: 'true', term1Class: '' },
+        { activeTerms: [1], desc: 'Evaluate <strong>RIGHT side</strong>: <strong>not False</strong> = <strong>True</strong>. Now we have True AND True.', term0Class: 'true', term1Class: 'true' },
+        { activeTerms: [], desc: '<strong>True and True → True</strong>. Both sides had to be evaluated this time, because the left was True.', term0Class: 'true', term1Class: 'true', final: 'True' }
+      ]
+    },
+    4: {
+      expr: '<span class="term" id="t0">False</span><span class="logical-op">or</span><span class="term" id="t1">True</span>',
+      values: ['False', 'True'],
+      types: ['bool', 'bool'],
+      op: 'or',
+      steps: [
+        { activeTerms: [0], desc: 'Evaluate <strong>LEFT side</strong>: this is <strong>False</strong>. For <strong>or</strong>, we MUST check the right side — because if it\'s True, the answer is True.', term0Class: 'false', term1Class: '' },
+        { activeTerms: [1], desc: 'Evaluate <strong>RIGHT side</strong>: this is <strong>True</strong>. The right side rescues us.', term0Class: 'false', term1Class: 'true' },
+        { activeTerms: [], desc: '<strong>False or True → True</strong>. With <strong>or</strong>, you need the right side ONLY when the left is False.', term0Class: 'false', term1Class: 'true', final: 'True' }
+      ]
+    },
+    5: {
+      expr: '<span class="term" id="t0">count &gt; 0</span><span class="logical-op">and</span><span class="term" id="t1">(total/count) &gt; 10</span>',
+      values: ['count > 0', '(total/count) > 10'],
+      types: ['expr', 'expr'],
+      op: 'and',
+      steps: [
+        { activeTerms: [0], desc: 'Suppose <strong>count = 0</strong>. Evaluate <strong>count &gt; 0</strong>: this is <strong>False</strong>.', term0Class: 'false', term1Class: '' },
+        { activeTerms: [], desc: 'Short-circuit: <strong>False and anything = False</strong>. Python <strong>skips</strong> the right side.', term0Class: 'false', term1Class: 'skipped' },
+        { activeTerms: [], desc: 'The right side <strong>(total/count) &gt; 10</strong> would have computed <strong>total / 0</strong> → <strong>ZeroDivisionError</strong>. Short-circuit prevented the crash. This is the safe-divide pattern.', term0Class: 'false', term1Class: 'skipped', final: 'False' }
+      ]
+    }
+  };
+
+  let currentScenario = 1;
+  let stepIdx = -1;
+
+  function loadScenario(n) {
+    currentScenario = n;
+    [1,2,3,4,5].forEach(k => document.getElementById('sc' + k).classList.toggle('active', k === n));
+    reset();
+  }
+
+  function reset() {
+    stepIdx = -1;
+    const sc = scenarios[currentScenario];
+    document.getElementById('exprDisplay').innerHTML = sc.expr;
+    let stepsHtml = '';
+    sc.steps.forEach((s, i) => {
+      stepsHtml += `<div class="step-item" id="step-${i}">
+        <span class="step-num">${i + 1}</span>
+        <span class="step-desc">${s.desc}</span>
+      </div>`;
+    });
+    document.getElementById('stepsList').innerHTML = stepsHtml;
+    document.getElementById('finalResult').style.display = 'none';
+  }
+
+  function step() {
+    const sc = scenarios[currentScenario];
+    if (stepIdx + 1 >= sc.steps.length) {
+      // Loop back
+      reset();
+      return;
+    }
+    stepIdx++;
+    const s = sc.steps[stepIdx];
+
+    // Mark previous steps as done
+    for (let i = 0; i <= stepIdx; i++) {
+      const el = document.getElementById('step-' + i);
+      if (i === stepIdx) el.className = 'step-item active';
+      else el.className = 'step-item done';
+    }
+
+    // Update term classes
+    const t0 = document.getElementById('t0');
+    const t1 = document.getElementById('t1');
+    if (t0) t0.className = 'term ' + (s.term0Class || '');
+    if (t1) t1.className = 'term ' + (s.term1Class || '');
+
+    // Add evaluating class
+    if (s.activeTerms.includes(0) && t0) t0.classList.add('evaluating');
+    if (s.activeTerms.includes(1) && t1) t1.classList.add('evaluating');
+
+    // Final result
+    if (s.final) {
+      const fr = document.getElementById('finalResult');
+      fr.style.display = 'block';
+      fr.className = 'final-result ' + (s.final === 'True' ? 'true' : 'false');
+      document.getElementById('finalVal').textContent = s.final;
+    }
+  }
+
+  reset();
+</script>
+</body>
+</html>

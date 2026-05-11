@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nested if — two levels of branching</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 7px 14px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240, 160, 75, 0.1); }
+  .step-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 8px 18px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 18px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-size: 13px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .cl {
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.15); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 6px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 6px; }
+  .cl.failed { background: rgba(229, 115, 115, 0.08); opacity: 0.85; color: var(--red); text-decoration: line-through; text-decoration-color: rgba(229, 115, 115, 0.4); }
+  .cl.skipped { opacity: 0.3; }
+  .cl.indent1 { padding-left: 22px; }
+  .cl.indent2 { padding-left: 42px; }
+  .cl.eval.indent1, .cl.taken.indent1 { padding-left: 20px; }
+  .cl.eval.indent2, .cl.taken.indent2 { padding-left: 40px; }
+  .kw { color: #5dadec; }
+  .str { color: #a3d977; }
+  .meth { color: #c084e8; }
+
+  .step-trace {
+    padding: 12px 16px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12.5px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    min-height: 60px;
+  }
+  .step-trace strong { font-family: 'JetBrains Mono', monospace; font-style: normal; color: var(--accent); }
+  .counter { font-size: 11px; color: var(--muted); font-style: italic; font-family: Georgia, serif; margin-top: 10px; text-align: center; }
+
+  /* Decision tree visualization */
+  .tree-stage {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px 18px;
+    border: 1px solid var(--line);
+    min-height: 440px;
+    position: relative;
+  }
+  .tree-svg {
+    width: 100%;
+    height: 440px;
+    display: block;
+  }
+  .tree-node {
+    transition: all 0.4s;
+  }
+  .tree-node-bg {
+    transition: all 0.4s;
+  }
+
+  .output-box {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    min-height: 70px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    color: var(--green);
+    font-weight: 600;
+    line-height: 1.6;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 14px;
+  }
+  .output-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-weight: 400;
+    font-size: 12px;
+  }
+
+  .why-nested {
+    background: rgba(192, 132, 232, 0.06);
+    border-left: 3px solid var(--purple);
+    padding: 14px 18px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: 14px;
+  }
+  .why-nested strong {
+    color: var(--purple);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nested if — putting an if inside another if</h1>
+  <div class="sub">When the second question only makes sense if the first answer is yes, you nest. Watch the decision tree — three different paths reach three different characters.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">SCENARIO — character guessing game</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="qb active" id="path1" onclick="loadPath(1)">Male=yes, Good=yes → Bheem</button>
+        <button class="qb" id="path2" onclick="loadPath(2)">Male=yes, Good=no → Kaliya</button>
+        <button class="qb" id="path3" onclick="loadPath(3)">Male=no → Chutki</button>
+      </div>
+    </div>
+    <div style="display:flex; gap: 10px; margin-left: auto;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE — TWO LEVELS DEEP</div>
+      <div class="codebox" id="codebox"></div>
+      <div class="step-trace" id="stepTrace">— press Step to begin —</div>
+      <div class="counter" id="counter"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">DECISION TREE — FOLLOW THE PATH</div>
+      <div class="tree-stage">
+        <svg class="tree-svg" id="treeSvg" viewBox="0 0 540 440">
+          <defs>
+            <marker id="ar7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#3a3f4b"/>
+            </marker>
+            <marker id="ar7-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#f0a04b"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+
+      <div class="output-box" id="outputBox">
+        <span class="output-empty">— step through to see output —</span>
+      </div>
+
+      <div class="why-nested">
+        <strong>Why nest?</strong> The question "is your character good?" only makes sense if we already know it's male. With a flat if-elif chain, we couldn't ask different follow-up questions based on the first answer. Nesting lets the SECOND question depend on the FIRST answer.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentPath = 1;
+  let stepIdx = -1;
+  let timer = null;
+  let currSteps = [];
+
+  // Path values
+  const paths = {
+    1: { a: 'yes', b: 'yes', result: 'chota Bheem' },
+    2: { a: 'yes', b: 'no', result: 'Kaliya' },
+    3: { a: 'no', b: null, result: 'chutki' }
+  };
+
+  function loadPath(p) {
+    currentPath = p;
+    [1, 2, 3].forEach(k => document.getElementById('path' + k).classList.toggle('active', k === p));
+    reset();
+  }
+
+  function buildCode() {
+    const a = paths[currentPath].a;
+    const b = paths[currentPath].b;
+    return `<div class="cl" id="c0">a = <span class="meth">input</span>(<span class="str">'Is your character Male?'</span>)  <span style="color: var(--muted);">→ <span class="str">'${a}'</span></span></div>
+<div class="cl" id="c1"><span class="kw">if</span>(a == <span class="str">'yes'</span>):</div>
+<div class="cl indent1" id="c2">b = <span class="meth">input</span>(<span class="str">'Is your character good?'</span>)${b !== null ? `  <span style="color: var(--muted);">→ <span class="str">'${b}'</span></span>` : ''}</div>
+<div class="cl indent1" id="c3">    <span class="kw">if</span>(b == <span class="str">'yes'</span>):</div>
+<div class="cl indent2" id="c4">        <span class="meth">print</span>(<span class="str">'Your character name is chota Bheem'</span>)</div>
+<div class="cl indent1" id="c5">    <span class="kw">else</span>:</div>
+<div class="cl indent2" id="c6">        <span class="meth">print</span>(<span class="str">'Your character name is Kaliya'</span>)</div>
+<div class="cl" id="c7"><span class="kw">else</span>:</div>
+<div class="cl indent1" id="c8">    <span class="meth">print</span>(<span class="str">'Your character name is chutki'</span>)</div>`;
+  }
+
+  function buildSteps() {
+    const a = paths[currentPath].a;
+    const b = paths[currentPath].b;
+    const steps = [];
+
+    // Step 0: input a
+    steps.push({ codeIds: ['c0'], codeCls: 'taken', trace: `Read input — variable <strong>a = '${a}'</strong>.`, treeNode: 'root' });
+
+    if (a === 'yes') {
+      // Outer if matches
+      steps.push({ codeIds: ['c1'], codeCls: 'eval', trace: `Check outer if: <strong>a == 'yes'</strong> → TRUE. Enter the outer block.`, treeNode: 'q1-yes', skipCodeIds: ['c7', 'c8'] });
+      steps.push({ codeIds: ['c1', 'c2'], codeCls: 'taken', trace: `Ask the SECOND question. This is only reached because the first was 'yes'. Variable <strong>b = '${b}'</strong>.`, treeNode: 'q2', q1Branch: true });
+
+      if (b === 'yes') {
+        steps.push({ codeIds: ['c1', 'c2', 'c3'], codeCls: 'eval', trace: `Check inner if: <strong>b == 'yes'</strong> → TRUE.`, treeNode: 'q2-yes', skipCodeIds: ['c5', 'c6'] });
+        steps.push({ codeIds: ['c1', 'c2', 'c3', 'c4'], codeCls: 'taken', trace: `Execute <strong>print('Your character name is chota Bheem')</strong>.`, output: 'Your character name is chota Bheem', treeNode: 'r-bheem' });
+      } else {
+        steps.push({ codeIds: ['c1', 'c2', 'c3'], codeCls: 'failed', trace: `Check inner if: <strong>b == 'yes'</strong> → FALSE. Skip to inner else.`, treeNode: 'q2-no', skipCodeIds: ['c4'] });
+        steps.push({ codeIds: ['c1', 'c2', 'c5'], codeCls: 'eval', trace: `Take the inner <strong>else</strong> branch.`, treeNode: 'q2-no' });
+        steps.push({ codeIds: ['c1', 'c2', 'c5', 'c6'], codeCls: 'taken', trace: `Execute <strong>print('Your character name is Kaliya')</strong>.`, output: 'Your character name is Kaliya', treeNode: 'r-kaliya' });
+      }
+    } else {
+      // Outer if fails - go to outer else
+      steps.push({ codeIds: ['c1'], codeCls: 'failed', trace: `Check outer if: <strong>a == 'yes'</strong> → FALSE. The whole inner block (lines 2-6) is <strong>skipped</strong>. We never even ask the second question.`, treeNode: 'q1-no', skipCodeIds: ['c2', 'c3', 'c4', 'c5', 'c6'] });
+      steps.push({ codeIds: ['c7'], codeCls: 'eval', trace: `Take the outer <strong>else</strong> branch.`, treeNode: 'q1-no' });
+      steps.push({ codeIds: ['c7', 'c8'], codeCls: 'taken', trace: `Execute <strong>print('Your character name is chutki')</strong>.`, output: 'Your character name is chutki', treeNode: 'r-chutki' });
+    }
+
+    return steps;
+  }
+
+  // Tree node positions
+  const treeNodes = {
+    root:      { x: 270, y: 30,  label: 'Start',           type: 'start' },
+    q1:        { x: 270, y: 95,  label: "Is character Male?", type: 'question' },
+    q1Yes:     { x: 150, y: 175, label: "yes",              type: 'edge-label' },
+    q1No:      { x: 390, y: 175, label: "no",               type: 'edge-label' },
+    q2:        { x: 150, y: 215, label: "Is character good?", type: 'question' },
+    q2Yes:     { x: 70,  y: 295, label: "yes",              type: 'edge-label' },
+    q2No:      { x: 230, y: 295, label: "no",               type: 'edge-label' },
+    rBheem:    { x: 70,  y: 340, label: 'chota Bheem',      type: 'result' },
+    rKaliya:   { x: 230, y: 340, label: 'Kaliya',           type: 'result' },
+    rChutki:   { x: 390, y: 215, label: 'chutki',           type: 'result' }
+  };
+
+  function renderTree(activeStates) {
+    // activeStates: object with keys for each node telling if it's active/taken/idle
+    const svg = document.getElementById('treeSvg');
+    let content = `
+      <defs>
+        <marker id="ar7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#3a3f4b"/>
+        </marker>
+        <marker id="ar7-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#a3d977"/>
+        </marker>
+      </defs>`;
+
+    // Edges first
+    const edges = [
+      { from: 'root', to: 'q1', active: activeStates.q1Visit },
+      { from: 'q1', to: 'q2', active: activeStates.q1Yes, label: 'yes', labelPos: { x: 195, y: 158 } },
+      { from: 'q1', to: 'rChutki', active: activeStates.q1No, label: 'no', labelPos: { x: 345, y: 158 } },
+      { from: 'q2', to: 'rBheem', active: activeStates.q2Yes, label: 'yes', labelPos: { x: 100, y: 278 } },
+      { from: 'q2', to: 'rKaliya', active: activeStates.q2No, label: 'no', labelPos: { x: 200, y: 278 } }
+    ];
+
+    edges.forEach(e => {
+      const f = treeNodes[e.from];
+      const t = treeNodes[e.to];
+      const color = e.active ? '#a3d977' : '#3a3f4b';
+      const marker = e.active ? 'url(#ar7-active)' : 'url(#ar7)';
+      const sw = e.active ? '2.5' : '1.5';
+      content += `<line x1="${f.x}" y1="${f.y + 22}" x2="${t.x}" y2="${t.y - 22}" stroke="${color}" stroke-width="${sw}" marker-end="${marker}" />`;
+      if (e.label && e.labelPos) {
+        const lblColor = e.active ? '#a3d977' : '#5a5d63';
+        content += `<text x="${e.labelPos.x}" y="${e.labelPos.y}" fill="${lblColor}" font-family="Georgia, serif" font-style="italic" font-size="13" text-anchor="middle">${e.label}</text>`;
+      }
+    });
+
+    // Nodes
+    const nodesToRender = [
+      { key: 'root', node: treeNodes.root, state: activeStates.root, shape: 'circle' },
+      { key: 'q1', node: treeNodes.q1, state: activeStates.q1, shape: 'diamond' },
+      { key: 'q2', node: treeNodes.q2, state: activeStates.q2, shape: 'diamond' },
+      { key: 'rBheem', node: treeNodes.rBheem, state: activeStates.rBheem, shape: 'rect' },
+      { key: 'rKaliya', node: treeNodes.rKaliya, state: activeStates.rKaliya, shape: 'rect' },
+      { key: 'rChutki', node: treeNodes.rChutki, state: activeStates.rChutki, shape: 'rect' }
+    ];
+
+    nodesToRender.forEach(n => {
+      let fill, stroke, textColor, sw;
+      if (n.state === 'taken') {
+        fill = 'rgba(163, 217, 119, 0.18)';
+        stroke = '#a3d977';
+        textColor = '#a3d977';
+        sw = '2.5';
+      } else if (n.state === 'active') {
+        fill = 'rgba(240, 160, 75, 0.15)';
+        stroke = '#f0a04b';
+        textColor = '#f0a04b';
+        sw = '2.5';
+      } else if (n.state === 'failed') {
+        fill = 'rgba(229, 115, 115, 0.08)';
+        stroke = '#e57373';
+        textColor = '#e57373';
+        sw = '1.5';
+      } else {
+        fill = '#242830';
+        stroke = '#3a3f4b';
+        textColor = '#8b8d93';
+        sw = '1.5';
+      }
+
+      if (n.shape === 'circle') {
+        content += `<circle cx="${n.node.x}" cy="${n.node.y}" r="20" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" />`;
+        content += `<text x="${n.node.x}" y="${n.node.y + 4}" fill="${textColor}" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" font-weight="600">${n.node.label}</text>`;
+      } else if (n.shape === 'diamond') {
+        const s = 60;
+        content += `<polygon points="${n.node.x},${n.node.y - 22} ${n.node.x + s},${n.node.y} ${n.node.x},${n.node.y + 22} ${n.node.x - s},${n.node.y}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" />`;
+        // Multi-line text
+        const lines = n.node.label.length > 18 ? ['Is character', n.node.label.replace('Is character ', '')] : [n.node.label];
+        lines.forEach((ln, i) => {
+          const yo = lines.length === 1 ? 4 : (i === 0 ? -3 : 10);
+          content += `<text x="${n.node.x}" y="${n.node.y + yo}" fill="${textColor}" font-family="Georgia, serif" font-style="italic" font-size="11" text-anchor="middle">${ln}</text>`;
+        });
+      } else if (n.shape === 'rect') {
+        const w = 95, h = 36;
+        content += `<rect x="${n.node.x - w/2}" y="${n.node.y - h/2}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${sw}" />`;
+        content += `<text x="${n.node.x}" y="${n.node.y + 5}" fill="${textColor}" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" text-anchor="middle">${n.node.label}</text>`;
+      }
+    });
+
+    svg.innerHTML = content;
+  }
+
+  function applyTreeState(node) {
+    const state = {
+      root: 'taken', q1: 'idle', q2: 'idle',
+      rBheem: 'idle', rKaliya: 'idle', rChutki: 'idle',
+      q1Visit: false, q1Yes: false, q1No: false, q2Yes: false, q2No: false
+    };
+
+    if (node === 'root') {
+      state.q1Visit = true;
+      state.q1 = 'active';
+    } else if (node === 'q1-yes') {
+      state.q1Visit = true;
+      state.q1 = 'taken';
+      state.q1Yes = true;
+      state.q2 = 'active';
+    } else if (node === 'q1-no') {
+      state.q1Visit = true;
+      state.q1 = 'taken';
+      state.q1No = true;
+      state.rChutki = 'active';
+    } else if (node === 'q2') {
+      state.q1Visit = true;
+      state.q1 = 'taken';
+      state.q1Yes = true;
+      state.q2 = 'active';
+    } else if (node === 'q2-yes') {
+      state.q1Visit = true;
+      state.q1 = 'taken';
+      state.q1Yes = true;
+      state.q2 = 'taken';
+      state.q2Yes = true;
+      state.rBheem = 'active';
+    } else if (node === 'q2-no') {
+      state.q1Visit = true;
+      state.q1 = 'taken';
+      state.q1Yes = true;
+      state.q2 = 'taken';
+      state.q2No = true;
+      state.rKaliya = 'active';
+    } else if (node === 'r-bheem') {
+      state.q1Visit = true;
+      state.q1 = 'taken';
+      state.q1Yes = true;
+      state.q2 = 'taken';
+      state.q2Yes = true;
+      state.rBheem = 'taken';
+    } else if (node === 'r-kaliya') {
+      state.q1Visit = true;
+      state.q1 = 'taken';
+      state.q1Yes = true;
+      state.q2 = 'taken';
+      state.q2No = true;
+      state.rKaliya = 'taken';
+    } else if (node === 'r-chutki') {
+      state.q1Visit = true;
+      state.q1 = 'taken';
+      state.q1No = true;
+      state.rChutki = 'taken';
+    }
+
+    renderTree(state);
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    stepIdx = -1;
+    document.getElementById('codebox').innerHTML = buildCode();
+    currSteps = buildSteps();
+    document.getElementById('outputBox').innerHTML = '<span class="output-empty">— step through to see output —</span>';
+    document.getElementById('stepTrace').innerHTML = '— press Step to begin —';
+    document.getElementById('counter').textContent = `${currSteps.length} steps total`;
+    document.getElementById('stepBtn').disabled = false;
+    applyTreeState('init');
+  }
+
+  function step() {
+    if (stepIdx + 1 >= currSteps.length) return;
+    stepIdx++;
+    const s = currSteps[stepIdx];
+
+    // Reset all code lines that have eval state
+    document.querySelectorAll('#codebox .cl').forEach(el => {
+      // Don't change taken/failed states
+      if (el.classList.contains('eval')) {
+        el.classList.remove('eval');
+        // Restore to its previous state if any — we just mark it as taken if a code id appears later
+      }
+    });
+
+    // Apply new class to listed codeIds
+    if (s.codeIds && s.codeCls) {
+      // First, set all in codeIds to the css class (last one takes the new state, others should be 'taken')
+      const last = s.codeIds[s.codeIds.length - 1];
+      s.codeIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('skipped');
+        if (id === last) {
+          el.classList.remove('taken', 'failed', 'eval');
+          el.classList.add(s.codeCls);
+        } else {
+          // already taken — keep state, ensure not in eval
+          if (!el.classList.contains('failed') && !el.classList.contains('taken')) {
+            el.classList.add('taken');
+          }
+        }
+      });
+    }
+    if (s.skipCodeIds) {
+      s.skipCodeIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('taken') && !el.classList.contains('failed') && !el.classList.contains('eval')) {
+          el.classList.add('skipped');
+        }
+      });
+    }
+
+    if (s.output) {
+      document.getElementById('outputBox').innerHTML = s.output;
+    }
+
+    if (s.treeNode) {
+      applyTreeState(s.treeNode);
+    }
+
+    document.getElementById('stepTrace').innerHTML = s.trace;
+    document.getElementById('counter').textContent = `step ${stepIdx + 1} / ${currSteps.length}`;
+
+    if (stepIdx + 1 >= currSteps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (stepIdx + 1 >= currSteps.length) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1500);
+  }
+
+  reset();
+</script>
+</body>
+</html>
