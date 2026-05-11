@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Remove That — the shift-left vacuum</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-frame { background: #0d1117; border-radius: 6px; padding: 24px 18px; min-height: 300px; }
+  .viz-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 18px; }
+
+  .array-row { display: flex; gap: 6px; justify-content: center; align-items: center; margin-bottom: 6px; }
+  .cell { position: relative; width: 64px; height: 56px; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; color: var(--ink); transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+  .cell.target { border-color: var(--red); background: rgba(229, 115, 115, 0.18); color: var(--red); }
+  .cell.vacuum { border-color: var(--red); border-style: dashed; background: rgba(229, 115, 115, 0.06); color: transparent; }
+  .cell.vacuum::after { content: 'gap'; position: absolute; color: var(--red); font-size: 11px; font-style: italic; font-family: Georgia, serif; }
+  .cell.moving { border-color: var(--blue); background: rgba(93, 173, 236, 0.20); transform: translateY(-6px); box-shadow: 0 6px 16px rgba(93,173,236,0.2); color: var(--blue); }
+  .cell.shifted { border-color: var(--green); background: rgba(163, 217, 119, 0.12); color: var(--green); }
+  .cell.redundant { opacity: 0.35; border-style: dashed; color: var(--muted); }
+  .cell.redundant::before { content: ''; position: absolute; top: 50%; left: 8px; right: 8px; height: 1.5px; background: var(--muted); transform: rotate(-12deg); }
+
+  .idx-row { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+  .idx-cell { width: 64px; text-align: center; font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .idx-cell.cur { color: var(--blue); font-weight: 700; }
+
+  .arrow-row { display: flex; gap: 6px; justify-content: center; align-items: center; min-height: 22px; margin: 4px 0; }
+  .arrow-cell { width: 64px; text-align: center; font-size: 18px; color: var(--blue); opacity: 0; transition: opacity 0.2s; font-weight: 700; }
+  .arrow-cell.show { opacity: 1; }
+
+  .pointer-row { display: flex; gap: 6px; justify-content: center; align-items: center; min-height: 22px; margin-bottom: 4px; }
+  .pointer { width: 64px; text-align: center; font-size: 14px; color: var(--accent); opacity: 0; transition: opacity 0.2s; font-weight: 700; }
+  .pointer.show { opacity: 1; }
+
+  .n-display { display: flex; gap: 14px; align-items: center; justify-content: center; padding: 12px; background: var(--panel-2); border-radius: 6px; margin-top: 16px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .n-display .label { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
+  .n-display .val { color: var(--accent); font-weight: 700; }
+  .n-display .arrow { color: var(--muted); }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .bad { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .insight { background: rgba(240, 160, 75, 0.08); border: 1px solid rgba(240, 160, 75, 0.4); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--accent); font-size: 11.5px; font-family: Georgia, serif; font-style: italic; display: none; }
+  .insight.show { display: block; }
+  .insight strong { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Remove That — the shift-left vacuum</h1>
+  <div class="sub">Removing an element leaves a gap. Every element after it slides one step left to fill the vacuum — the last cell becomes redundant. Step through to see the shift in motion.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-sc="0">Remove position 3 — [2, 3, 1, 4, 2]</button>
+    <button class="qb" data-sc="1">Remove the first — position 1</button>
+    <button class="qb" data-sc="2">Remove the last — position 5</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">SOURCE CODE</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+      <div class="code" id="codeBlock"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">THE ARRAY</div>
+      <div class="viz-frame">
+        <div class="viz-label" id="vizLabel">— press Step ▸ to begin —</div>
+        <div class="pointer-row" id="pointerRow"></div>
+        <div class="array-row" id="arrayRow"></div>
+        <div class="idx-row" id="idxRow"></div>
+        <div class="arrow-row" id="arrowRow"></div>
+        <div class="n-display" id="nDisplay">
+          <span class="label">N =</span><span class="val" id="nVal">—</span>
+          <span class="arrow">·</span>
+          <span class="label">X =</span><span class="val" id="xVal">—</span>
+          <span class="arrow">·</span>
+          <span class="label">INDEX =</span><span class="val" id="idxVal">—</span>
+        </div>
+      </div>
+      <div class="commentary" id="commentary">Pick a scenario above. The array will shift left to fill the vacuum left by the removed element.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    name: 'Remove position 3 — [2, 3, 1, 4, 2]',
+    sub: 'The everyday case. Position 3 maps to index 2; everything to its right shifts one step left.',
+    code: [
+      'n = int(input())                    # 5',
+      'a = list(map(int, input().split())) # [2,3,1,4,2]',
+      'x = int(input())                    # 3',
+      '',
+      'for i in range(x, n):',
+      '    a[i-1] = a[i]   # shift left',
+      'n -= 1',
+      '',
+      'for i in range(n):',
+      '    print(a[i], end=" ")',
+    ],
+    initial: [2, 3, 1, 4, 2],
+    x: 3,
+    plan: buildPlan([2, 3, 1, 4, 2], 3),
+    insight: `Every element <em>after</em> the target index moves one step left. The last cell still holds its old value — we just ignore it by tracking a smaller <strong>N</strong>.`,
+  },
+  {
+    name: 'Remove the first — position 1',
+    sub: 'X = 1 means index 0. The whole tail shifts left — the most work the algorithm can do.',
+    code: [
+      'n = int(input())                    # 5',
+      'a = list(map(int, input().split())) # [2,3,1,4,2]',
+      'x = int(input())                    # 1',
+      '',
+      'for i in range(x, n):',
+      '    a[i-1] = a[i]',
+      'n -= 1',
+      '',
+      'for i in range(n):',
+      '    print(a[i], end=" ")',
+    ],
+    initial: [2, 3, 1, 4, 2],
+    x: 1,
+    plan: buildPlan([2, 3, 1, 4, 2], 1),
+    insight: `Worst case for this algorithm: removing the first element shifts <strong>every</strong> remaining element. Still O(N), but the constant is the largest.`,
+  },
+  {
+    name: 'Remove the last — position 5',
+    sub: 'X = N means the loop body never runs. Just decrement N and the last cell becomes garbage.',
+    code: [
+      'n = int(input())                    # 5',
+      'a = list(map(int, input().split())) # [2,3,1,4,2]',
+      'x = int(input())                    # 5',
+      '',
+      'for i in range(x, n):     # range(5, 5) is empty!',
+      '    a[i-1] = a[i]',
+      'n -= 1',
+      '',
+      'for i in range(n):',
+      '    print(a[i], end=" ")',
+    ],
+    initial: [2, 3, 1, 4, 2],
+    x: 5,
+    plan: buildPlan([2, 3, 1, 4, 2], 5),
+    insight: `When X equals N, the shift loop's range is empty — no shifts happen. The cell is "removed" purely by reducing N. Best case: O(1).`,
+  },
+];
+
+function buildPlan(initial, x) {
+  const n = initial.length;
+  const targetIdx = x - 1;
+  const arr = initial.slice();
+  const plan = [];
+
+  plan.push({
+    line: 0, kind: 'init', arr: arr.slice(), n, x,
+    msg: `Inputs read: <strong>N = ${n}</strong>, array = <strong>[${arr.join(', ')}]</strong>, <strong>X = ${x}</strong>.`
+  });
+  plan.push({
+    line: 2, kind: 'mark', arr: arr.slice(), n, x, targetIdx,
+    msg: `Position <strong>${x}</strong> maps to index <strong>${targetIdx}</strong>. The value there — <strong>${arr[targetIdx]}</strong> — will be overwritten by the shift.`
+  });
+  plan.push({
+    line: 4, kind: 'vacuum', arr: arr.slice(), n, x, targetIdx, vacuumIdx: targetIdx,
+    msg: `Imagine a <span class="bad">vacuum</span> at index <strong>${targetIdx}</strong>. The shift loop will fill it by copying from the right.`
+  });
+
+  // Loop: for i in range(x, n) — copy a[i] to a[i-1]
+  for (let i = x; i < n; i++) {
+    const srcIdx = i;
+    const dstIdx = i - 1;
+    const srcVal = arr[srcIdx];
+    plan.push({
+      line: 5, kind: 'shift', arr: arr.slice(), n, x, targetIdx,
+      srcIdx, dstIdx, srcVal, beforeArr: arr.slice(),
+      msg: `i = ${i}: <strong>a[${dstIdx}] = a[${srcIdx}]</strong> — copy <span class="blue">${srcVal}</span> from index <strong>${srcIdx}</strong> into index <strong>${dstIdx}</strong>. The vacuum moves one step right.`
+    });
+    arr[dstIdx] = srcVal;
+  }
+
+  // If x == n, no shifts ran
+  if (x === n) {
+    plan.push({
+      line: 4, kind: 'noshift', arr: arr.slice(), n, x, targetIdx,
+      msg: `<strong>range(${x}, ${n})</strong> is empty — the loop body never runs. Nothing to shift.`
+    });
+  }
+
+  plan.push({
+    line: 6, kind: 'decrement', arr: arr.slice(), n: n - 1, x, targetIdx, oldN: n, redundantIdx: n - 1,
+    msg: `<strong>n -= 1</strong> → N is now ${n - 1}. The cell at index ${n - 1} still holds its old value, but we'll never look at it again.`
+  });
+
+  plan.push({
+    line: 8, kind: 'print', arr: arr.slice(), n: n - 1, x, targetIdx,
+    output: arr.slice(0, n - 1).join(' '),
+    msg: `Final print loop emits <strong>${n - 1}</strong> elements: <span class="ok">${arr.slice(0, n - 1).join(' ')}</span>.`
+  });
+
+  return plan;
+}
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  const plan = sc.plan;
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  // Code
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line === idx) {
+      if (cur.kind === 'print') cls += ' exec-return';
+      else cls += ' exec';
+    }
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  // Visualization
+  const arr = cur ? cur.arr : sc.initial;
+  const n = sc.initial.length;
+  const targetIdx = sc.x - 1;
+
+  // Pointers
+  let ptrHtml = '';
+  for (let i = 0; i < n; i++) {
+    let cls = 'pointer';
+    if (cur && cur.kind === 'shift' && i === cur.srcIdx) { cls += ' show'; ptrHtml += `<div class="${cls}">src</div>`; }
+    else if (cur && cur.kind === 'shift' && i === cur.dstIdx) { cls += ' show'; ptrHtml += `<div class="${cls}" style="color:var(--green)">dst</div>`; }
+    else ptrHtml += `<div class="${cls}"></div>`;
+  }
+  document.getElementById('pointerRow').innerHTML = ptrHtml;
+
+  // Cells
+  let cellHtml = '';
+  for (let i = 0; i < n; i++) {
+    let cls = 'cell';
+    let content = arr[i] !== undefined ? arr[i] : '';
+
+    if (cur && cur.kind === 'mark' && i === targetIdx) cls += ' target';
+    else if (cur && cur.kind === 'vacuum' && i === cur.vacuumIdx) { cls += ' vacuum'; content = ''; }
+    else if (cur && cur.kind === 'shift') {
+      if (i === cur.srcIdx) cls += ' moving';
+      if (i === cur.dstIdx) cls += ' shifted';
+    }
+    else if (cur && (cur.kind === 'decrement' || cur.kind === 'print') && i >= cur.n) {
+      cls += ' redundant';
+    }
+
+    cellHtml += `<div class="${cls}">${content}</div>`;
+  }
+  document.getElementById('arrayRow').innerHTML = cellHtml;
+
+  // Indices
+  let idxHtml = '';
+  for (let i = 0; i < n; i++) {
+    let cls = 'idx-cell';
+    if (cur && cur.kind === 'shift' && (i === cur.srcIdx || i === cur.dstIdx)) cls += ' cur';
+    idxHtml += `<div class="${cls}">${i}</div>`;
+  }
+  document.getElementById('idxRow').innerHTML = idxHtml;
+
+  // Arrow row (only during shifts)
+  let arrowHtml = '';
+  if (cur && cur.kind === 'shift') {
+    for (let i = 0; i < n; i++) {
+      if (i === cur.dstIdx) {
+        arrowHtml += `<div class="arrow-cell show">◄</div>`;
+      } else {
+        arrowHtml += `<div class="arrow-cell"></div>`;
+      }
+    }
+  } else {
+    for (let i = 0; i < n; i++) arrowHtml += `<div class="arrow-cell"></div>`;
+  }
+  document.getElementById('arrowRow').innerHTML = arrowHtml;
+
+  // N/X/index display
+  document.getElementById('nVal').textContent = cur ? cur.n : sc.initial.length;
+  document.getElementById('xVal').textContent = sc.x;
+  document.getElementById('idxVal').textContent = sc.x - 1;
+
+  // Viz label
+  let vizLabel = '— press Step ▸ to begin —';
+  if (cur) {
+    if (cur.kind === 'init') vizLabel = 'inputs loaded';
+    else if (cur.kind === 'mark') vizLabel = `targeting index ${cur.targetIdx}`;
+    else if (cur.kind === 'vacuum') vizLabel = `vacuum at index ${cur.vacuumIdx}`;
+    else if (cur.kind === 'shift') vizLabel = `shifting a[${cur.srcIdx}] → a[${cur.dstIdx}]`;
+    else if (cur.kind === 'noshift') vizLabel = 'shift loop is empty — no shifts performed';
+    else if (cur.kind === 'decrement') vizLabel = `N decremented to ${cur.n}`;
+    else if (cur.kind === 'print') vizLabel = 'final output';
+  }
+  document.getElementById('vizLabel').textContent = vizLabel;
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : `Pick a scenario above. The array will shift left to fill the vacuum left by the removed element.`;
+
+  const insightEl = document.getElementById('insight');
+  if (sc.insight && stepIdx === plan.length) {
+    insightEl.innerHTML = `<strong>Lesson →</strong> ${sc.insight}`;
+    insightEl.classList.add('show');
+  } else {
+    insightEl.classList.remove('show');
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>

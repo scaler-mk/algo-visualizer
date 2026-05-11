@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Add Matrices — cell by cell</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .play-btn { background: transparent; color: var(--green); border: 1px solid var(--green); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .play-btn:hover { background: rgba(163,217,119,0.10); }
+  .play-btn.playing { color: var(--red); border-color: var(--red); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-frame { background: #0d1117; border-radius: 6px; padding: 22px 18px; min-height: 320px; }
+  .viz-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .matrix-trio { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 12px; align-items: center; margin-top: 12px; }
+  .mat-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--blue); font-weight: 700; text-align: center; margin-bottom: 8px; }
+  .mat-name.result { color: var(--accent); }
+  .matrix { display: inline-grid; gap: 4px; margin: 0 auto; }
+  .matrix.size3 { grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 42px); }
+  .matrix.size2 { grid-template-columns: repeat(2, 56px); grid-template-rows: repeat(2, 46px); }
+  .mat-cell { background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--ink); transition: all 0.3s; }
+  .mat-cell.empty { background: rgba(45, 50, 60, 0.4); color: transparent; border-style: dashed; }
+  .mat-cell.empty::after { content: '·'; color: var(--muted); }
+  .mat-cell.lit-A { border-color: var(--blue); background: rgba(93, 173, 236, 0.18); transform: scale(1.08); }
+  .mat-cell.lit-B { border-color: var(--purple); background: rgba(192, 132, 232, 0.18); transform: scale(1.08); }
+  .mat-cell.lit-R { border-color: var(--accent); background: rgba(240, 160, 75, 0.22); transform: scale(1.08); color: var(--accent); }
+  .mat-cell.filled { color: var(--green); }
+
+  .plus-sign { font-size: 24px; color: var(--muted); text-align: center; font-weight: 700; }
+  .equals-sign { font-size: 24px; color: var(--accent); text-align: center; font-weight: 700; }
+
+  .computation { display: flex; gap: 14px; align-items: center; justify-content: center; padding: 14px; background: var(--panel-2); border-radius: 6px; margin-top: 18px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; min-height: 48px; }
+  .computation .val-A { color: var(--blue); font-weight: 700; }
+  .computation .val-B { color: var(--purple); font-weight: 700; }
+  .computation .val-R { color: var(--accent); font-weight: 700; }
+  .computation .plus, .computation .equals { color: var(--muted); }
+  .computation .placeholder { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .insight { background: rgba(240, 160, 75, 0.08); border: 1px solid rgba(240, 160, 75, 0.4); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--accent); font-size: 11.5px; font-family: Georgia, serif; font-style: italic; display: none; }
+  .insight.show { display: block; }
+  .insight strong { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Add Matrices — cell by cell</h1>
+  <div class="sub">Two same-shaped grids → a new grid where each cell is the sum of the two cells above it. The double loop visits every coordinate (i, j) exactly once.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-sc="0">3×3 example from the problem</button>
+    <button class="qb" data-sc="1">2×2 quick demo</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="play-btn" id="playBtn">▶ Auto</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">SOURCE CODE</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+      <div class="code" id="codeBlock"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">THE MATRICES</div>
+      <div class="viz-frame">
+        <div class="viz-label" id="vizLabel">— press Step ▸ to begin —</div>
+        <div class="matrix-trio" id="matrixTrio"></div>
+        <div class="computation" id="computation">
+          <span class="placeholder">— pick a cell to compute —</span>
+        </div>
+      </div>
+      <div class="commentary" id="commentary">Pick a scenario above. Step through to see each pair of cells add up into the result matrix.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    name: '3×3 example from the problem',
+    sub: 'Two 3×3 matrices add element-wise. The result has the same shape.',
+    code: [
+      'def add_matrices(A, B):',
+      '    n = len(A)',
+      '    m = len(A[0])',
+      '    result = [[0]*m for _ in range(n)]',
+      '',
+      '    for i in range(n):',
+      '        for j in range(m):',
+      '            result[i][j] = A[i][j] + B[i][j]',
+      '',
+      '    return result',
+    ],
+    A: [[2,4,6],[1,3,5],[7,8,9]],
+    B: [[5,1,3],[2,6,4],[9,0,2]],
+    size: 3,
+    insight: `Two nested loops, one pass per cell — that's the canonical pattern for working with same-shaped matrices. <strong>O(N × M)</strong> in both time and space (we allocate a new result grid).`,
+  },
+  {
+    name: '2×2 quick demo',
+    sub: 'Smaller grid, same exact algorithm. Easier to trace end-to-end.',
+    code: [
+      'def add_matrices(A, B):',
+      '    n = len(A)',
+      '    m = len(A[0])',
+      '    result = [[0]*m for _ in range(n)]',
+      '',
+      '    for i in range(n):',
+      '        for j in range(m):',
+      '            result[i][j] = A[i][j] + B[i][j]',
+      '',
+      '    return result',
+    ],
+    A: [[10,20],[30,40]],
+    B: [[1,2],[3,4]],
+    size: 2,
+    insight: `Notice the result matrix is built independently — we do <em>not</em> mutate A or B. That's why the pre-allocated <strong>result</strong> grid matters: it's a fresh container for the answers.`,
+  },
+];
+
+// Build plan: for each (i, j) emit a step that computes result[i][j]
+function buildPlan(sc) {
+  const plan = [];
+  plan.push({
+    kind: 'init', i: -1, j: -1, line: 3,
+    msg: `Allocate <strong>result</strong> as a ${sc.size}×${sc.size} grid of zeros — independent rows, ready to fill.`
+  });
+  for (let i = 0; i < sc.size; i++) {
+    for (let j = 0; j < sc.size; j++) {
+      plan.push({
+        kind: 'compute', i, j, line: 7,
+        a: sc.A[i][j], b: sc.B[i][j], r: sc.A[i][j] + sc.B[i][j],
+        msg: `i=${i}, j=${j}: <span class="blue">A[${i}][${j}] = ${sc.A[i][j]}</span> + <span class="purple">B[${i}][${j}] = ${sc.B[i][j]}</span> → <strong>${sc.A[i][j] + sc.B[i][j]}</strong> stored at <strong>result[${i}][${j}]</strong>.`
+      });
+    }
+  }
+  plan.push({
+    kind: 'done', i: -1, j: -1, line: 9,
+    msg: `All ${sc.size * sc.size} cells filled. <strong>return result</strong> hands the new matrix back to the caller.`
+  });
+  return plan;
+}
+
+SCENARIOS.forEach(sc => sc.plan = buildPlan(sc));
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+let autoTimer = null;
+
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  stopAuto();
+  render();
+}
+
+function stopAuto() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  document.getElementById('playBtn').classList.remove('playing');
+  document.getElementById('playBtn').textContent = '▶ Auto';
+}
+
+function startAuto() {
+  if (autoTimer) return;
+  document.getElementById('playBtn').classList.add('playing');
+  document.getElementById('playBtn').textContent = '⏸ Pause';
+  autoTimer = setInterval(() => {
+    if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+    else stopAuto();
+  }, 700);
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  const plan = sc.plan;
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  // Code
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line === idx) cls += ' exec';
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  // Filled cells in result (everything before current i,j)
+  const filledThrough = {};
+  for (let s = 0; s < stepIdx; s++) {
+    const p = plan[s];
+    if (p.kind === 'compute') filledThrough[`${p.i},${p.j}`] = p.r;
+  }
+
+  // Matrices
+  const trio = document.getElementById('matrixTrio');
+  let html2 = '';
+  // A column
+  html2 += `<div>`;
+  html2 += `<div class="mat-name">A</div>`;
+  html2 += `<div class="matrix size${sc.size}">`;
+  for (let i = 0; i < sc.size; i++) {
+    for (let j = 0; j < sc.size; j++) {
+      let cls = 'mat-cell';
+      if (cur && cur.kind === 'compute' && cur.i === i && cur.j === j) cls += ' lit-A';
+      html2 += `<div class="${cls}">${sc.A[i][j]}</div>`;
+    }
+  }
+  html2 += `</div></div>`;
+  html2 += `<div class="plus-sign">+</div>`;
+  // B column
+  html2 += `<div>`;
+  html2 += `<div class="mat-name" style="color:var(--purple)">B</div>`;
+  html2 += `<div class="matrix size${sc.size}">`;
+  for (let i = 0; i < sc.size; i++) {
+    for (let j = 0; j < sc.size; j++) {
+      let cls = 'mat-cell';
+      if (cur && cur.kind === 'compute' && cur.i === i && cur.j === j) cls += ' lit-B';
+      html2 += `<div class="${cls}">${sc.B[i][j]}</div>`;
+    }
+  }
+  html2 += `</div></div>`;
+  html2 += `<div class="equals-sign">=</div>`;
+  // Result column
+  html2 += `<div>`;
+  html2 += `<div class="mat-name result">result</div>`;
+  html2 += `<div class="matrix size${sc.size}">`;
+  for (let i = 0; i < sc.size; i++) {
+    for (let j = 0; j < sc.size; j++) {
+      let cls = 'mat-cell';
+      const k = `${i},${j}`;
+      const isCur = cur && cur.kind === 'compute' && cur.i === i && cur.j === j;
+      const isFilled = k in filledThrough;
+      let val;
+      if (isCur) { cls += ' lit-R'; val = sc.A[i][j] + sc.B[i][j]; }
+      else if (isFilled) { cls += ' filled'; val = filledThrough[k]; }
+      else { cls += ' empty'; val = ''; }
+      html2 += `<div class="${cls}">${val}</div>`;
+    }
+  }
+  html2 += `</div></div>`;
+  trio.innerHTML = html2;
+
+  // Computation display
+  const comp = document.getElementById('computation');
+  if (cur && cur.kind === 'compute') {
+    comp.innerHTML = `<span>result[${cur.i}][${cur.j}]</span>
+      <span class="equals">=</span>
+      <span class="val-A">${cur.a}</span>
+      <span class="plus">+</span>
+      <span class="val-B">${cur.b}</span>
+      <span class="equals">=</span>
+      <span class="val-R">${cur.r}</span>`;
+  } else if (cur && cur.kind === 'init') {
+    comp.innerHTML = `<span class="placeholder">result allocated — all zeros, ready to fill.</span>`;
+  } else if (cur && cur.kind === 'done') {
+    comp.innerHTML = `<span class="val-R">return result  →  done.</span>`;
+  } else {
+    comp.innerHTML = `<span class="placeholder">— pick a cell to compute —</span>`;
+  }
+
+  let vizLabel = '— press Step ▸ to begin —';
+  if (cur) {
+    if (cur.kind === 'init') vizLabel = 'result grid allocated';
+    else if (cur.kind === 'compute') vizLabel = `computing result[${cur.i}][${cur.j}]`;
+    else if (cur.kind === 'done') vizLabel = 'all cells filled';
+  }
+  document.getElementById('vizLabel').textContent = vizLabel;
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : `Pick a scenario above. Step through to see each pair of cells add up into the result matrix.`;
+
+  const insightEl = document.getElementById('insight');
+  if (sc.insight && stepIdx === plan.length) {
+    insightEl.innerHTML = `<strong>Lesson →</strong> ${sc.insight}`;
+    insightEl.classList.add('show');
+  } else {
+    insightEl.classList.remove('show');
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+});
+document.getElementById('playBtn').addEventListener('click', () => {
+  if (autoTimer) stopAuto(); else startAuto();
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>
