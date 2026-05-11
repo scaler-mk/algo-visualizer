@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Filter vs Stride — The Same Output, Less Work</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #eaf4f4;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 820px;
+  }
+
+  /* Top controls */
+  .controls-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .prob-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    padding: 8px 14px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .prob-btn:hover { background: #fff8d6; }
+  .prob-btn.active { background: #1a1a1a; color: #ffd95c; }
+  .n-input-group {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .n-input-group label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .n-input-group input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    width: 70px;
+    padding: 6px 10px;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    text-align: center;
+  }
+
+  /* Two-column stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  .approach {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    min-height: 540px;
+  }
+  .approach.left { border-color: #8a6a1f; box-shadow: 8px 8px 0 #8a6a1f; }
+  .approach.right { border-color: #2d6e3e; box-shadow: 8px 8px 0 #2d6e3e; }
+
+  .approach-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .approach.left .approach-title { color: #8a6a1f; }
+  .approach.right .approach-title { color: #2d6e3e; }
+  .approach-subtitle {
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    font-style: italic;
+    color: #555;
+    margin-bottom: 14px;
+  }
+
+  .code-block {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .indent { display: inline-block; width: 1.5em; }
+  .code-block div {
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background 0.25s;
+  }
+  .code-block div.active {
+    background: rgba(255, 217, 92, 0.15);
+  }
+  .code-block div.printing {
+    background: rgba(86, 211, 100, 0.18);
+  }
+  .code-block div.skipping {
+    background: rgba(255, 107, 107, 0.12);
+    color: #999;
+  }
+
+  /* Variable / counter row */
+  .counters {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .counter-cell {
+    background: #f5efe2;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+  }
+  .counter-cell .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 3px;
+  }
+  .counter-cell .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    color: #1a1a1a;
+    line-height: 1;
+    transition: all 0.3s;
+  }
+  .counter-cell .val.up {
+    animation: bump 0.3s;
+  }
+  @keyframes bump {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); color: #d62828; }
+  }
+  .approach.left .counter-cell.iters .val.high { color: #8a6a1f; }
+  .approach.right .counter-cell.iters .val.high { color: #2d6e3e; }
+
+  /* Number ribbon — visualises which values get checked vs which get jumped over */
+  .ribbon-section {
+    margin-bottom: 12px;
+  }
+  .ribbon-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 6px;
+  }
+  .ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .ribbon-cell {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5efe2;
+    border: 1.5px solid #ccc;
+    border-radius: 4px;
+    color: #888;
+    transition: all 0.25s;
+  }
+  .ribbon-cell.visited {
+    background: #fff8d6;
+    border-color: #1a1a1a;
+    color: #1a1a1a;
+  }
+  .ribbon-cell.printed {
+    background: #cfe8d3;
+    border-color: #2d6e3e;
+    color: #1a3a23;
+  }
+  .ribbon-cell.skipped {
+    background: #ffd0d0;
+    border-color: #c41e3a;
+    color: #6e1a1a;
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+  .ribbon-cell.current {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 2px #ffd95c, 4px 4px 0 #1a1a1a;
+    z-index: 2;
+  }
+
+  /* Output */
+  .output-box {
+    background: #161b22;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: auto;
+  }
+  .output-box .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+  }
+  .output-stream {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: #ffd95c;
+    min-height: 22px;
+  }
+  .output-stream span { margin-right: 7px; }
+  .output-stream .empty {
+    color: #555;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+    font-size: 12px;
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 1100px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 70px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration-tag.left { background: #ffd95c; color: #1a1a1a; }
+  .narration-tag.right { background: #56d364; color: #1a1a1a; }
+  .narration-tag.done { background: #d2a8ff; color: #1a1a1a; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  .actions {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .btn.fast { background: #fff8d6; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Final verdict */
+  .verdict {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .verdict.show { opacity: 1; }
+  .verdict .text {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .verdict .text strong { color: #2d6e3e; }
+  .verdict .text code {
+    background: #f5efe2;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  .verdict .pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 16px;
+    background: #cfe8d3;
+    color: #2d6e3e;
+    border-radius: 6px;
+    text-align: center;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <h1>Filter <span class="accent">vs</span> Stride</h1>
+  <p class="subtitle">Same problem, same output, two loop shapes. The first checks every number with an <code style="font-family:monospace">if</code>. The second steps past the numbers it doesn't need. Both correct — but the iteration count tells the story.</p>
+
+  <div class="controls-bar">
+    <span class="picker-label">Problem:</span>
+    <span class="prob-btn active" data-prob="even">Even numbers 1 to n</span>
+    <span class="prob-btn" data-prob="mult4">Multiples of 4 till n</span>
+    <div class="n-input-group">
+      <label>n =</label>
+      <input type="number" id="nInput" value="10" min="1" max="40">
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="approach left">
+      <div class="approach-title" id="leftTitle">Approach A — filter with <code>if</code></div>
+      <div class="approach-subtitle">Walk through every value, check it, skip or print.</div>
+      <div class="code-block" id="leftCode"></div>
+
+      <div class="counters">
+        <div class="counter-cell iters">
+          <div class="lbl">Iterations</div>
+          <div class="val" id="leftIters">0</div>
+        </div>
+        <div class="counter-cell">
+          <div class="lbl">Checks</div>
+          <div class="val" id="leftChecks">0</div>
+        </div>
+        <div class="counter-cell">
+          <div class="lbl">Prints</div>
+          <div class="val" id="leftPrints">0</div>
+        </div>
+      </div>
+
+      <div class="ribbon-section">
+        <div class="ribbon-label">Numbers visited</div>
+        <div class="ribbon" id="leftRibbon"></div>
+      </div>
+
+      <div class="output-box">
+        <div class="lbl">stdout</div>
+        <div class="output-stream" id="leftOutput">
+          <span class="empty">No output yet…</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="approach right">
+      <div class="approach-title" id="rightTitle">Approach B — stride by step</div>
+      <div class="approach-subtitle">Start at the right number, jump in steps. No filtering needed.</div>
+      <div class="code-block" id="rightCode"></div>
+
+      <div class="counters">
+        <div class="counter-cell iters">
+          <div class="lbl">Iterations</div>
+          <div class="val" id="rightIters">0</div>
+        </div>
+        <div class="counter-cell">
+          <div class="lbl">Checks</div>
+          <div class="val" id="rightChecks">0</div>
+        </div>
+        <div class="counter-cell">
+          <div class="lbl">Prints</div>
+          <div class="val" id="rightPrints">0</div>
+        </div>
+      </div>
+
+      <div class="ribbon-section">
+        <div class="ribbon-label">Numbers visited</div>
+        <div class="ribbon" id="rightRibbon"></div>
+      </div>
+
+      <div class="output-box">
+        <div class="lbl">stdout</div>
+        <div class="output-stream" id="rightOutput">
+          <span class="empty">No output yet…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Pick a problem and an <code>n</code>, then click <strong>Next step</strong> to advance both loops by one iteration. Or click <strong>Run all</strong> to fast-forward.
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <button class="btn fast" id="runBtn">⏩ Run all</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+  <div class="verdict" id="verdict">
+    <div class="text" id="verdictText">—</div>
+    <div class="pill" id="verdictPill">—</div>
+  </div>
+
+<script>
+  const PROBLEMS = {
+    even: {
+      label: 'Even numbers 1 to n',
+      target: x => x % 2 === 0,
+      stride: 2,
+      strideStart: 2,
+      leftCode: [
+        '<div data-line="init"><span class="kw">int</span> <span class="var">i</span> = <span class="num">1</span>;</div>',
+        '<div data-line="cond"><span class="kw">while</span> (<span class="var">i</span> &lt;= <span class="var">n</span>) {</div>',
+        '<div data-line="check"><span class="indent"></span><span class="kw">if</span> (<span class="var">i</span> <span class="op">%</span> <span class="num">2</span> == <span class="num">0</span>) {</div>',
+        '<div data-line="print"><span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);</div>',
+        '<div data-line="close-if"><span class="indent"></span>}</div>',
+        '<div data-line="update"><span class="indent"></span><span class="var">i</span> = <span class="var">i</span> + <span class="num">1</span>;</div>',
+        '<div data-line="close-loop">}</div>'
+      ],
+      rightCode: [
+        '<div data-line="init"><span class="kw">int</span> <span class="var">i</span> = <span class="num">2</span>;</div>',
+        '<div data-line="cond"><span class="kw">while</span> (<span class="var">i</span> &lt;= <span class="var">n</span>) {</div>',
+        '<div data-line="print"><span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);</div>',
+        '<div data-line="update"><span class="indent"></span><span class="var">i</span> = <span class="var">i</span> + <span class="num">2</span>;</div>',
+        '<div data-line="close-loop">}</div>'
+      ]
+    },
+    mult4: {
+      label: 'Multiples of 4 till n',
+      target: x => x % 4 === 0,
+      stride: 4,
+      strideStart: 4,
+      leftCode: [
+        '<div data-line="init"><span class="kw">int</span> <span class="var">i</span> = <span class="num">1</span>;</div>',
+        '<div data-line="cond"><span class="kw">while</span> (<span class="var">i</span> &lt;= <span class="var">n</span>) {</div>',
+        '<div data-line="check"><span class="indent"></span><span class="kw">if</span> (<span class="var">i</span> <span class="op">%</span> <span class="num">4</span> == <span class="num">0</span>) {</div>',
+        '<div data-line="print"><span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);</div>',
+        '<div data-line="close-if"><span class="indent"></span>}</div>',
+        '<div data-line="update"><span class="indent"></span><span class="var">i</span><span class="op">++</span>;</div>',
+        '<div data-line="close-loop">}</div>'
+      ],
+      rightCode: [
+        '<div data-line="init"><span class="kw">int</span> <span class="var">i</span> = <span class="num">4</span>;</div>',
+        '<div data-line="cond"><span class="kw">while</span> (<span class="var">i</span> &lt;= <span class="var">n</span>) {</div>',
+        '<div data-line="print"><span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);</div>',
+        '<div data-line="update"><span class="indent"></span><span class="var">i</span> = <span class="var">i</span> + <span class="num">4</span>;</div>',
+        '<div data-line="close-loop">}</div>'
+      ]
+    }
+  };
+
+  let currentProb = 'even';
+  let n = 10;
+  let leftSteps = [];
+  let rightSteps = [];
+  let stepIdx = 0;
+  let leftState = null;
+  let rightState = null;
+
+  function buildLeftSteps(p, n) {
+    // Approach A: i = 1, while i <= n, check, print or skip, i++
+    const start = 1;
+    const steps = [];
+    for (let i = start; i <= n; i++) {
+      const matches = p.target(i);
+      steps.push({
+        side: 'left',
+        i,
+        check: true,
+        matches,
+        prints: matches ? i : null
+      });
+    }
+    return steps;
+  }
+
+  function buildRightSteps(p, n) {
+    const steps = [];
+    for (let i = p.strideStart; i <= n; i += p.stride) {
+      steps.push({
+        side: 'right',
+        i,
+        check: false,
+        matches: true,
+        prints: i
+      });
+    }
+    return steps;
+  }
+
+  function renderRibbon(side, n) {
+    const wrap = document.getElementById(side + 'Ribbon');
+    let html = '';
+    for (let i = 1; i <= n; i++) {
+      html += `<div class="ribbon-cell" data-i="${i}">${i}</div>`;
+    }
+    wrap.innerHTML = html;
+  }
+
+  function renderCode() {
+    const p = PROBLEMS[currentProb];
+    document.getElementById('leftCode').innerHTML = p.leftCode.join('');
+    document.getElementById('rightCode').innerHTML = p.rightCode.join('');
+  }
+
+  function renderProbPicker() {
+    document.querySelectorAll('.prob-btn').forEach(el => {
+      el.classList.toggle('active', el.dataset.prob === currentProb);
+    });
+  }
+
+  function clearOutputs() {
+    document.getElementById('leftOutput').innerHTML = '<span class="empty">No output yet…</span>';
+    document.getElementById('rightOutput').innerHTML = '<span class="empty">No output yet…</span>';
+    document.getElementById('leftIters').textContent = '0';
+    document.getElementById('leftChecks').textContent = '0';
+    document.getElementById('leftPrints').textContent = '0';
+    document.getElementById('rightIters').textContent = '0';
+    document.getElementById('rightChecks').textContent = '0';
+    document.getElementById('rightPrints').textContent = '0';
+    document.querySelectorAll('.ribbon-cell').forEach(el => {
+      el.classList.remove('visited', 'printed', 'skipped', 'current');
+    });
+  }
+
+  function bumpCounter(id, value) {
+    const el = document.getElementById(id);
+    el.textContent = value;
+    el.classList.remove('up');
+    void el.offsetWidth;
+    el.classList.add('up');
+  }
+
+  function appendOutput(side, value) {
+    const wrap = document.getElementById(side + 'Output');
+    if (wrap.querySelector('.empty')) wrap.innerHTML = '';
+    const span = document.createElement('span');
+    span.textContent = value;
+    wrap.appendChild(span);
+  }
+
+  function highlightCodeLine(side, lineName) {
+    const wrap = document.getElementById(side + 'Code');
+    wrap.querySelectorAll('div').forEach(el => {
+      el.classList.remove('active', 'printing', 'skipping');
+    });
+    if (lineName) {
+      const el = wrap.querySelector(`div[data-line="${lineName}"]`);
+      if (el) el.classList.add('active');
+    }
+  }
+
+  function setRibbonState(side, i, state) {
+    const cell = document.querySelector(`#${side}Ribbon .ribbon-cell[data-i="${i}"]`);
+    if (cell) {
+      // Clear current from all
+      document.querySelectorAll(`#${side}Ribbon .ribbon-cell`).forEach(c => c.classList.remove('current'));
+      cell.classList.add(state);
+      cell.classList.add('current');
+    }
+  }
+
+  function loadScenario() {
+    n = parseInt(document.getElementById('nInput').value, 10) || 10;
+    if (n < 1) n = 1;
+    if (n > 40) n = 40;
+    document.getElementById('nInput').value = n;
+
+    const p = PROBLEMS[currentProb];
+    leftSteps = buildLeftSteps(p, n);
+    rightSteps = buildRightSteps(p, n);
+    stepIdx = 0;
+    leftState = { iters: 0, checks: 0, prints: 0 };
+    rightState = { iters: 0, checks: 0, prints: 0 };
+
+    renderProbPicker();
+    renderCode();
+    renderRibbon('left', n);
+    renderRibbon('right', n);
+    clearOutputs();
+    highlightCodeLine('left', null);
+    highlightCodeLine('right', null);
+    document.getElementById('verdict').classList.remove('show');
+
+    document.getElementById('narration').innerHTML =
+      '<span class="narration-tag">Ready</span>Click <strong>Next step</strong>.';
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('runBtn').disabled = false;
+    const total = Math.max(leftSteps.length, rightSteps.length);
+    document.getElementById('stepInfo').textContent = `step 0 / ${total}`;
+  }
+
+  function doNextStep() {
+    const total = Math.max(leftSteps.length, rightSteps.length);
+    if (stepIdx >= total) {
+      finishUp();
+      return;
+    }
+
+    const ls = leftSteps[stepIdx];
+    const rs = rightSteps[stepIdx];
+
+    let narr = `<span class="narration-tag">Iter ${stepIdx + 1}</span>`;
+
+    // LEFT
+    if (ls) {
+      leftState.iters++;
+      leftState.checks++;
+      bumpCounter('leftIters', leftState.iters);
+      bumpCounter('leftChecks', leftState.checks);
+      if (ls.matches) {
+        leftState.prints++;
+        bumpCounter('leftPrints', leftState.prints);
+        appendOutput('left', String(ls.prints));
+        setRibbonState('left', ls.i, 'printed');
+        highlightCodeLine('left', 'print');
+        narr += `<strong>Left:</strong> visit <code>i=${ls.i}</code>, condition true → print. `;
+      } else {
+        setRibbonState('left', ls.i, 'skipped');
+        highlightCodeLine('left', 'check');
+        narr += `<strong>Left:</strong> visit <code>i=${ls.i}</code>, condition false → skip. `;
+      }
+    } else {
+      // left is done while right still running — shouldn't happen but defensive
+    }
+
+    if (leftState.iters >= n + 1 || stepIdx + 1 >= n) {
+      document.getElementById('leftIters').classList.add('high');
+    }
+
+    // RIGHT
+    if (rs) {
+      rightState.iters++;
+      rightState.prints++;
+      bumpCounter('rightIters', rightState.iters);
+      bumpCounter('rightPrints', rightState.prints);
+      appendOutput('right', String(rs.prints));
+      setRibbonState('right', rs.i, 'printed');
+      highlightCodeLine('right', 'print');
+      narr += `<strong>Right:</strong> jump to <code>i=${rs.i}</code>, print directly.`;
+    } else {
+      narr += `<strong>Right:</strong> already done — no more iterations needed.`;
+    }
+    document.getElementById('rightIters').classList.add('high');
+
+    document.getElementById('narration').innerHTML = narr;
+
+    stepIdx++;
+    document.getElementById('stepInfo').textContent = `step ${stepIdx} / ${total}`;
+
+    if (stepIdx >= total) finishUp();
+  }
+
+  function finishUp() {
+    document.getElementById('stepBtn').disabled = true;
+    document.getElementById('stepBtn').textContent = '✓ done';
+    document.getElementById('runBtn').disabled = true;
+    highlightCodeLine('left', null);
+    highlightCodeLine('right', null);
+    document.querySelectorAll('.ribbon-cell.current').forEach(el => el.classList.remove('current'));
+
+    const v = document.getElementById('verdict');
+    v.classList.add('show');
+    const saved = leftState.iters - rightState.iters;
+    const ratio = (leftState.iters / Math.max(rightState.iters, 1)).toFixed(1);
+    const p = PROBLEMS[currentProb];
+    document.getElementById('verdictText').innerHTML =
+      `Both approaches printed the same answer. <strong>Left ran ${leftState.iters} iterations</strong>, ` +
+      `<strong>right ran ${rightState.iters}</strong>. The stride loop did <strong>${saved}</strong> fewer iterations ` +
+      `to get the same result — roughly ${ratio}× less work. ` +
+      `Same idea scales: at <code>n=1000</code>, stride-${p.stride} would run ~${Math.floor(1000 / p.stride)} iterations vs ~1000.`;
+    document.getElementById('verdictPill').textContent = `${saved} iterations saved`;
+  }
+
+  function runAll() {
+    function loop() {
+      if (stepIdx >= Math.max(leftSteps.length, rightSteps.length)) return;
+      doNextStep();
+      setTimeout(loop, 220);
+    }
+    loop();
+  }
+
+  document.getElementById('nInput').addEventListener('change', loadScenario);
+  document.querySelectorAll('.prob-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      currentProb = el.dataset.prob;
+      loadScenario();
+    });
+  });
+  document.getElementById('stepBtn').addEventListener('click', doNextStep);
+  document.getElementById('runBtn').addEventListener('click', runAll);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+
+  loadScenario();
+</script>
+</body>
+</html>

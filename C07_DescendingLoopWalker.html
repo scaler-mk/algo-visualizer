@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Descending Loop — Print n to 0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #f0e9d7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 800px;
+  }
+
+  /* Controls */
+  .controls-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 4px;
+  }
+  .n-preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 8px 13px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .n-preset:hover { background: #fff8d6; }
+  .n-preset.active { background: #1a1a1a; color: #ffd95c; }
+  .n-preset .tag {
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .n-preset.active .tag { background: #ffd95c; }
+  .n-preset .tag.odd { background: #ff9999; }
+  .n-preset .tag.edge { background: #d62828; color: #fff; }
+
+  /* Stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  .code-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    color: #e6edf3;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+  }
+  .code-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 8px 14px;
+    margin: 3px -14px;
+    border-left: 3px solid transparent;
+    transition: all 0.3s;
+    border-radius: 3px;
+  }
+  .code-line.active {
+    background: rgba(255, 217, 92, 0.12);
+    border-left-color: #ffd95c;
+  }
+  .code-line.true-cond {
+    background: rgba(86, 211, 100, 0.12);
+    border-left-color: #56d364;
+  }
+  .code-line.false-cond {
+    background: rgba(255, 107, 107, 0.1);
+    border-left-color: #ff6b6b;
+  }
+  .code-line.adjustment {
+    background: rgba(214, 40, 40, 0.12);
+    border-left-color: #d62828;
+  }
+  .code-line .kw { color: #ff7b72; }
+  .code-line .type { color: #56d364; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .num { color: #ffa657; }
+  .code-line .op { color: #ffd95c; }
+  .code-line .method { color: #ffd95c; }
+  .code-line .indent { display: inline-block; width: 1.6em; }
+  .code-line .comment { color: #6e7681; font-style: italic; }
+
+  .vars-section {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: #161b22;
+    border-radius: 6px;
+  }
+  .vars-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .var-cell {
+    flex: 1;
+    background: #fff8d6;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .var-cell.pulse { animation: pulse 0.5s; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.07); box-shadow: 0 0 0 4px rgba(255, 217, 92, 0.35); }
+  }
+  .var-cell.adjusted {
+    background: #ffd0d0;
+    border-color: #c41e3a;
+  }
+  .var-cell .name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: #1f5a8a;
+  }
+  .var-cell .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1.1;
+  }
+  .var-cell .history {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  /* Right panel: number line + output */
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .numberline-card {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 20px 22px;
+  }
+  .numberline {
+    margin-top: 14px;
+    padding: 16px 6px;
+    background: #f5efe2;
+    border-radius: 6px;
+    position: relative;
+    overflow-x: auto;
+  }
+  .nl-track {
+    display: flex;
+    gap: 4px;
+    min-height: 36px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .nl-cell {
+    min-width: 30px;
+    padding: 4px 6px;
+    background: #fff;
+    border: 1.5px solid #888;
+    border-radius: 4px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #888;
+    transition: all 0.3s;
+    position: relative;
+  }
+  .nl-cell.visited {
+    background: #cfe8d3;
+    border-color: #2d6e3e;
+    color: #1a3a23;
+  }
+  .nl-cell.current {
+    background: #ffd95c;
+    border-color: #1a1a1a;
+    color: #1a1a1a;
+    transform: scale(1.2);
+    box-shadow: 3px 3px 0 #1a1a1a;
+    z-index: 2;
+  }
+  .nl-cell.skipped {
+    background: #f5efe2;
+    color: #aaa;
+    border-style: dashed;
+  }
+  .nl-cell.dropped {
+    background: #ffd0d0;
+    border-color: #c41e3a;
+    color: #6e1a1a;
+    text-decoration: line-through;
+  }
+  .nl-arrow {
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+  }
+
+  .output-card {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 18px 22px;
+    flex: 1;
+  }
+  .output-stream {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    color: #e6edf3;
+    line-height: 1.6;
+    min-height: 28px;
+  }
+  .output-stream span {
+    display: inline-block;
+    margin-right: 10px;
+    color: #ffd95c;
+  }
+  .output-stream span.fresh {
+    animation: pop 0.4s;
+  }
+  @keyframes pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .output-stream .empty {
+    color: #555;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 1100px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 70px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration-tag.adjust { background: #d62828; color: #fff; }
+  .narration-tag.print { background: #56d364; color: #1a1a1a; }
+  .narration-tag.update { background: #d2a8ff; color: #1a1a1a; }
+  .narration-tag.stop { background: #ff6b6b; color: #fff; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  .actions {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .btn.fast { background: #fff8d6; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+  <h1>Descending Loop <span class="accent">— print n to 0</span></h1>
+  <p class="subtitle">Print even numbers from <code style="font-family:monospace">n</code> down to 0. Two extra moves: if n is odd, knock it down first. Then descend by 2.</p>
+
+  <div class="controls-bar">
+    <span class="picker-label">Try n =</span>
+    <span class="n-preset active" data-n="10"><span>10</span><span class="tag">even</span></span>
+    <span class="n-preset" data-n="17"><span>17</span><span class="tag odd">odd</span></span>
+    <span class="n-preset" data-n="8"><span>8</span><span class="tag">even</span></span>
+    <span class="n-preset" data-n="5"><span>5</span><span class="tag odd">odd</span></span>
+    <span class="n-preset" data-n="0"><span>0</span><span class="tag edge">edge</span></span>
+    <span class="n-preset" data-n="1"><span>1</span><span class="tag edge">edge</span></span>
+  </div>
+
+  <div class="stage">
+    <div class="code-panel">
+      <div class="panel-title">Source code</div>
+      <div id="codeLines">
+        <div class="code-line" data-i="0"><span class="kw">int</span> <span class="var">n</span> = <span class="method">scn</span>.<span class="method">nextInt</span>();</div>
+        <div class="code-line" data-i="1"><span class="kw">if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">2</span> == <span class="num">1</span>) <span class="var">n</span>--;  <span class="comment">// adjust odd to even</span></div>
+        <div class="code-line" data-i="2"><span class="kw">int</span> <span class="var">i</span> = <span class="var">n</span>;</div>
+        <div class="code-line" data-i="3"><span class="kw">while</span> (<span class="var">i</span> &gt;= <span class="num">0</span>) {</div>
+        <div class="code-line" data-i="4"><span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);</div>
+        <div class="code-line" data-i="5"><span class="indent"></span><span class="var">i</span> <span class="op">-=</span> <span class="num">2</span>;</div>
+        <div class="code-line" data-i="6">}</div>
+      </div>
+
+      <div class="vars-section">
+        <div class="panel-title">Variables</div>
+        <div class="vars-row" id="varsRow">
+          <div class="var-cell" data-name="n">
+            <div class="name">n</div>
+            <div class="value" id="nValue">—</div>
+            <div class="history" id="nHistory"></div>
+          </div>
+          <div class="var-cell" data-name="i">
+            <div class="name">i</div>
+            <div class="value" id="iValue">—</div>
+            <div class="history" id="iHistory"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="numberline-card">
+        <div class="panel-title">Number line (0 to n)</div>
+        <div class="numberline">
+          <div class="nl-track" id="nlTrack"></div>
+          <div class="nl-arrow">← descending →</div>
+        </div>
+      </div>
+      <div class="output-card">
+        <div class="panel-title">stdout</div>
+        <div class="output-stream" id="outputStream">
+          <span class="empty">No output yet…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Pick an <code>n</code> above. Click <strong>Next step</strong> to walk through.
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <button class="btn fast" id="runBtn">⏩ Run all</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+<script>
+  let currentN = 10;
+  let steps = [];
+  let stepIdx = 0;
+  let nValue = 0;
+  let nHistory = [];
+  let iValue = null;
+  let iHistory = [];
+  let output = [];
+
+  function buildSteps(n) {
+    const steps = [];
+    let curN = n;
+    let curI = null;
+
+    // Step: read n
+    steps.push({
+      kind: 'init',
+      codeLine: 0,
+      narrate: `<strong>Initialise.</strong> Read input <code>n = ${n}</code>.`,
+      tag: 'init',
+      vars: { n: n }
+    });
+
+    // Step: check odd
+    const isOdd = curN % 2 === 1;
+    if (isOdd) {
+      steps.push({
+        kind: 'check-adjust',
+        codeLine: 1,
+        narrate: `Check: <code>${curN} % 2 == 1</code> → <strong>true</strong>. n is odd, so decrement.`,
+        tag: 'adjust',
+        tagClass: 'adjust',
+        lineClass: 'adjustment'
+      });
+      steps.push({
+        kind: 'adjust',
+        codeLine: 1,
+        narrate: `Decrement: <code>n = ${curN} - 1 = ${curN - 1}</code>. Now n is even.`,
+        tag: 'adjust',
+        tagClass: 'adjust',
+        lineClass: 'adjustment',
+        vars: { n: curN - 1 },
+        nAdjusted: true,
+        markNumberlineDropped: curN
+      });
+      curN--;
+    } else {
+      steps.push({
+        kind: 'check-adjust',
+        codeLine: 1,
+        narrate: `Check: <code>${curN} % 2 == 1</code> → <strong>false</strong>. n is already even, no adjustment needed.`,
+        tag: 'check',
+        tagClass: '',
+        lineClass: 'false-cond'
+      });
+    }
+
+    // Step: i = n
+    steps.push({
+      kind: 'init-i',
+      codeLine: 2,
+      narrate: `Initialise loop variable: <code>i = ${curN}</code>.`,
+      tag: 'init',
+      vars: { i: curN }
+    });
+    curI = curN;
+
+    // Loop
+    let safetyCounter = 0;
+    while (safetyCounter < 100) {
+      safetyCounter++;
+      const condOk = curI >= 0;
+
+      if (!condOk) {
+        steps.push({
+          kind: 'cond-false',
+          codeLine: 3,
+          narrate: `Check: <code>${curI} >= 0</code> → <strong>false</strong>. Loop exits.`,
+          tag: 'stop',
+          tagClass: 'stop',
+          lineClass: 'false-cond'
+        });
+        break;
+      }
+
+      steps.push({
+        kind: 'cond-true',
+        codeLine: 3,
+        narrate: `Check: <code>${curI} >= 0</code> → <strong>true</strong>. Enter loop body.`,
+        tag: 'check',
+        tagClass: '',
+        lineClass: 'true-cond'
+      });
+
+      steps.push({
+        kind: 'print',
+        codeLine: 4,
+        narrate: `Print <strong>${curI}</strong>.`,
+        tag: 'print',
+        tagClass: 'print',
+        printValue: curI,
+        markNumberlineCurrent: curI
+      });
+
+      const newI = curI - 2;
+      steps.push({
+        kind: 'update',
+        codeLine: 5,
+        narrate: `Update: <code>i = ${curI} - 2 = ${newI}</code>.`,
+        tag: 'update',
+        tagClass: 'update',
+        vars: { i: newI },
+        markNumberlineVisited: curI
+      });
+      curI = newI;
+    }
+
+    return steps;
+  }
+
+  function renderNumberline(n, initialN) {
+    const wrap = document.getElementById('nlTrack');
+    if (n < 0) {
+      wrap.innerHTML = '<div class="nl-cell" style="background:#f5efe2;color:#aaa;border-style:dashed;">empty range</div>';
+      return;
+    }
+    let html = '';
+    for (let i = n; i >= 0; i--) {
+      html += `<div class="nl-cell" data-i="${i}">${i}</div>`;
+    }
+    wrap.innerHTML = html;
+  }
+
+  function setNumberlineState(i, state) {
+    document.querySelectorAll(`.nl-cell.current`).forEach(c => c.classList.remove('current'));
+    const cell = document.querySelector(`.nl-cell[data-i="${i}"]`);
+    if (cell) {
+      cell.classList.add(state);
+      if (state === 'current') cell.classList.add('current');
+    }
+  }
+
+  function appendOutput(value) {
+    const wrap = document.getElementById('outputStream');
+    if (wrap.querySelector('.empty')) wrap.innerHTML = '';
+    const span = document.createElement('span');
+    span.textContent = value;
+    span.className = 'fresh';
+    wrap.appendChild(span);
+    setTimeout(() => span.classList.remove('fresh'), 400);
+  }
+
+  function highlightCode(lineIdx, lineCls = 'active') {
+    document.querySelectorAll('.code-line').forEach(el => {
+      el.classList.remove('active', 'true-cond', 'false-cond', 'adjustment');
+    });
+    const el = document.querySelector(`.code-line[data-i="${lineIdx}"]`);
+    if (el) el.classList.add(lineCls);
+  }
+
+  function updateVarDisplay(name, value, adjusted = false) {
+    const el = document.getElementById(name + 'Value');
+    el.textContent = value === null ? '—' : value;
+    const cell = document.querySelector(`.var-cell[data-name="${name}"]`);
+    if (cell) {
+      cell.classList.remove('pulse');
+      void cell.offsetWidth;
+      cell.classList.add('pulse');
+      cell.classList.toggle('adjusted', adjusted);
+    }
+  }
+
+  function loadScenario() {
+    currentN = parseInt(document.querySelector('.n-preset.active').dataset.n, 10);
+    nValue = currentN;
+    iValue = null;
+    output = [];
+    stepIdx = 0;
+    steps = buildSteps(currentN);
+
+    // Adjusted starting n if odd
+    const startN = currentN % 2 === 1 ? currentN - 1 : currentN;
+    renderNumberline(currentN === 0 ? 0 : Math.max(currentN, startN), currentN);
+
+    // If n is odd, the dropped n value won't fit on a number line that already starts at the original n... so leave it.
+
+    updateVarDisplay('n', '—');
+    updateVarDisplay('i', '—');
+    document.getElementById('nHistory').textContent = '';
+    document.getElementById('iHistory').textContent = '';
+
+    document.getElementById('outputStream').innerHTML = '<span class="empty">No output yet…</span>';
+    highlightCode(-1);
+
+    document.getElementById('narration').innerHTML =
+      '<span class="narration-tag">Ready</span>Click <strong>Next step</strong>.';
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('stepInfo').textContent = `step 0 / ${steps.length}`;
+  }
+
+  function doNextStep() {
+    if (stepIdx >= steps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('runBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      return;
+    }
+    const s = steps[stepIdx];
+
+    if (s.codeLine !== undefined) highlightCode(s.codeLine, s.lineClass || 'active');
+
+    if (s.vars) {
+      if (s.vars.n !== undefined) {
+        nValue = s.vars.n;
+        nHistory.push(s.vars.n);
+        updateVarDisplay('n', s.vars.n, s.nAdjusted);
+        document.getElementById('nHistory').textContent = nHistory.join(' → ');
+      }
+      if (s.vars.i !== undefined) {
+        iValue = s.vars.i;
+        iHistory.push(s.vars.i);
+        updateVarDisplay('i', s.vars.i);
+        document.getElementById('iHistory').textContent = iHistory.length > 1 ? iHistory.slice(-3).join(' → ') : `init: ${iHistory[0]}`;
+      }
+    }
+
+    if (s.markNumberlineDropped !== undefined) {
+      setNumberlineState(s.markNumberlineDropped, 'dropped');
+    }
+    if (s.markNumberlineCurrent !== undefined) {
+      setNumberlineState(s.markNumberlineCurrent, 'current');
+    }
+    if (s.markNumberlineVisited !== undefined) {
+      document.querySelectorAll('.nl-cell.current').forEach(c => c.classList.remove('current'));
+      const cell = document.querySelector(`.nl-cell[data-i="${s.markNumberlineVisited}"]`);
+      if (cell) cell.classList.add('visited');
+    }
+
+    if (s.printValue !== undefined) {
+      appendOutput(s.printValue);
+    }
+
+    document.getElementById('narration').innerHTML =
+      `<span class="narration-tag ${s.tagClass || ''}">${s.tag || 'step'}</span>${s.narrate}`;
+
+    stepIdx++;
+    document.getElementById('stepInfo').textContent = `step ${stepIdx} / ${steps.length}`;
+
+    if (stepIdx >= steps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      document.getElementById('runBtn').disabled = true;
+      // Clear last current marker
+      document.querySelectorAll('.nl-cell.current').forEach(c => c.classList.remove('current'));
+    }
+  }
+
+  function runAll() {
+    function loop() {
+      if (stepIdx >= steps.length) return;
+      doNextStep();
+      setTimeout(loop, 250);
+    }
+    loop();
+  }
+
+  document.querySelectorAll('.n-preset').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.n-preset').forEach(e => e.classList.remove('active'));
+      el.classList.add('active');
+      // Reset history arrays
+      nHistory = [];
+      iHistory = [];
+      loadScenario();
+    });
+  });
+  document.getElementById('stepBtn').addEventListener('click', doNextStep);
+  document.getElementById('runBtn').addEventListener('click', runAll);
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    nHistory = [];
+    iHistory = [];
+    loadScenario();
+  });
+
+  // Init
+  nHistory = [];
+  iHistory = [];
+  loadScenario();
+</script>
+</body>
+</html>

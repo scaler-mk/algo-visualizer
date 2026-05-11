@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Loop Dry-Run Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #f5efe2;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 800px;
+  }
+
+  /* Top controls */
+  .controls-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 4px;
+  }
+  .loop-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 13px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .loop-btn:hover { background: #fff8d6; }
+  .loop-btn.active { background: #1a1a1a; color: #ffd95c; }
+  .n-input-group {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .n-input-group label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .n-input-group input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    width: 70px;
+    padding: 6px 10px;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    text-align: center;
+  }
+
+  /* Main stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+  .code-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    color: #e6edf3;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+  }
+  .code-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 8px 14px;
+    margin: 3px -14px;
+    border-left: 3px solid transparent;
+    transition: all 0.3s;
+    border-radius: 3px;
+  }
+  .code-line.active {
+    background: rgba(255, 217, 92, 0.12);
+    border-left-color: #ffd95c;
+  }
+  .code-line.true-cond {
+    background: rgba(86, 211, 100, 0.12);
+    border-left-color: #56d364;
+  }
+  .code-line.false-cond {
+    background: rgba(255, 107, 107, 0.1);
+    border-left-color: #ff6b6b;
+  }
+  .code-line .kw { color: #ff7b72; }
+  .code-line .type { color: #56d364; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .num { color: #ffa657; }
+  .code-line .op { color: #ffd95c; }
+  .code-line .method { color: #ffd95c; }
+  .code-line .indent { display: inline-block; width: 1.6em; }
+
+  /* State boxes below code */
+  .vars-box {
+    margin-top: 14px;
+    background: #161b22;
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .vars-box .panel-title {
+    margin-bottom: 8px;
+  }
+  .vars-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .var-cell {
+    background: #fff8d6;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 8px 12px;
+    flex: 1;
+    min-width: 90px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .var-cell.pulse {
+    animation: pulse 0.5s;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); box-shadow: 0 0 0 4px rgba(255, 217, 92, 0.4); }
+  }
+  .var-cell .name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: #1f5a8a;
+    margin-bottom: 2px;
+  }
+  .var-cell .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1;
+  }
+
+  /* Output below vars */
+  .stdout-box {
+    margin-top: 10px;
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 12px 16px;
+    color: #e6edf3;
+    min-height: 60px;
+  }
+  .stdout-box .panel-title {
+    margin-bottom: 6px;
+  }
+  .stdout-stream {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #ffd95c;
+    min-height: 22px;
+  }
+  .stdout-stream .empty {
+    color: #555;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+  }
+  .stdout-stream span {
+    display: inline-block;
+    margin-right: 8px;
+  }
+  .stdout-stream span.fresh {
+    animation: pop 0.4s;
+  }
+  @keyframes pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Dry-run table */
+  .table-panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .dry-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  .dry-table th {
+    background: #1a1a1a;
+    color: #ffd95c;
+    padding: 8px 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: center;
+    font-weight: 700;
+  }
+  .dry-table th:first-child { border-top-left-radius: 5px; }
+  .dry-table th:last-child { border-top-right-radius: 5px; }
+  .dry-table td {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid #ece4d0;
+    background: #fff;
+    transition: all 0.3s;
+  }
+  .dry-table tr.new td {
+    background: #fff8d6;
+    animation: rowFadeIn 0.4s;
+  }
+  @keyframes rowFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .dry-table .cond-true {
+    color: #2d6e3e;
+    font-weight: 700;
+  }
+  .dry-table .cond-false {
+    color: #c41e3a;
+    font-weight: 700;
+  }
+  .dry-table .action-print {
+    color: #1f5a8a;
+    font-weight: 700;
+  }
+  .dry-table .action-skip {
+    color: #888;
+    font-style: italic;
+  }
+  .dry-table .action-stop {
+    color: #c41e3a;
+    font-weight: 700;
+  }
+
+  /* Iteration counter & summary */
+  .iter-summary {
+    margin-top: auto;
+    padding-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .iter-card {
+    background: #f5efe2;
+    border-radius: 6px;
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .iter-card .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 3px;
+  }
+  .iter-card .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    color: #1a1a1a;
+  }
+  .iter-card.formula {
+    background: #1a1a1a;
+    color: #ffd95c;
+  }
+  .iter-card.formula .lbl { color: #888; }
+  .iter-card.formula .val { color: #ffd95c; font-size: 14px; padding-top: 4px; }
+
+  /* Narration */
+  .narration {
+    max-width: 1100px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 70px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration-tag.check { background: #56d364; color: #1a1a1a; }
+  .narration-tag.body { background: #1f5a8a; color: #fff; }
+  .narration-tag.update { background: #d2a8ff; color: #1a1a1a; }
+  .narration-tag.stop { background: #ff6b6b; color: #fff; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  /* Controls */
+  .actions {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .btn.fast { background: #fff8d6; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Formula card */
+  .formula-card {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #d62828;
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+  }
+  .formula-card .body {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .formula-card .body strong { color: #d62828; }
+  .formula-card .body code {
+    background: #f5efe2;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  .formula-card .pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 12px 18px;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border-radius: 6px;
+    text-align: center;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <h1>Loop Dry-Run <span class="accent">Simulator</span></h1>
+  <p class="subtitle">Pick a loop, pick an <code style="font-family:monospace">n</code>, then watch each iteration build the dry-run table row by row. The four steps of every loop — initialize, check, body, update — get their own moment.</p>
+
+  <div class="controls-bar">
+    <span class="picker-label">Loop:</span>
+    <div id="loopPicker" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+    <div class="n-input-group">
+      <label>n =</label>
+      <input type="number" id="nInput" value="10" min="1" max="50">
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="code-panel">
+      <div class="panel-title">Source code</div>
+      <div id="codeLines"></div>
+
+      <div class="vars-box">
+        <div class="panel-title">Variables</div>
+        <div class="vars-row" id="varsRow"></div>
+      </div>
+
+      <div class="stdout-box">
+        <div class="panel-title">stdout</div>
+        <div class="stdout-stream" id="stdoutStream">
+          <span class="empty">No output yet…</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-panel">
+      <div class="panel-title">Dry-run table</div>
+      <table class="dry-table" id="dryTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+
+      <div class="iter-summary">
+        <div class="iter-card">
+          <div class="lbl">Iterations done</div>
+          <div class="val" id="iterCount">0</div>
+        </div>
+        <div class="iter-card formula">
+          <div class="lbl">Predicted count</div>
+          <div class="val" id="predicted">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Pick a loop above and click <strong>Next step</strong>. Each click advances by one micro-step: check the condition, run the body, or update the counter.
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <button class="btn fast" id="runBtn">⏩ Run all</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+  <div class="formula-card">
+    <div class="body">
+      <strong>The pattern:</strong> when a loop starts at <code>start</code>, runs while <code>i &lt;= end</code>, and updates by <code>i += stride</code>, the number of iterations is roughly <code>(end − start) / stride + 1</code>. For Quiz 1 (i=1, stride=1, end=20) that's <strong>20</strong>. For Quiz 2 (stride=2, end=n) that's <strong>n/2</strong>. For Quiz 3 (stride=3) that's <strong>n/3</strong>. Bigger stride → fewer iterations.
+    </div>
+    <div class="pill">iters ≈ range / stride</div>
+  </div>
+
+<script>
+  const LOOPS = {
+    q1: {
+      label: 'Quiz 1: i=1, i+=1',
+      desc: 'Print 1 to 20',
+      vars: ['i'],
+      tableCols: ['Iter', 'i', 'i <= 20', 'Print', 'i = i + 1'],
+      code: [
+        '<span class="type">int</span> <span class="var">i</span> = <span class="num">1</span>;',
+        '<span class="kw">while</span> (<span class="var">i</span> &lt;= <span class="num">20</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);',
+        '<span class="indent"></span><span class="var">i</span> = <span class="var">i</span> + <span class="num">1</span>;',
+        '}'
+      ],
+      init: () => ({ i: 1 }),
+      condition: (s) => s.i <= 20,
+      condLine: 1,
+      bodyLines: [2],
+      doBody: (s) => ({ print: String(s.i), newState: s }),
+      updateLine: 3,
+      doUpdate: (s) => ({ ...s, i: s.i + 1 }),
+      tableRow: (s, condOk, printedOrSkip, postUpdate) => [
+        '#',
+        String(s.i),
+        condOk ? 'true' : 'false',
+        condOk ? `print ${printedOrSkip}` : '—',
+        condOk ? `i = ${postUpdate.i}` : 'stop'
+      ],
+      predicted: () => 20,
+      formula: '(20 − 1)/1 + 1 = 20',
+      hardcodeN: 20
+    },
+    q2: {
+      label: 'Quiz 2: i=2, i+=2',
+      desc: 'Even-stride loop',
+      vars: ['i'],
+      tableCols: ['Iter', 'i', 'i <= n', 'Print', 'i = i + 2'],
+      code: [
+        '<span class="type">int</span> <span class="var">i</span> = <span class="num">2</span>;',
+        '<span class="kw">while</span> (<span class="var">i</span> &lt;= <span class="var">n</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);',
+        '<span class="indent"></span><span class="var">i</span> = <span class="var">i</span> + <span class="num">2</span>;',
+        '}'
+      ],
+      init: () => ({ i: 2 }),
+      condition: (s, n) => s.i <= n,
+      condLine: 1,
+      bodyLines: [2],
+      doBody: (s) => ({ print: String(s.i), newState: s }),
+      updateLine: 3,
+      doUpdate: (s) => ({ ...s, i: s.i + 2 }),
+      tableRow: (s, condOk, printedOrSkip, postUpdate) => [
+        '#',
+        String(s.i),
+        condOk ? 'true' : 'false',
+        condOk ? `print ${printedOrSkip}` : '—',
+        condOk ? `i = ${postUpdate.i}` : 'stop'
+      ],
+      predicted: (n) => Math.floor(n / 2),
+      formula: 'n / 2'
+    },
+    q3: {
+      label: 'Quiz 3: i=3, i+=3',
+      desc: 'Stride-of-3 loop',
+      vars: ['i'],
+      tableCols: ['Iter', 'i', 'i <= n', 'Print', 'i = i + 3'],
+      code: [
+        '<span class="type">int</span> <span class="var">i</span> = <span class="num">3</span>;',
+        '<span class="kw">while</span> (<span class="var">i</span> &lt;= <span class="var">n</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);',
+        '<span class="indent"></span><span class="var">i</span> = <span class="var">i</span> + <span class="num">3</span>;',
+        '}'
+      ],
+      init: () => ({ i: 3 }),
+      condition: (s, n) => s.i <= n,
+      condLine: 1,
+      bodyLines: [2],
+      doBody: (s) => ({ print: String(s.i), newState: s }),
+      updateLine: 3,
+      doUpdate: (s) => ({ ...s, i: s.i + 3 }),
+      tableRow: (s, condOk, printedOrSkip, postUpdate) => [
+        '#',
+        String(s.i),
+        condOk ? 'true' : 'false',
+        condOk ? `print ${printedOrSkip}` : '—',
+        condOk ? `i = ${postUpdate.i}` : 'stop'
+      ],
+      predicted: (n) => Math.floor(n / 3),
+      formula: 'n / 3'
+    },
+    mult4: {
+      label: 'Multiples of 4 (stride = 4)',
+      desc: 'Approach 2 from script',
+      vars: ['i'],
+      tableCols: ['Iter', 'i', 'i <= n', 'Print', 'i = i + 4'],
+      code: [
+        '<span class="type">int</span> <span class="var">i</span> = <span class="num">4</span>;',
+        '<span class="kw">while</span> (<span class="var">i</span> &lt;= <span class="var">n</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="var">i</span>);',
+        '<span class="indent"></span><span class="var">i</span> = <span class="var">i</span> + <span class="num">4</span>;',
+        '}'
+      ],
+      init: () => ({ i: 4 }),
+      condition: (s, n) => s.i <= n,
+      condLine: 1,
+      bodyLines: [2],
+      doBody: (s) => ({ print: String(s.i), newState: s }),
+      updateLine: 3,
+      doUpdate: (s) => ({ ...s, i: s.i + 4 }),
+      tableRow: (s, condOk, printedOrSkip, postUpdate) => [
+        '#',
+        String(s.i),
+        condOk ? 'true' : 'false',
+        condOk ? `print ${printedOrSkip}` : '—',
+        condOk ? `i = ${postUpdate.i}` : 'stop'
+      ],
+      predicted: (n) => Math.floor(n / 4),
+      formula: 'n / 4'
+    }
+  };
+
+  let currentLoop = 'q1';
+  let n = 10;
+  let state = {};
+  let iterCount = 0;
+  let stepIdx = 0;
+  let steps = []; // pre-built step sequence
+  let output = [];
+
+  function renderLoopPicker() {
+    const wrap = document.getElementById('loopPicker');
+    wrap.innerHTML = '';
+    Object.keys(LOOPS).forEach(k => {
+      const btn = document.createElement('span');
+      btn.className = 'loop-btn' + (k === currentLoop ? ' active' : '');
+      btn.textContent = LOOPS[k].label;
+      btn.addEventListener('click', () => {
+        currentLoop = k;
+        loadScenario();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function renderCode() {
+    const L = LOOPS[currentLoop];
+    const wrap = document.getElementById('codeLines');
+    wrap.innerHTML = L.code.map((c, i) =>
+      `<div class="code-line" data-i="${i}">${c}</div>`
+    ).join('');
+  }
+
+  function renderVars() {
+    const L = LOOPS[currentLoop];
+    const wrap = document.getElementById('varsRow');
+    wrap.innerHTML = L.vars.map(v =>
+      `<div class="var-cell" data-name="${v}">
+        <div class="name">${v}</div>
+        <div class="value">${state[v]}</div>
+      </div>`
+    ).join('') + (currentLoop !== 'q1' ? `
+      <div class="var-cell" data-name="n">
+        <div class="name">n</div>
+        <div class="value">${n}</div>
+      </div>` : '');
+  }
+
+  function pulseVar(name) {
+    setTimeout(() => {
+      const el = document.querySelector(`.var-cell[data-name="${name}"]`);
+      if (el) {
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 500);
+      }
+    }, 20);
+  }
+
+  function renderTableHeader() {
+    const L = LOOPS[currentLoop];
+    const head = document.getElementById('tableHead');
+    head.innerHTML = '<tr>' + L.tableCols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  }
+
+  function renderOutput() {
+    const wrap = document.getElementById('stdoutStream');
+    if (output.length === 0) {
+      wrap.innerHTML = '<span class="empty">No output yet…</span>';
+      return;
+    }
+    wrap.innerHTML = output.map((o, i) =>
+      `<span class="${i === output.length - 1 && o._fresh ? 'fresh' : ''}">${o.text}</span>`
+    ).join('');
+    output.forEach(o => delete o._fresh);
+  }
+
+  function highlightCode(idx, cls = 'active') {
+    document.querySelectorAll('.code-line').forEach((el, i) => {
+      el.classList.remove('active', 'true-cond', 'false-cond');
+      if (i === idx) el.classList.add(cls);
+    });
+  }
+
+  function buildSteps() {
+    // Pre-build a step sequence for the chosen loop and n.
+    // Each iteration has 3 micro-steps: check, body (if cond true), update (if cond true).
+    // If cond false, we have a single "stop" step.
+    const L = LOOPS[currentLoop];
+    const realN = currentLoop === 'q1' ? L.hardcodeN : n;
+    let s = L.init();
+    let iters = 0;
+    const built = [];
+
+    // Initial step
+    built.push({
+      kind: 'init',
+      state: { ...s },
+      narrate: `<strong>Initialize.</strong> ${L.vars.map(v => `<code>${v} = ${s[v]}</code>`).join(', ')}${currentLoop !== 'q1' ? `, <code>n = ${realN}</code>` : ''}.`,
+      tag: 'init',
+      codeLine: 0
+    });
+
+    let safetyCounter = 0;
+    while (safetyCounter < 100) {
+      safetyCounter++;
+      const ok = L.condition(s, realN);
+      const condText = `<code>${currentLoop === 'q1' ? `${s.i} <= 20` : `${s.i} <= ${realN}`}</code> → <strong>${ok ? 'true' : 'false'}</strong>`;
+      built.push({
+        kind: 'check',
+        state: { ...s },
+        condOk: ok,
+        narrate: `Check the condition: ${condText}`,
+        tag: 'check',
+        tagClass: 'check',
+        codeLine: L.condLine,
+        lineClass: ok ? 'true-cond' : 'false-cond'
+      });
+
+      if (!ok) {
+        built.push({
+          kind: 'stop',
+          state: { ...s },
+          narrate: `Condition is <strong>false</strong>. Exit the loop.`,
+          tag: 'stop',
+          tagClass: 'stop',
+          tableAction: { iter: iters + 1, i: s.i, cond: false }
+        });
+        break;
+      }
+
+      // Body
+      const { print } = L.doBody(s);
+      built.push({
+        kind: 'body',
+        state: { ...s },
+        printValue: print,
+        narrate: `Run the body: <code>SOPln(i)</code> prints <strong>${print}</strong>.`,
+        tag: 'body',
+        tagClass: 'body',
+        codeLine: L.bodyLines[0]
+      });
+
+      // Update
+      const newS = L.doUpdate(s);
+      built.push({
+        kind: 'update',
+        oldState: { ...s },
+        state: { ...newS },
+        narrate: `Update: <code>i</code> goes from <strong>${s.i}</strong> to <strong>${newS.i}</strong>.`,
+        tag: 'update',
+        tagClass: 'update',
+        codeLine: L.updateLine,
+        tableAction: { iter: iters + 1, i: s.i, cond: true, printed: print, postI: newS.i }
+      });
+
+      iters++;
+      s = newS;
+    }
+
+    return built;
+  }
+
+  function loadScenario() {
+    const L = LOOPS[currentLoop];
+    n = parseInt(document.getElementById('nInput').value, 10) || 10;
+    if (n < 1) n = 1;
+    if (n > 50) n = 50;
+    document.getElementById('nInput').value = n;
+
+    state = L.init();
+    iterCount = 0;
+    stepIdx = 0;
+    output = [];
+    steps = buildSteps();
+
+    renderLoopPicker();
+    renderCode();
+    renderVars();
+    renderTableHeader();
+    document.getElementById('tableBody').innerHTML = '';
+    renderOutput();
+
+    document.getElementById('iterCount').textContent = '0';
+    const realN = currentLoop === 'q1' ? L.hardcodeN : n;
+    document.getElementById('predicted').textContent = L.predicted(realN);
+
+    document.getElementById('narration').innerHTML =
+      '<span class="narration-tag">Ready</span>Click <strong>Next step</strong> to walk one micro-step at a time, or <strong>Run all</strong> to fast-forward.';
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('stepInfo').textContent = `step 0 / ${steps.length}`;
+  }
+
+  function applyStep(step) {
+    document.querySelectorAll('.code-line').forEach(el => {
+      el.classList.remove('active', 'true-cond', 'false-cond');
+    });
+
+    if (step.codeLine !== undefined) {
+      const el = document.querySelector(`.code-line[data-i="${step.codeLine}"]`);
+      if (el) el.classList.add(step.lineClass || 'active');
+    }
+
+    if (step.kind === 'body' && step.printValue) {
+      output.push({ text: step.printValue, _fresh: true });
+      renderOutput();
+    }
+
+    if (step.kind === 'update') {
+      state = step.state;
+      renderVars();
+      pulseVar('i');
+    }
+
+    if (step.tableAction) {
+      const tb = document.getElementById('tableBody');
+      const L = LOOPS[currentLoop];
+      const a = step.tableAction;
+      let cells;
+      if (a.cond) {
+        iterCount = a.iter;
+        cells = [
+          a.iter,
+          a.i,
+          '<span class="cond-true">true</span>',
+          `<span class="action-print">${a.printed}</span>`,
+          `<span class="action-skip">i = ${a.postI}</span>`
+        ];
+      } else {
+        cells = [
+          a.iter,
+          a.i,
+          '<span class="cond-false">false</span>',
+          '<span class="action-stop">—</span>',
+          '<span class="action-stop">stop</span>'
+        ];
+      }
+      const row = document.createElement('tr');
+      row.className = 'new';
+      row.innerHTML = cells.map(c => `<td>${c}</td>`).join('');
+      tb.appendChild(row);
+      setTimeout(() => row.classList.remove('new'), 500);
+      document.getElementById('iterCount').textContent = iterCount;
+    }
+
+    document.getElementById('narration').innerHTML =
+      `<span class="narration-tag ${step.tagClass || ''}">${step.tag || 'step'}</span>${step.narrate}`;
+  }
+
+  function nextStep() {
+    if (stepIdx >= steps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('runBtn').disabled = true;
+      return;
+    }
+    applyStep(steps[stepIdx]);
+    stepIdx++;
+    document.getElementById('stepInfo').textContent = `step ${stepIdx} / ${steps.length}`;
+    if (stepIdx >= steps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      document.getElementById('runBtn').disabled = true;
+    }
+  }
+
+  function runAll() {
+    function loop() {
+      if (stepIdx >= steps.length) return;
+      nextStep();
+      setTimeout(loop, 150);
+    }
+    loop();
+  }
+
+  document.getElementById('nInput').addEventListener('change', loadScenario);
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('runBtn').addEventListener('click', runAll);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+
+  loadScenario();
+</script>
+</body>
+</html>
