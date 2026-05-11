@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>String Character Decoder — Strings, indices, and ASCII codes</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #fef5e8; color: #1a1a1a; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; }
+  h1 .accent { color: #c4541e; font-style: italic; }
+  .subtitle { color: #555; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 820px; }
+  .controls-bar { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+  .preset-chip { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 6px 12px; background: #fff8d6; border: 1.5px solid #1a1a1a; border-radius: 14px; cursor: pointer; font-weight: 700; transition: all 0.15s; }
+  .preset-chip:hover { background: #ffd95c; }
+  .preset-chip.active { background: #1a1a1a; color: #ffd95c; }
+  .input-row { margin-left: auto; display: flex; align-items: center; gap: 8px; background: #fff8d6; padding: 6px 12px; border-radius: 5px; border: 1.5px solid #1a1a1a; }
+  .input-row label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555; font-weight: 700; }
+  .input-row input { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; width: 180px; padding: 5px 10px; border: 1.5px solid #1a1a1a; border-radius: 4px; background: #fff; }
+  .summary-row { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 18px 22px; margin-bottom: 18px; display: grid; grid-template-columns: auto 1fr auto; gap: 22px; align-items: center; }
+  @media (max-width: 700px) { .summary-row { grid-template-columns: 1fr; } }
+  .summary-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 4px; }
+  .summary-val { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 900; font-style: italic; color: #1a1a1a; }
+  .summary-val.string { color: #c4541e; }
+  .summary-val.length { color: #1f5a8a; }
+  .summary-string-display { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: #c4541e; padding: 4px 12px; background: #fff8e6; border-radius: 4px; }
+  .char-row-wrap { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 8px 8px 0 #1a1a1a; padding: 24px; margin-bottom: 18px; overflow-x: auto; }
+  .char-row { display: flex; gap: 10px; justify-content: center; align-items: stretch; min-width: fit-content; padding: 12px 0; }
+  .char-card { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
+  .char-card:hover .char-box { transform: translateY(-3px); box-shadow: 4px 7px 0 #1a1a1a; }
+  .char-card.selected .char-box { background: #ffd95c; border-color: #c4541e; box-shadow: 4px 7px 0 #c4541e; }
+  .char-card.selected .ascii-pill { background: #c4541e; color: #fff; }
+  .char-card.selected .index-pill { background: #c4541e; color: #fff; }
+  .ascii-pill { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #fff8d6; color: #1a1a1a; border: 1.5px solid #1a1a1a; min-width: 38px; text-align: center; transition: all 0.2s; }
+  .char-box { width: 56px; height: 70px; background: #fff; border: 3px solid #1a1a1a; border-radius: 8px; box-shadow: 3px 5px 0 #1a1a1a; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 900; color: #1a1a1a; transition: all 0.2s; }
+  .char-box.space { background: #f5efe2; color: #888; }
+  .char-box.space::after { content: '␣'; }
+  .index-pill { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #1a1a1a; color: #ffd95c; min-width: 28px; text-align: center; }
+  .legend-row { display: flex; justify-content: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+  .legend-item { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555; display: flex; align-items: center; gap: 6px; }
+  .legend-color { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid #1a1a1a; }
+  .legend-color.ascii { background: #fff8d6; }
+  .legend-color.char { background: #fff; }
+  .legend-color.index { background: #1a1a1a; }
+  .detail-card { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #c4541e; padding: 20px 24px; margin-bottom: 18px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; }
+  @media (max-width: 800px) { .detail-card { grid-template-columns: 1fr; } }
+  .detail-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #c4541e; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+  .detail-code { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; line-height: 1.8; color: #1a1a1a; background: #0d1117; border-radius: 6px; padding: 14px 18px; }
+  .detail-code .kw { color: #ff7b72; }
+  .detail-code .var { color: #d2a8ff; }
+  .detail-code .num { color: #ffa657; }
+  .detail-code .op { color: #ffd95c; }
+  .detail-code .str { color: #a5d6ff; }
+  .detail-code .method { color: #ffd95c; }
+  .detail-code .comment { color: #6e7681; font-style: italic; }
+  .detail-code .result { color: #ffd95c; font-weight: 700; }
+  .detail-prompt { font-family: 'Fraunces', serif; font-size: 14px; line-height: 1.55; color: #555; font-style: italic; }
+  .detail-prompt strong { color: #c4541e; font-style: normal; }
+  .iteration-card { max-width: 1100px; width: 100%; background: #1a1a1a; color: #e6edf3; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #ffd95c; padding: 18px 22px; margin-bottom: 18px; }
+  .iteration-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px; }
+  .iter-code { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; }
+  .iter-code .kw { color: #ff7b72; }
+  .iter-code .var { color: #d2a8ff; }
+  .iter-code .num { color: #ffa657; }
+  .iter-code .method { color: #ffd95c; }
+  .iter-code .op { color: #ffd95c; }
+  .iter-code .indent { display: inline-block; width: 1.4em; }
+  .iter-output { margin-top: 12px; background: #0d1117; border-radius: 6px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #ffd95c; min-height: 24px; white-space: pre-line; }
+</style>
+</head>
+<body>
+  <h1>String Character <span class="accent">Decoder</span></h1>
+  <p class="subtitle">A string is just a sequence of characters — each character lives at an index, and Java stores each as a number (ASCII). Click a character below to see how <code style="font-family:monospace">charAt(i)</code> and <code style="font-family:monospace">(int)c</code> work.</p>
+  <div class="controls-bar">
+    <span class="picker-label">Try:</span>
+    <span class="preset-chip active" data-str="India">"India"</span>
+    <span class="preset-chip" data-str="Hello">"Hello"</span>
+    <span class="preset-chip" data-str="abc123">"abc123"</span>
+    <span class="preset-chip" data-str="A B">"A B"</span>
+    <span class="preset-chip" data-str="@#$">"@#$"</span>
+    <div class="input-row">
+      <label>Or type:</label>
+      <input type="text" id="customInput" placeholder="your text..." maxlength="14">
+    </div>
+  </div>
+  <div class="summary-row">
+    <div>
+      <div class="summary-label">String</div>
+      <div class="summary-string-display" id="strDisplay">"India"</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="summary-label">Length · str.length()</div>
+      <div class="summary-val length" id="lenVal">5</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="summary-label">Character array view</div>
+      <div class="summary-val" id="arrView" style="font-family:'JetBrains Mono',monospace;font-size:16px;">['I','n','d','i','a']</div>
+    </div>
+  </div>
+  <div class="char-row-wrap">
+    <div class="char-row" id="charRow"></div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-color ascii"></div>ASCII value (top)</div>
+      <div class="legend-item"><div class="legend-color char"></div>The character</div>
+      <div class="legend-item"><div class="legend-color index"></div>Index (bottom)</div>
+      <div class="legend-item" style="color:#c4541e;font-weight:700;">click a card →</div>
+    </div>
+  </div>
+  <div class="detail-card">
+    <div>
+      <div class="detail-title" id="detailTitle">Selected · index 0 · 'I'</div>
+      <div class="detail-code" id="detailCode"></div>
+    </div>
+    <div>
+      <div class="detail-title">What just happened?</div>
+      <div class="detail-prompt" id="detailPrompt"></div>
+    </div>
+  </div>
+  <div class="iteration-card">
+    <div class="iteration-title">The "print all characters" loop · running on this string</div>
+    <div class="iter-code" id="iterCode"></div>
+    <div class="iter-output" id="iterOutput"></div>
+  </div>
+<script>
+let currentStr = 'India', selectedIdx = 0;
+function renderPicker() { document.querySelectorAll('.preset-chip').forEach(el => el.classList.toggle('active', el.dataset.str === currentStr)); }
+function renderStrDisplay() {
+  document.getElementById('strDisplay').textContent = '"' + currentStr + '"';
+  document.getElementById('lenVal').textContent = currentStr.length;
+  const arr = Array.from(currentStr).map(c => "'" + (c === ' ' ? '\u2423' : c) + "'").join(',');
+  document.getElementById('arrView').textContent = '[' + arr + ']';
+}
+function renderCharRow() {
+  const row = document.getElementById('charRow');
+  let html = '';
+  for (let i = 0; i < currentStr.length; i++) {
+    const c = currentStr.charAt(i);
+    const ascii = c.charCodeAt(0);
+    const isSpace = c === ' ';
+    const isSelected = i === selectedIdx;
+    html += '<div class="char-card' + (isSelected ? ' selected' : '') + '" data-idx="' + i + '">';
+    html += '<div class="ascii-pill">' + ascii + '</div>';
+    html += '<div class="char-box' + (isSpace ? ' space' : '') + '">' + (isSpace ? '' : (c === '"' ? '&quot;' : (c === '<' ? '&lt;' : (c === '>' ? '&gt;' : (c === '&' ? '&amp;' : c))))) + '</div>';
+    html += '<div class="index-pill">' + i + '</div>';
+    html += '</div>';
+  }
+  row.innerHTML = html;
+  row.querySelectorAll('.char-card').forEach(el => el.addEventListener('click', () => { selectedIdx = parseInt(el.dataset.idx, 10); renderAll(); }));
+}
+function renderDetail() {
+  if (selectedIdx >= currentStr.length) selectedIdx = 0;
+  const c = currentStr.charAt(selectedIdx);
+  const ascii = c.charCodeAt(0);
+  const isSpace = c === ' ';
+  const displayChar = isSpace ? '\u2423 (space)' : c;
+  document.getElementById('detailTitle').textContent = 'Selected · index ' + selectedIdx + " · '" + displayChar + "'";
+  const html =
+    '<div><span class="comment">// Access the character at index ' + selectedIdx + '</span></div>' +
+    '<div><span class="kw">char</span> <span class="var">c</span> = <span class="var">str</span>.<span class="method">charAt</span>(<span class="num">' + selectedIdx + '</span>); &nbsp;<span class="comment">// </span><span class="result">\u2192 \u0027' + (isSpace ? '\u2423' : (c === "'" ? "\\'" : c)) + '\u0027</span></div>' +
+    '<div style="height:6px;"></div>' +
+    '<div><span class="comment">// Cast to int to get ASCII value</span></div>' +
+    '<div><span class="kw">int</span> <span class="var">ascii</span> = (<span class="kw">int</span>) <span class="var">c</span>; &nbsp;<span class="comment">// </span><span class="result">\u2192 ' + ascii + '</span></div>';
+  document.getElementById('detailCode').innerHTML = html;
+  let promptHtml = '';
+  if (isSpace) {
+    promptHtml = "Space is a valid character too. Its ASCII value is <strong>32</strong> — and yes, it counts toward <code style='font-family:monospace'>length()</code>.";
+  } else if (c >= 'A' && c <= 'Z') {
+    promptHtml = "'<strong>" + c + "</strong>' is an uppercase letter. ASCII range for A-Z is <strong>65 to 90</strong>. So 'A' = 65, 'B' = 66, ... '<strong>" + c + "</strong>' = " + ascii + ".";
+  } else if (c >= 'a' && c <= 'z') {
+    promptHtml = "'<strong>" + c + "</strong>' is a lowercase letter. ASCII range for a-z is <strong>97 to 122</strong>. So 'a' = 97, 'b' = 98, ... '<strong>" + c + "</strong>' = " + ascii + ".";
+  } else if (c >= '0' && c <= '9') {
+    promptHtml = "'<strong>" + c + "</strong>' is a digit character — NOT the integer " + c + ". ASCII range for 0-9 is <strong>48 to 57</strong>. The character '" + c + "' has ASCII " + ascii + ". This is why <code style='font-family:monospace'>(int)'5' \u2260 5</code>.";
+  } else {
+    promptHtml = "'<strong>" + c + "</strong>' is a symbol/punctuation. ASCII value is <strong>" + ascii + "</strong>. Symbols are scattered across the table — not a single contiguous range.";
+  }
+  document.getElementById('detailPrompt').innerHTML = promptHtml;
+}
+function renderIteration() {
+  const codeHtml =
+    '<div><span class="kw">for</span> (<span class="kw">int</span> <span class="var">i</span> = <span class="num">0</span>; <span class="var">i</span> &lt; <span class="var">str</span>.<span class="method">length</span>(); <span class="var">i</span><span class="op">++</span>) {</div>' +
+    '<div><span class="indent"></span><span class="method">SOPln</span>((<span class="kw">int</span>)<span class="var">str</span>.<span class="method">charAt</span>(<span class="var">i</span>));</div>' +
+    '<div>}</div>';
+  document.getElementById('iterCode').innerHTML = codeHtml;
+  let out = '';
+  for (let i = 0; i < currentStr.length; i++) out += currentStr.charCodeAt(i) + '\n';
+  document.getElementById('iterOutput').textContent = out.trim();
+}
+function renderAll() { renderPicker(); renderStrDisplay(); renderCharRow(); renderDetail(); renderIteration(); }
+document.querySelectorAll('.preset-chip').forEach(el => el.addEventListener('click', () => {
+  currentStr = el.dataset.str; selectedIdx = 0;
+  document.getElementById('customInput').value = '';
+  renderAll();
+}));
+document.getElementById('customInput').addEventListener('input', (e) => {
+  const v = e.target.value;
+  if (v.length > 0) { currentStr = v; selectedIdx = 0; document.querySelectorAll('.preset-chip').forEach(el => el.classList.remove('active')); renderAll(); }
+});
+renderAll();
+</script>
+</body>
+</html>
