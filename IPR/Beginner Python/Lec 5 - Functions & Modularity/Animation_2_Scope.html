@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scope — local vs global, the house analogy</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .qb.good.active { border-color: var(--green); color: var(--green); background: rgba(163,217,119,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.05fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-error { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-good { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  /* House visualization */
+  .houses { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 320px; position: relative; }
+
+  .street-label { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+  .street-label .icon { font-size: 14px; }
+
+  /* Outside (street) area */
+  .street { background: rgba(240, 160, 75, 0.05); border: 1px dashed rgba(240,160,75,0.3); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+  .street.active { border-color: var(--accent); background: rgba(240, 160, 75, 0.1); }
+  .street-vars { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; min-height: 30px; }
+
+  .var-chip {
+    display: inline-flex; gap: 5px; align-items: center;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px;
+    padding: 4px 12px; font-size: 12px;
+    transition: all 0.25s;
+  }
+  .var-chip.global { border-color: var(--accent); background: rgba(240, 160, 75, 0.1); }
+  .var-chip.global .vname { color: var(--accent); }
+  .var-chip.local { border-color: var(--purple); background: rgba(192, 132, 232, 0.1); }
+  .var-chip.local .vname { color: var(--purple); }
+  .var-chip.just-set { animation: pulse 0.6s ease-out; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(240,160,75,0); }
+    50% { transform: scale(1.08); box-shadow: 0 0 0 3px rgba(240,160,75,0.3); }
+  }
+  .var-chip.shadowed { opacity: 0.35; text-decoration: line-through; text-decoration-color: var(--muted); }
+  .var-chip .vname { font-weight: 600; font-family: 'JetBrains Mono', monospace; color: var(--ink); font-size: 12px; }
+  .var-chip .vsep { color: var(--muted); }
+  .var-chip .vval { font-family: 'JetBrains Mono', monospace; color: var(--ink); font-size: 12px; }
+  .var-chip.empty { opacity: 0.4; }
+
+  /* House */
+  .house { background: rgba(192, 132, 232, 0.05); border: 1.5px solid rgba(192,132,232,0.3); border-radius: 8px; padding: 14px 16px; transition: all 0.3s; position: relative; }
+  .house.active { border-color: var(--purple); background: rgba(192, 132, 232, 0.1); }
+  .house.dim { opacity: 0.4; }
+  .house-roof { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 8px; }
+  .house-roof .name { color: var(--purple); font-weight: 600; font-family: 'JetBrains Mono', monospace; letter-spacing: 0; }
+  .house-vars { display: flex; gap: 8px; flex-wrap: wrap; min-height: 30px; padding: 8px; background: rgba(0,0,0,0.18); border-radius: 4px; }
+  .house-vars.empty { display: flex; align-items: center; justify-content: center; color: var(--muted); font-family: Georgia, serif; font-style: italic; font-size: 12px; }
+
+  .house-gone {
+    display: flex; align-items: center; justify-content: center;
+    padding: 18px; color: var(--muted);
+    font-family: Georgia, serif; font-style: italic; font-size: 13px;
+    background: rgba(229, 115, 115, 0.05);
+    border: 1px dashed rgba(229, 115, 115, 0.4);
+    border-radius: 6px;
+    margin-top: 8px;
+  }
+
+  /* Lookup indicator */
+  .lookup-flow {
+    display: none;
+    align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: rgba(93, 173, 236, 0.08);
+    border-left: 3px solid var(--blue);
+    border-radius: 6px;
+    font-size: 12px;
+    margin-top: 12px;
+  }
+  .lookup-flow.show { display: flex; }
+  .lookup-flow.error { background: rgba(229,115,115,0.08); border-color: var(--red); }
+  .lookup-flow.success { background: rgba(163,217,119,0.08); border-color: var(--green); }
+  .lookup-flow .key { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .lookup-flow.success .key { color: var(--green); }
+  .lookup-flow.error .key { color: var(--red); }
+  .lookup-flow .text { color: var(--muted); font-family: Georgia, serif; font-style: italic; }
+  .lookup-flow .text strong { color: var(--ink); font-family: 'JetBrains Mono', monospace; font-style: normal; font-weight: 600; }
+
+  /* Output */
+  .output-block { background: #0d1117; border-radius: 6px; padding: 12px 14px; min-height: 60px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; margin-top: 12px; }
+  .output-line { color: var(--green); }
+  .output-error { color: var(--red); }
+  .output-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .bad { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Scope — the 🏠 house analogy</h1>
+  <div class="sub">Global = street sign, visible to all. Local = picture inside the house, only visible inside — and gone when the function ends.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb good active" data-sc="0">Local stays local · read fails outside</button>
+    <button class="qb" data-sc="1">Local shadows global · same name, two vars</button>
+    <button class="qb warn" data-sc="2">global keyword · actually modify the global</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">SOURCE CODE</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+      <div class="code" id="codeBlock"></div>
+
+      <div class="panel-title" style="margin-top:18px">OUTPUT</div>
+      <div class="output-block" id="output"><span class="output-empty">— press Step ▸ to begin —</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">SCOPE</div>
+      <div class="houses">
+        <div class="street-label"><span class="icon">🪧</span> STREET · GLOBAL SCOPE — visible everywhere</div>
+        <div class="street" id="streetEl">
+          <div class="street-vars" id="streetVars"></div>
+        </div>
+        <div class="street-label"><span class="icon">🏠</span> HOUSE · LOCAL SCOPE — only visible inside the function</div>
+        <div id="houseContainer"></div>
+        <div class="lookup-flow" id="lookupFlow">
+          <span class="key" id="lookupName">—</span>
+          <span class="text" id="lookupText">—</span>
+        </div>
+      </div>
+      <div class="commentary" id="commentary">Pick a scenario. Each one shows a different rule about how Python finds (or fails to find) a variable.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ SCENARIOS ============
+const SCENARIOS = [
+  {
+    // Local stays local
+    name: 'Local stays local — read fails outside',
+    sub: "a and b are global. area is local to area_circle and unreachable from outside.",
+    code: [
+      'a = 1',
+      'def area_circle(radius):',
+      '    area = 3.14 * radius * radius',
+      '    return area',
+      '',
+      'b = area_circle(10)',
+      'print(a)        # ✅ a is global',
+      'print(b)        # ✅ b is global',
+      'print(area)     # ❌ NameError — area was local',
+    ],
+    plan: () => [
+      { line: 0, kind: 'set-global', name: 'a', val: '1', msg: `<strong>a = 1</strong> — a global variable is born. Goes on the <strong>street</strong> (🪧) — visible everywhere.` },
+      { line: 1, kind: 'define', msg: `Definition of <strong>area_circle</strong> registered. Body not run.` },
+      { line: 5, kind: 'global-active', exec: 'b = area_circle(10)', msg: `<strong>area_circle(10)</strong> — call. Python enters the function.` },
+      { line: 1, kind: 'enter-house', name: 'area_circle', params: { radius: '10' }, msg: `Entered the <span class="purple">area_circle</span> house. Parameter <span class="purple">radius</span> binds to <strong>10</strong> — a local variable.` },
+      { line: 2, kind: 'set-local', house: 'area_circle', name: 'area', val: '314.0', msg: `<strong>area = 3.14 * 10 * 10 = 314.0</strong>. Created as a <span class="purple">local</span> — lives inside the house only.` },
+      { line: 3, kind: 'return', house: 'area_circle', retVal: '314.0', msg: `<strong>return area</strong> — the value 314.0 is sent back. The function exits.` },
+      { line: 5, kind: 'leave-house', captured: { b: '314.0' }, msg: `Back outside. The function's house is <span class="bad">demolished</span> — <strong>area</strong> no longer exists. The returned value lands in global <strong>b</strong>.` },
+      { line: 6, kind: 'lookup', target: 'a', found: 'street', exec: 'print(a)', out: '1', msg: `<strong>print(a)</strong> — Python checks the street, finds <span class="ok">a = 1</span>. Prints <span class="ok">1</span>.` },
+      { line: 7, kind: 'lookup', target: 'b', found: 'street', exec: 'print(b)', out: '314.0', msg: `<strong>print(b)</strong> — checks the street, finds <span class="ok">b = 314.0</span>. Prints <span class="ok">314.0</span>.` },
+      { line: 8, kind: 'lookup', target: 'area', found: 'nowhere', exec: 'print(area)', err: "NameError: name 'area' is not defined", msg: `<strong>print(area)</strong> — Python checks the street: <span class="bad">no 'area' there.</span> The house is gone too. <span class="bad">NameError.</span>` },
+    ],
+  },
+  {
+    // Local shadows global - two variables with the same name
+    name: 'Local shadows global — same name, two variables',
+    sub: "Assigning to 'a' inside a function makes a LOCAL 'a' — the global is untouched.",
+    code: [
+      'a = 1',
+      'def abc():',
+      '    a = 2',
+      '    print(a)',
+      '',
+      'abc()',
+      'print(a)',
+    ],
+    plan: () => [
+      { line: 0, kind: 'set-global', name: 'a', val: '1', msg: `Global <strong>a = 1</strong> on the street.` },
+      { line: 1, kind: 'define', msg: `Definition of <strong>abc</strong> stored.` },
+      { line: 5, kind: 'global-active', exec: 'abc()', msg: `<strong>abc()</strong> — call.` },
+      { line: 1, kind: 'enter-house', name: 'abc', params: {}, msg: `Entered the <span class="purple">abc</span> house.` },
+      { line: 2, kind: 'set-local', house: 'abc', name: 'a', val: '2', shadows: 'a', msg: `<strong>a = 2</strong> inside the function. Python creates a <span class="purple">new local 'a'</span>. The global 'a' on the street is <span class="bad">shadowed</span> (still 1, but hidden by the local).` },
+      { line: 3, kind: 'lookup-local', target: 'a', val: '2', exec: 'print(a)', out: '2', msg: `<strong>print(a)</strong> — Python looks inside the house first, finds <span class="purple">local a = 2</span>. Prints <span class="ok">2</span>.` },
+      { line: 3, kind: 'return-implicit', house: 'abc', msg: `End of function body. Implicit return, the house is demolished — local <strong>a</strong> is gone.` },
+      { line: 6, kind: 'leave-house', msg: `Back outside. The global <strong>a = 1</strong> is unchanged — assignment inside the function never touched it.` },
+      { line: 6, kind: 'lookup', target: 'a', found: 'street', exec: 'print(a)', out: '1', msg: `<strong>print(a)</strong> — checks the street, finds <span class="ok">a = 1</span>. Prints <span class="ok">1</span>.` },
+    ],
+  },
+  {
+    // global keyword
+    name: 'global keyword — let me touch the actual global',
+    sub: "With 'global a' Python no longer creates a local — assignments now update the street sign itself.",
+    code: [
+      'a = 1',
+      'def abc():',
+      '    global a            # promise: use the street sign',
+      '    a = 2',
+      '    print(a)',
+      '',
+      'abc()',
+      'print(a)',
+    ],
+    plan: () => [
+      { line: 0, kind: 'set-global', name: 'a', val: '1', msg: `Global <strong>a = 1</strong> on the street.` },
+      { line: 1, kind: 'define', msg: `Definition of <strong>abc</strong> stored.` },
+      { line: 6, kind: 'global-active', exec: 'abc()', msg: `<strong>abc()</strong> — call.` },
+      { line: 1, kind: 'enter-house', name: 'abc', params: {}, msg: `Entered the <span class="purple">abc</span> house.` },
+      { line: 2, kind: 'global-decl', target: 'a', msg: `<strong>global a</strong> — this tells Python: "Don't make a local 'a' for me. When I use 'a', I mean the street's a."` },
+      { line: 3, kind: 'set-global-from-fn', name: 'a', val: '2', msg: `<strong>a = 2</strong> — because of the <strong>global</strong> declaration, this writes to the <span class="ok">global a</span> on the street, NOT a new local.` },
+      { line: 4, kind: 'lookup', target: 'a', found: 'street', exec: 'print(a)', out: '2', msg: `<strong>print(a)</strong> — same 'a' on the street, now 2. Prints <span class="ok">2</span>.` },
+      { line: 4, kind: 'return-implicit', house: 'abc', msg: `End of function. The house is demolished, but the global change persists.` },
+      { line: 6, kind: 'leave-house', msg: `Back outside. The function's house is gone, but its assignment to <strong>a</strong> updated the street — the change persists.` },
+      { line: 7, kind: 'lookup', target: 'a', found: 'street', exec: 'print(a)', out: '2', msg: `<strong>print(a)</strong> outside — still <span class="ok">a = 2</span>. The function actually changed the global.` },
+    ],
+  },
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+let plan = [];
+
+function paint(text) {
+  let h = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
+  h = h.replace(/(#[^<\n]*)/g, '<span class="cmt">$1</span>');
+  h = h.replace(/\b(def|return|if|else|elif|for|in|while|global|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|int|float|round|len|range|abs)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/(\s)(=|==|\+=|-=|\*=|\+|-|\*|\/|%)(\s)/g, '$1<span class="op">$2</span>$3');
+  return h;
+}
+
+function getScenario() { return SCENARIOS[scenarioIdx]; }
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  plan = getScenario().plan();
+  render();
+}
+
+function render() {
+  const sc = getScenario();
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  // Build current state by walking forward
+  let globals = {};
+  let house = null; // { name, vars, globalDecls }
+  let houseDemolished = false;
+  let lastLookup = null;
+  for (let s = 0; s < stepIdx; s++) {
+    const stp = plan[s];
+    if (stp.kind === 'set-global') {
+      globals[stp.name] = stp.val;
+    }
+    if (stp.kind === 'set-global-from-fn') {
+      globals[stp.name] = stp.val;
+    }
+    if (stp.kind === 'enter-house') {
+      house = { name: stp.name, vars: Object.assign({}, stp.params || {}), globalDecls: new Set() };
+      houseDemolished = false;
+    }
+    if (stp.kind === 'set-local') {
+      if (house) house.vars[stp.name] = stp.val;
+    }
+    if (stp.kind === 'global-decl') {
+      if (house) house.globalDecls.add(stp.target);
+    }
+    if (stp.kind === 'return' || stp.kind === 'return-implicit') {
+      // Mark house as about to disappear at next step
+    }
+    if (stp.kind === 'leave-house') {
+      house = null;
+      houseDemolished = true;
+      if (stp.captured) Object.assign(globals, stp.captured);
+    }
+    if (stp.kind === 'lookup' || stp.kind === 'lookup-local') {
+      lastLookup = stp;
+    } else {
+      // clear lookup unless this is still the lookup step
+      if (s === stepIdx - 1) lastLookup = null;
+    }
+  }
+  // Reset lookup if current isn't a lookup step
+  if (cur && cur.kind !== 'lookup' && cur.kind !== 'lookup-local') {
+    lastLookup = null;
+  } else if (cur && (cur.kind === 'lookup' || cur.kind === 'lookup-local')) {
+    lastLookup = cur;
+  }
+
+  // Code rendering
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line === idx) {
+      if (cur.kind === 'lookup' && cur.found === 'nowhere') cls += ' exec-error';
+      else if (cur.kind === 'lookup' && cur.found === 'street' && cur.out !== undefined) cls += ' exec-good';
+      else if (cur.kind === 'lookup-local') cls += ' exec-good';
+      else cls += ' exec';
+    }
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  // Street vars
+  const streetEl = document.getElementById('streetEl');
+  const streetVars = document.getElementById('streetVars');
+  // Highlight street if we're operating in global scope OR doing a global lookup
+  const streetActive = !house || (cur && cur.kind === 'leave-house') || (cur && cur.kind === 'set-global-from-fn') || (lastLookup && lastLookup.found === 'street') || (cur && cur.kind === 'set-global');
+  streetEl.classList.toggle('active', streetActive);
+
+  let streetHtml = '';
+  // Determine shadowing
+  const shadowedByLocal = new Set();
+  if (house) {
+    for (const k of Object.keys(house.vars)) {
+      if (!house.globalDecls.has(k)) shadowedByLocal.add(k);
+    }
+  }
+
+  if (Object.keys(globals).length === 0) {
+    streetHtml = '<span style="color:var(--muted);font-style:italic;font-family:Georgia,serif;font-size:12px">— no globals yet —</span>';
+  } else {
+    Object.keys(globals).forEach(k => {
+      const isShadowed = shadowedByLocal.has(k);
+      const justSet = (cur && (cur.kind === 'set-global' || cur.kind === 'set-global-from-fn' || (cur.captured && cur.captured[k] !== undefined)) && (cur.name === k || (cur.captured && cur.captured[k])));
+      streetHtml += `<span class="var-chip global ${isShadowed ? 'shadowed' : ''} ${justSet ? 'just-set' : ''}"><span class="vname">${k}</span><span class="vsep">=</span><span class="vval">${globals[k]}</span></span>`;
+    });
+  }
+  streetVars.innerHTML = streetHtml;
+
+  // House
+  const houseContainer = document.getElementById('houseContainer');
+  if (house) {
+    const isCurrentEnter = cur && cur.kind === 'enter-house';
+    let houseHtml = `<div class="house active">`;
+    houseHtml += `<div class="house-roof">🏠 <span class="name">${house.name}</span>'s house · local variables</div>`;
+    const varKeys = Object.keys(house.vars);
+    if (varKeys.length === 0 && house.globalDecls.size === 0) {
+      houseHtml += `<div class="house-vars empty">no locals yet</div>`;
+    } else {
+      houseHtml += `<div class="house-vars">`;
+      varKeys.forEach(k => {
+        const justSet = (cur && cur.kind === 'set-local' && cur.name === k) || (cur && cur.kind === 'enter-house' && cur.params && cur.params[k] !== undefined);
+        houseHtml += `<span class="var-chip local ${justSet ? 'just-set' : ''}"><span class="vname">${k}</span><span class="vsep">=</span><span class="vval">${house.vars[k]}</span></span>`;
+      });
+      // Show global declarations (e.g., "global a")
+      house.globalDecls.forEach(g => {
+        houseHtml += `<span class="var-chip" style="border-color:var(--accent);background:rgba(240,160,75,0.06);font-style:italic;font-family:Georgia,serif"><span style="color:var(--accent);font-family:'JetBrains Mono',monospace;font-style:normal">global ${g}</span> <span class="vsep">→</span> <span style="font-family:Georgia,serif;color:var(--muted)">street's ${g}</span></span>`;
+      });
+      houseHtml += `</div>`;
+    }
+    houseHtml += `</div>`;
+    houseContainer.innerHTML = houseHtml;
+  } else if (houseDemolished) {
+    houseContainer.innerHTML = `<div class="house-gone">🚧 house demolished — its locals no longer exist</div>`;
+  } else {
+    houseContainer.innerHTML = `<div class="house-gone" style="background:rgba(192,132,232,0.03);border-color:rgba(192,132,232,0.2);color:var(--muted)">— no active function call —</div>`;
+  }
+
+  // Lookup flow indicator
+  const lookupFlow = document.getElementById('lookupFlow');
+  const lookupName = document.getElementById('lookupName');
+  const lookupText = document.getElementById('lookupText');
+  if (lastLookup) {
+    lookupFlow.classList.add('show');
+    lookupFlow.classList.remove('error', 'success');
+    if (lastLookup.found === 'nowhere') {
+      lookupFlow.classList.add('error');
+      lookupName.textContent = `${lastLookup.target}`;
+      lookupText.innerHTML = `not on the street, no house exists → <strong>NameError</strong>`;
+    } else if (lastLookup.kind === 'lookup-local') {
+      lookupFlow.classList.add('success');
+      lookupName.textContent = `${lastLookup.target}`;
+      lookupText.innerHTML = `found inside the house → value is <strong>${lastLookup.val}</strong>`;
+    } else {
+      lookupFlow.classList.add('success');
+      lookupName.textContent = `${lastLookup.target}`;
+      lookupText.innerHTML = `found on the street → value is <strong>${globals[lastLookup.target]}</strong>`;
+    }
+  } else {
+    lookupFlow.classList.remove('show');
+  }
+
+  // Output
+  const outputEl = document.getElementById('output');
+  let outText = '';
+  for (let s = 0; s < stepIdx; s++) {
+    const stp = plan[s];
+    if (stp.out !== undefined) outText += `<div class="output-line">${stp.out}</div>`;
+    if (stp.err !== undefined) outText += `<div class="output-error">${stp.err}</div>`;
+  }
+  if (outText) outputEl.innerHTML = outText;
+  else outputEl.innerHTML = '<span class="output-empty">— no output yet —</span>';
+
+  // Commentary
+  const commentary = document.getElementById('commentary');
+  if (cur) {
+    commentary.innerHTML = cur.msg;
+  } else {
+    commentary.innerHTML = `Pick a scenario. Each one shows a different rule about how Python finds (or fails to find) a variable.`;
+  }
+
+  // Step button
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>

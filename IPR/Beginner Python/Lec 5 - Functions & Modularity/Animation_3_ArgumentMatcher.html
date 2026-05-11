@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Argument matching — positional, keyword, default</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .toolbar { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.good.active { border-color: var(--green); color: var(--green); background: rgba(163,217,119,0.08); }
+  .qb.bad.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+
+  /* Function definition area */
+  .def-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; margin-bottom: 16px; }
+  .def-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 12px; }
+  .def-code { background: #0d1117; border-radius: 6px; padding: 16px 20px; font-size: 14px; line-height: 1.6; font-family: 'JetBrains Mono', monospace; white-space: pre; }
+
+  .param-list { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .param-slot {
+    background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 6px;
+    padding: 10px 14px; min-width: 130px; transition: all 0.3s; position: relative;
+  }
+  .param-slot .param-name { color: var(--accent); font-weight: 600; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+  .param-slot .param-default { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: Georgia, serif; font-style: italic; }
+  .param-slot .param-default code { font-family: 'JetBrains Mono', monospace; font-style: normal; color: var(--ink); }
+  .param-slot .param-bound { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+  .param-slot .param-bound-label { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 2px; }
+  .param-slot .param-bound-val { color: var(--green); font-weight: 600; }
+  .param-slot.bound { border-color: var(--green); background: rgba(163,217,119,0.06); }
+  .param-slot.bound-default { border-color: var(--purple); background: rgba(192,132,232,0.06); }
+  .param-slot.bound-default .param-bound-val { color: var(--purple); }
+  .param-slot.error { border-color: var(--red); background: rgba(229,115,115,0.06); }
+  .param-slot.error .param-bound-val { color: var(--red); }
+  .param-slot.missing { border-color: var(--red); }
+  .param-slot.missing::after {
+    content: 'unfilled!'; position: absolute; top: -8px; right: 8px;
+    background: var(--red); color: #1a1d23; padding: 1px 6px; border-radius: 10px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  }
+
+  /* Call section */
+  .call-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .call-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .call-head .label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .call-code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 14px; line-height: 1.6; font-family: 'JetBrains Mono', monospace; }
+  .call-code .arg-pill {
+    display: inline-block; padding: 2px 8px; margin: 0 2px; border-radius: 4px;
+    background: rgba(93,173,236,0.12); border: 1px solid var(--blue); color: var(--blue);
+    font-weight: 600; transition: all 0.2s;
+  }
+  .call-code .arg-pill.kw { background: rgba(192,132,232,0.12); border-color: var(--purple); color: var(--purple); }
+  .call-code .arg-pill.error { background: rgba(229,115,115,0.18); border-color: var(--red); color: var(--red); }
+  .call-code .arg-pill.matched { background: rgba(163,217,119,0.15); border-color: var(--green); color: var(--green); }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  .verdict { margin-top: 18px; padding: 14px 18px; border-radius: 8px; font-size: 13px; line-height: 1.6; display: flex; align-items: flex-start; gap: 12px; }
+  .verdict.ok { background: rgba(163,217,119,0.08); border: 1px solid rgba(163,217,119,0.4); color: var(--ink); }
+  .verdict.err { background: rgba(229,115,115,0.08); border: 1px solid rgba(229,115,115,0.4); color: var(--ink); }
+  .verdict-icon { font-size: 20px; flex-shrink: 0; }
+  .verdict.ok .verdict-icon { color: var(--green); }
+  .verdict.err .verdict-icon { color: var(--red); }
+  .verdict-text { flex: 1; font-family: Georgia, serif; font-style: italic; }
+  .verdict-text strong { font-family: 'JetBrains Mono', monospace; font-style: normal; font-weight: 600; }
+  .verdict-text .err-msg { color: var(--red); font-family: 'JetBrains Mono', monospace; font-style: normal; }
+  .verdict-text .out-text { color: var(--green); font-family: 'JetBrains Mono', monospace; font-style: normal; font-weight: 600; }
+
+  .legend { font-family: Georgia, serif; font-size: 11px; color: var(--muted); font-style: italic; margin-top: 12px; line-height: 1.6; padding: 8px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); }
+  .legend .blue { color: var(--blue); font-family: 'JetBrains Mono', monospace; font-style: normal; }
+  .legend .purple { color: var(--purple); font-family: 'JetBrains Mono', monospace; font-style: normal; }
+  .legend .green { color: var(--green); font-family: 'JetBrains Mono', monospace; font-style: normal; }
+
+  /* Bindings overlay arrows - we'll just use simple text labels */
+  .bindings { margin-top: 16px; }
+  .binding-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 12px; }
+  .binding-row .src { font-family: 'JetBrains Mono', monospace; min-width: 130px; }
+  .binding-row .arrow { color: var(--muted); }
+  .binding-row .dst { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: 600; }
+  .binding-row .note { color: var(--muted); font-family: Georgia, serif; font-style: italic; font-size: 11.5px; }
+  .binding-row.error .arrow { color: var(--red); }
+  .binding-row.error .note { color: var(--red); }
+  .binding-row.default .src { color: var(--purple); font-style: italic; }
+  .binding-row.default .dst { color: var(--purple); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Argument matching — who goes where?</h1>
+  <div class="sub">Same function definition, different ways to call it. Some bind cleanly. Some are errors. Click a call to see exactly how Python matches arguments to parameters.</div>
+
+  <div class="toolbar">
+    <span class="ctl-label">TRY A CALL</span>
+    <button class="qb good active" data-sc="0">✓ all positional</button>
+    <button class="qb good" data-sc="1">✓ all keyword (any order)</button>
+    <button class="qb good" data-sc="2">✓ mixed: positional then keyword</button>
+    <button class="qb good" data-sc="3">✓ default kicks in</button>
+    <button class="qb bad" data-sc="4">✗ wrong positional order</button>
+    <button class="qb bad" data-sc="5">✗ keyword before positional</button>
+    <button class="qb bad" data-sc="6">✗ same param twice</button>
+    <button class="qb bad" data-sc="7">✗ missing required param</button>
+  </div>
+
+  <div class="def-panel">
+    <div class="def-label">DEFINITION — what we're calling</div>
+    <div class="def-code"><span class="kw">def</span> <span class="fn">bio_data</span>(name, age, gender<span class="op">=</span><span class="str">"Unspecified"</span>):
+    <span class="fn">print</span>(<span class="str">"Name: "</span>, name)
+    <span class="fn">print</span>(<span class="str">"Age: "</span>, age)
+    <span class="fn">print</span>(<span class="str">"Gender: "</span>, gender)</div>
+
+    <div class="def-label" style="margin-top:18px">PARAMETERS — slots that need to be filled</div>
+    <div class="param-list" id="paramList"></div>
+  </div>
+
+  <div class="call-panel">
+    <div class="call-head">
+      <span class="label">CALL</span>
+      <span style="color: var(--muted); font-size: 12px; font-family: Georgia, serif; font-style: italic" id="callDesc"></span>
+    </div>
+    <div class="call-code" id="callCode"></div>
+
+    <div class="bindings" id="bindings"></div>
+
+    <div class="verdict" id="verdict">
+      <span class="verdict-icon">—</span>
+      <div class="verdict-text">—</div>
+    </div>
+
+    <div class="legend">
+      <span class="blue">positional</span> — argument matched to a parameter by <em>position</em>. &nbsp;
+      <span class="purple">keyword</span> — argument matched to a parameter by <em>name</em> (<code>name=value</code>). &nbsp;
+      <span class="green">default</span> — parameter wasn't supplied; its default value is used.
+    </div>
+  </div>
+</div>
+
+<script>
+// Definition: bio_data(name, age, gender="Unspecified")
+const PARAMS = [
+  { name: 'name', hasDefault: false },
+  { name: 'age', hasDefault: false },
+  { name: 'gender', hasDefault: true, defaultVal: '"Unspecified"' },
+];
+
+const SCENARIOS = [
+  {
+    desc: "All three values supplied by position — order matters.",
+    callTokens: [
+      { kind: 'fn', text: 'bio_data' }, { kind: 'punct', text: '(' },
+      { kind: 'pos', text: '"Aakar"', value: '"Aakar"' }, { kind: 'punct', text: ', ' },
+      { kind: 'pos', text: '23', value: '23' }, { kind: 'punct', text: ', ' },
+      { kind: 'pos', text: '"Male"', value: '"Male"' }, { kind: 'punct', text: ')' },
+    ],
+    legal: true,
+    bindings: [
+      { srcLabel: 'arg #1 (positional)', dst: 'name', val: '"Aakar"', kind: 'pos' },
+      { srcLabel: 'arg #2 (positional)', dst: 'age', val: '23', kind: 'pos' },
+      { srcLabel: 'arg #3 (positional)', dst: 'gender', val: '"Male"', kind: 'pos' },
+    ],
+    msg: `Each positional argument fills the next parameter slot in order. <strong>name ← "Aakar"</strong>, <strong>age ← 23</strong>, <strong>gender ← "Male"</strong>.`,
+    out: `Name:  Aakar\nAge:  23\nGender:  Male`,
+  },
+  {
+    desc: "All three by keyword — order doesn't matter when you name them.",
+    callTokens: [
+      { kind: 'fn', text: 'bio_data' }, { kind: 'punct', text: '(' },
+      { kind: 'kw', text: 'gender="Male"', name: 'gender', value: '"Male"' }, { kind: 'punct', text: ', ' },
+      { kind: 'kw', text: 'name="Aakar"', name: 'name', value: '"Aakar"' }, { kind: 'punct', text: ', ' },
+      { kind: 'kw', text: 'age=23', name: 'age', value: '23' }, { kind: 'punct', text: ')' },
+    ],
+    legal: true,
+    bindings: [
+      { srcLabel: 'gender="Male"', dst: 'gender', val: '"Male"', kind: 'kw' },
+      { srcLabel: 'name="Aakar"', dst: 'name', val: '"Aakar"', kind: 'kw' },
+      { srcLabel: 'age=23', dst: 'age', val: '23', kind: 'kw' },
+    ],
+    msg: `Each <strong>name=value</strong> matches by name, ignoring order. Python rearranges them: <strong>name ← "Aakar"</strong>, <strong>age ← 23</strong>, <strong>gender ← "Male"</strong>.`,
+    out: `Name:  Aakar\nAge:  23\nGender:  Male`,
+  },
+  {
+    desc: "First positional, then keyword — the legal mix.",
+    callTokens: [
+      { kind: 'fn', text: 'bio_data' }, { kind: 'punct', text: '(' },
+      { kind: 'pos', text: '"Aakar"', value: '"Aakar"' }, { kind: 'punct', text: ', ' },
+      { kind: 'kw', text: 'age=23', name: 'age', value: '23' }, { kind: 'punct', text: ', ' },
+      { kind: 'kw', text: 'gender="Male"', name: 'gender', value: '"Male"' }, { kind: 'punct', text: ')' },
+    ],
+    legal: true,
+    bindings: [
+      { srcLabel: 'arg #1 (positional)', dst: 'name', val: '"Aakar"', kind: 'pos' },
+      { srcLabel: 'age=23', dst: 'age', val: '23', kind: 'kw' },
+      { srcLabel: 'gender="Male"', dst: 'gender', val: '"Male"', kind: 'kw' },
+    ],
+    msg: `Positionals fill from left first. Once a keyword argument appears, ALL remaining arguments must be keywords too.`,
+    out: `Name:  Aakar\nAge:  23\nGender:  Male`,
+  },
+  {
+    desc: "Gender not supplied — its default 'Unspecified' fills the slot.",
+    callTokens: [
+      { kind: 'fn', text: 'bio_data' }, { kind: 'punct', text: '(' },
+      { kind: 'pos', text: '"Aakar"', value: '"Aakar"' }, { kind: 'punct', text: ', ' },
+      { kind: 'pos', text: '23', value: '23' }, { kind: 'punct', text: ')' },
+    ],
+    legal: true,
+    bindings: [
+      { srcLabel: 'arg #1 (positional)', dst: 'name', val: '"Aakar"', kind: 'pos' },
+      { srcLabel: 'arg #2 (positional)', dst: 'age', val: '23', kind: 'pos' },
+      { srcLabel: 'default value', dst: 'gender', val: '"Unspecified"', kind: 'default' },
+    ],
+    msg: `Only 2 arguments passed. <strong>gender</strong> has a default <strong>"Unspecified"</strong> in the definition, so it's used automatically.`,
+    out: `Name:  Aakar\nAge:  23\nGender:  Unspecified`,
+  },
+  {
+    desc: "Positions are wrong — Python binds by position regardless of meaning.",
+    callTokens: [
+      { kind: 'fn', text: 'bio_data' }, { kind: 'punct', text: '(' },
+      { kind: 'pos', text: '23', value: '23' }, { kind: 'punct', text: ', ' },
+      { kind: 'pos', text: '"Male"', value: '"Male"' }, { kind: 'punct', text: ', ' },
+      { kind: 'pos', text: '"Aakar"', value: '"Aakar"' }, { kind: 'punct', text: ')' },
+    ],
+    legal: true,
+    bindings: [
+      { srcLabel: 'arg #1 (positional)', dst: 'name', val: '23', kind: 'pos' },
+      { srcLabel: 'arg #2 (positional)', dst: 'age', val: '"Male"', kind: 'pos' },
+      { srcLabel: 'arg #3 (positional)', dst: 'gender', val: '"Aakar"', kind: 'pos' },
+    ],
+    msg: `<strong style="color:var(--red)">Python doesn't catch this</strong> — it just binds in order. <strong>name ← 23</strong> (a number!), <strong>age ← "Male"</strong> (a string!). The code runs, but the output is nonsense.`,
+    warning: true,
+    out: `Name:  23\nAge:  Male\nGender:  Aakar`,
+  },
+  {
+    desc: "Keyword first, then positional — illegal.",
+    callTokens: [
+      { kind: 'fn', text: 'bio_data' }, { kind: 'punct', text: '(' },
+      { kind: 'pos', text: '"Aakar"', value: '"Aakar"' }, { kind: 'punct', text: ', ' },
+      { kind: 'kw', text: 'age=23', name: 'age', value: '23' }, { kind: 'punct', text: ', ' },
+      { kind: 'pos error', text: '"Male"', value: '"Male"' }, { kind: 'punct', text: ')' },
+    ],
+    legal: false,
+    bindings: [
+      { srcLabel: 'arg #1 (positional)', dst: 'name', val: '"Aakar"', kind: 'pos' },
+      { srcLabel: 'age=23', dst: 'age', val: '23', kind: 'kw' },
+      { srcLabel: '"Male" (positional)', dst: '???', val: '???', kind: 'error', errReason: 'positional after keyword' },
+    ],
+    msg: `<strong style="color:var(--red)">SyntaxError</strong>: positional argument <strong>"Male"</strong> follows the keyword argument <strong>age=23</strong>. Once you go keyword, you can't go back to positional.`,
+    err: `SyntaxError: positional argument follows keyword argument`,
+  },
+  {
+    desc: "age is given twice — once positionally, once as keyword.",
+    callTokens: [
+      { kind: 'fn', text: 'bio_data' }, { kind: 'punct', text: '(' },
+      { kind: 'pos', text: '"Aakar"', value: '"Aakar"' }, { kind: 'punct', text: ', ' },
+      { kind: 'pos error', text: '23', value: '23' }, { kind: 'punct', text: ', ' },
+      { kind: 'kw error', text: 'age=23', name: 'age', value: '23' }, { kind: 'punct', text: ')' },
+    ],
+    legal: false,
+    bindings: [
+      { srcLabel: 'arg #1 (positional)', dst: 'name', val: '"Aakar"', kind: 'pos' },
+      { srcLabel: 'arg #2 (positional)', dst: 'age', val: '23', kind: 'pos' },
+      { srcLabel: 'age=23 (keyword)', dst: 'age', val: '23', kind: 'error', errReason: 'already filled by position' },
+    ],
+    msg: `<strong style="color:var(--red)">TypeError</strong>: <strong>age</strong> got filled twice — first positionally with <strong>23</strong>, then again as the keyword <strong>age=23</strong>. Python doesn't care if the values are the same — multiple values for one parameter is an error.`,
+    err: `TypeError: bio_data() got multiple values for argument 'age'`,
+  },
+  {
+    desc: "name has no default — and we're not providing it.",
+    callTokens: [
+      { kind: 'fn', text: 'bio_data' }, { kind: 'punct', text: '(' },
+      { kind: 'kw', text: 'age=23', name: 'age', value: '23' }, { kind: 'punct', text: ', ' },
+      { kind: 'kw', text: 'gender="Male"', name: 'gender', value: '"Male"' }, { kind: 'punct', text: ')' },
+    ],
+    legal: false,
+    bindings: [
+      { srcLabel: '(nothing)', dst: 'name', val: 'MISSING', kind: 'missing' },
+      { srcLabel: 'age=23', dst: 'age', val: '23', kind: 'kw' },
+      { srcLabel: 'gender="Male"', dst: 'gender', val: '"Male"', kind: 'kw' },
+    ],
+    msg: `<strong style="color:var(--red)">TypeError</strong>: <strong>name</strong> has no default and we didn't pass it. Required arguments must be supplied — by position or by keyword.`,
+    err: `TypeError: bio_data() missing 1 required positional argument: 'name'`,
+  },
+];
+
+let scIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scIdx];
+
+  // Param slots — show what each ends up bound to (or unbound)
+  const paramListEl = document.getElementById('paramList');
+  let paramHtml = '';
+  PARAMS.forEach(p => {
+    const binding = sc.bindings.find(b => b.dst === p.name);
+    let cls = 'param-slot';
+    let boundContent = '';
+    if (binding) {
+      if (binding.kind === 'missing') {
+        cls += ' missing';
+        boundContent = `<div class="param-bound"><div class="param-bound-label">BOUND TO</div><div class="param-bound-val" style="color:var(--red)">— not provided —</div></div>`;
+      } else if (binding.kind === 'error') {
+        cls += ' error';
+        boundContent = `<div class="param-bound"><div class="param-bound-label">CONFLICT</div><div class="param-bound-val">${binding.errReason}</div></div>`;
+      } else if (binding.kind === 'default') {
+        cls += ' bound-default';
+        boundContent = `<div class="param-bound"><div class="param-bound-label">FROM DEFAULT</div><div class="param-bound-val">${binding.val}</div></div>`;
+      } else {
+        cls += ' bound';
+        boundContent = `<div class="param-bound"><div class="param-bound-label">FROM ${binding.kind === 'kw' ? 'KEYWORD' : 'POSITION'}</div><div class="param-bound-val">${binding.val}</div></div>`;
+      }
+    }
+    paramHtml += `<div class="${cls}">
+      <div class="param-name">${p.name}</div>
+      ${p.hasDefault ? `<div class="param-default">default: <code>${p.defaultVal}</code></div>` : `<div class="param-default">required</div>`}
+      ${boundContent}
+    </div>`;
+  });
+  paramListEl.innerHTML = paramHtml;
+
+  // Call code
+  document.getElementById('callDesc').textContent = sc.desc;
+  let callHtml = '';
+  sc.callTokens.forEach(tok => {
+    if (tok.kind === 'fn') callHtml += `<span class="fn">${tok.text}</span>`;
+    else if (tok.kind === 'punct') callHtml += tok.text;
+    else if (tok.kind === 'pos') callHtml += `<span class="arg-pill">${escapeHTML(tok.text)}</span>`;
+    else if (tok.kind === 'kw') callHtml += `<span class="arg-pill kw">${escapeHTML(tok.text)}</span>`;
+    else if (tok.kind === 'pos error' || tok.kind === 'kw error') callHtml += `<span class="arg-pill error">${escapeHTML(tok.text)}</span>`;
+  });
+  document.getElementById('callCode').innerHTML = callHtml;
+
+  // Bindings — show how each argument maps
+  const bindingsEl = document.getElementById('bindings');
+  let bindHtml = '';
+  sc.bindings.forEach(b => {
+    let cls = 'binding-row';
+    let arrow = '→';
+    let note = '';
+    if (b.kind === 'kw') { note = 'matched by name'; }
+    if (b.kind === 'pos') { note = 'matched by position'; }
+    if (b.kind === 'default') { cls += ' default'; note = 'parameter has a default'; arrow = '→'; }
+    if (b.kind === 'error') { cls += ' error'; arrow = '✗'; note = b.errReason; }
+    if (b.kind === 'missing') { cls += ' error'; arrow = '✗'; note = 'no value supplied'; }
+    bindHtml += `<div class="${cls}">
+      <span class="src">${escapeHTML(b.srcLabel)}</span>
+      <span class="arrow">${arrow}</span>
+      <span class="dst">${escapeHTML(b.dst)}</span>
+      <span class="note">— ${note}</span>
+    </div>`;
+  });
+  bindingsEl.innerHTML = bindHtml;
+
+  // Verdict
+  const verdictEl = document.getElementById('verdict');
+  verdictEl.classList.remove('ok', 'err');
+  if (sc.legal) {
+    verdictEl.classList.add('ok');
+    let outHtml = '';
+    if (sc.warning) {
+      verdictEl.innerHTML = `<span class="verdict-icon">⚠</span><div class="verdict-text">${sc.msg}<br><br>Output (the code <em>runs</em> — but the values are wrong):<br><pre class="out-text" style="margin-top:6px;font-size:13px">${escapeHTML(sc.out)}</pre></div>`;
+    } else {
+      verdictEl.innerHTML = `<span class="verdict-icon">✓</span><div class="verdict-text">${sc.msg}<br><br>Output:<br><pre class="out-text" style="margin-top:6px;font-size:13px">${escapeHTML(sc.out)}</pre></div>`;
+    }
+  } else {
+    verdictEl.classList.add('err');
+    verdictEl.innerHTML = `<span class="verdict-icon">✗</span><div class="verdict-text">${sc.msg}<br><br><span class="err-msg">${escapeHTML(sc.err)}</span></div>`;
+  }
+}
+
+function escapeHTML(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    scIdx = parseInt(b.dataset.sc);
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
