@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scanner Step-Through: how Java reads input</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #f3eee2;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 720px;
+  }
+
+  /* Scenario picker */
+  .scenarios {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .scenarios-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 6px;
+  }
+  .scenario {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .scenario:hover { background: #fff8d6; }
+  .scenario.active { background: #1a1a1a; color: #ffd95c; }
+
+  /* Stage */
+  .stage {
+    max-width: 1080px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  /* Code panel */
+  .panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    overflow: hidden;
+  }
+  .panel-header {
+    background: #161b22;
+    padding: 8px 14px;
+    border-bottom: 1px solid #2a2a2a;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .panel-header .dots {
+    display: flex;
+    gap: 5px;
+  }
+  .panel-header .dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .panel-header .dots span:nth-child(1) { background: #ff5f56; }
+  .panel-header .dots span:nth-child(2) { background: #ffbd2e; }
+  .panel-header .dots span:nth-child(3) { background: #27c93f; }
+
+  .code-body {
+    padding: 16px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.8;
+    color: #e6edf3;
+    min-height: 220px;
+  }
+  .code-line {
+    display: flex;
+    padding: 2px 0;
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+  .code-line.active {
+    background: rgba(255, 217, 92, 0.15);
+    box-shadow: -3px 0 0 #ffd95c;
+    padding-left: 6px;
+    margin-left: -6px;
+  }
+  .code-line.done {
+    opacity: 0.5;
+  }
+  .code-line.error {
+    background: rgba(255, 107, 107, 0.15);
+    box-shadow: -3px 0 0 #ff6b6b;
+    padding-left: 6px;
+    margin-left: -6px;
+  }
+  .ln {
+    color: #555;
+    width: 28px;
+    text-align: right;
+    margin-right: 14px;
+    user-select: none;
+  }
+  .kw { color: #ff7b72; }
+  .type { color: #56d364; }
+  .var { color: #d2a8ff; }
+  .num { color: #ffa657; }
+  .str { color: #a5d6ff; }
+  .method { color: #ffd95c; }
+  .punct { color: #c9d1d9; }
+  .comment { color: #6e7681; font-style: italic; }
+  .err-token {
+    background: #ff6b6b;
+    color: #1a1a1a !important;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+
+  /* Right side: input + output */
+  .io-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .input-panel, .output-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    overflow: hidden;
+  }
+
+  /* Input tokens display */
+  .input-body {
+    padding: 18px 18px;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .input-raw {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: #888;
+    padding: 8px 12px;
+    background: #161b22;
+    border-radius: 5px;
+    border: 1px dashed #333;
+  }
+  .input-raw .lbl {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #666;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .input-tokens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .token {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border: 2px solid #333;
+    border-radius: 4px;
+    background: #161b22;
+    color: #c9d1d9;
+    transition: all 0.3s;
+  }
+  .token.next {
+    border-color: #ffd95c;
+    background: rgba(255, 217, 92, 0.1);
+    color: #ffd95c;
+  }
+  .token.consumed {
+    border-style: dashed;
+    opacity: 0.4;
+    text-decoration: line-through;
+    color: #56d364;
+  }
+  .token.error {
+    border-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.15);
+    color: #ff6b6b;
+    animation: shake 0.3s;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+  }
+  .token.missing {
+    border-style: dashed;
+    border-color: #ff6b6b;
+    background: transparent;
+    color: #ff6b6b;
+  }
+
+  /* Output */
+  .output-body {
+    padding: 16px 18px;
+    min-height: 130px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #e6edf3;
+  }
+  .output-line { padding: 1px 0; }
+  .output-error {
+    color: #ff6b6b;
+    border-left: 3px solid #ff6b6b;
+    padding-left: 10px;
+    margin: 6px 0;
+  }
+  .output-error .err-title {
+    font-weight: 700;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .output-empty {
+    color: #666;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+  }
+
+  /* Variable state */
+  .vars {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    min-height: 60px;
+  }
+  .vars-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .var-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 6px 12px;
+    background: #fff8d6;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .var-pill .type-label {
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .var-pill .name { font-weight: 700; color: #1a1a1a; }
+  .var-pill .eq { color: #888; }
+  .var-pill .val { color: #1f5a8a; font-weight: 700; }
+  .vars-empty {
+    color: #aaa;
+    font-style: italic;
+    font-size: 13px;
+  }
+
+  /* Step controls */
+  .step-controls {
+    max-width: 1080px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 1080px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    border-left: 5px solid #ffd95c;
+    min-height: 70px;
+  }
+  .narration.error { border-left-color: #ff6b6b; }
+  .narration.success { border-left-color: #56d364; }
+  .narration .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 10px;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+  }
+  .narration.error .tag { background: #ff6b6b; }
+  .narration.success .tag { background: #56d364; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+</style>
+</head>
+<body>
+  <h1>Scanner step-through: <span class="accent">how Java reads input</span></h1>
+  <p class="subtitle">Pick a scenario and step through it. Watch tokens get consumed from the input stream as each Scanner method runs.</p>
+
+  <div class="scenarios" id="scenarios">
+    <span class="scenarios-label">Scenario:</span>
+    <!-- scenarios injected by JS -->
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-header">
+        <span>Main.java</span>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+      <div class="code-body" id="codeBody"></div>
+    </div>
+
+    <div class="io-stack">
+      <div class="input-panel">
+        <div class="panel-header">
+          <span>stdin (input stream)</span>
+        </div>
+        <div class="input-body">
+          <div class="input-raw">
+            <span class="lbl">Raw input</span>
+            <span id="inputRaw">—</span>
+          </div>
+          <div>
+            <span class="lbl" style="font-family:'JetBrains Mono';font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:#666;">Tokens (split on whitespace)</span>
+            <div class="input-tokens" id="inputTokens" style="margin-top:6px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="output-panel">
+        <div class="panel-header">
+          <span>stdout (output)</span>
+        </div>
+        <div class="output-body" id="outputBody">
+          <span class="output-empty">No output yet…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="vars">
+    <span class="vars-label">VARIABLES:</span>
+    <span id="varsList"><span class="vars-empty">(none yet)</span></span>
+  </div>
+
+  <div class="step-controls">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <span class="step-count" id="stepCount">step 0 / —</span>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="tag">READY</span>
+    Pick a scenario above and click <strong>Next step</strong> to walk through line-by-line. The right panel shows what Java has consumed from the input stream so far.
+  </div>
+
+<script>
+  // Each scenario is a sequence of code lines with annotated execution steps.
+  // step types: 'declare', 'scan', 'print', 'error', 'note'
+
+  const SCENARIOS = [
+    {
+      id: 'q6',
+      label: 'Quiz 6 — typo: scanner (lowercase)',
+      input: '100',
+      lines: [
+        { html: '<span class="err-token">scanner</span> <span class="var">sc</span> = <span class="kw">new</span> <span class="err-token">scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">int</span> <span class="var">xyz</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">xyz</span>);' }
+      ],
+      steps: [
+        {
+          line: 0,
+          type: 'error',
+          narration: '<strong>Compile error.</strong> Java is case-sensitive. <code>scanner</code> with lowercase s is not a known class — the actual class is <code>Scanner</code>.',
+          tone: 'error',
+          done: true
+        }
+      ]
+    },
+    {
+      id: 'q7',
+      label: 'Quiz 7 — typo: system (lowercase)',
+      input: '594',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">sc</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="err-token">system</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">int</span> <span class="var">abc</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">abc</span>);' }
+      ],
+      steps: [
+        {
+          line: 0,
+          type: 'error',
+          narration: '<strong>Compile error.</strong> <code>system</code> with lowercase s is unknown. The class is <code>System</code> with a capital S. Same case-sensitivity issue as Quiz 6 — Java doesn\'t forgive typos.',
+          tone: 'error',
+          done: true
+        }
+      ]
+    },
+    {
+      id: 'q8',
+      label: 'Quiz 8 — basic read',
+      input: '5000',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">scn</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">int</span> <span class="var">a</span> = <span class="var">scn</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">a</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner object <code>scn</code> created, hooked to <code>System.in</code>. No input is read yet — the Scanner is just standing by.' },
+        { line: 1, type: 'scan', method: 'nextInt', tokensConsumed: 1, varName: 'a', varType: 'int',
+          narration: '<code>nextInt()</code> grabs the next token from the input stream, parses it as an int, and assigns it to <code>a</code>. Token <code>5000</code> is consumed.' },
+        { line: 2, type: 'print', outputs: ['5000'],
+          narration: 'Print the value of <code>a</code>. Output: <strong>5000</strong>.', tone: 'success' }
+      ]
+    },
+    {
+      id: 'q9',
+      label: 'Quiz 9 — two reads, print first',
+      input: '24 30',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">sc</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">int</span> <span class="var">a</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="type">int</span> <span class="var">b</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">a</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner created.' },
+        { line: 1, type: 'scan', method: 'nextInt', tokensConsumed: 1, varName: 'a', varType: 'int',
+          narration: 'First <code>nextInt()</code> consumes <code>24</code>.' },
+        { line: 2, type: 'scan', method: 'nextInt', tokensConsumed: 1, varName: 'b', varType: 'int',
+          narration: 'Second <code>nextInt()</code> consumes the next token: <code>30</code>.' },
+        { line: 3, type: 'print', outputs: ['24'],
+          narration: 'Only <code>a</code> is printed. <code>b</code> got read but never used — output is <strong>24</strong>.', tone: 'success' }
+      ]
+    },
+    {
+      id: 'q10',
+      label: 'Quiz 10 — sum of two',
+      input: '33 11',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">sc</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">int</span> <span class="var">c</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="type">int</span> <span class="var">d</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">c</span> + <span class="var">d</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner created.' },
+        { line: 1, type: 'scan', method: 'nextInt', tokensConsumed: 1, varName: 'c', varType: 'int',
+          narration: 'Consume <code>33</code> into <code>c</code>.' },
+        { line: 2, type: 'scan', method: 'nextInt', tokensConsumed: 1, varName: 'd', varType: 'int',
+          narration: 'Consume <code>11</code> into <code>d</code>.' },
+        { line: 3, type: 'print', outputs: ['44'],
+          narration: 'Print <code>c + d</code> = <code>33 + 11</code> = <strong>44</strong>.', tone: 'success' }
+      ]
+    },
+    {
+      id: 'q11',
+      label: 'Quiz 11 — not enough input!',
+      input: '15 21',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">sc</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">int</span> <span class="var">a</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="type">int</span> <span class="var">b</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="type">int</span> <span class="var">c</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">a</span> + <span class="var">b</span> + <span class="var">c</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner created. Input has only 2 tokens, but the code wants 3 — trouble coming.' },
+        { line: 1, type: 'scan', method: 'nextInt', tokensConsumed: 1, varName: 'a', varType: 'int',
+          narration: 'Consume <code>15</code> into <code>a</code>.' },
+        { line: 2, type: 'scan', method: 'nextInt', tokensConsumed: 1, varName: 'b', varType: 'int',
+          narration: 'Consume <code>21</code> into <code>b</code>. Input stream is now empty.' },
+        { line: 3, type: 'error',
+          narration: '<strong>Runtime crash:</strong> <code>NoSuchElementException</code>. The code asked for a third int but the stream is empty — nothing left to read.',
+          tone: 'error', errorToken: 'missing', addMissingToken: true }
+      ]
+    },
+    {
+      id: 'q12',
+      label: 'Quiz 12 — nextLong with big number',
+      input: '10000000000',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">scn</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">long</span> <span class="var">N</span> = <span class="var">scn</span>.<span class="method">nextLong</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">println</span>(<span class="var">N</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner created.' },
+        { line: 1, type: 'scan', method: 'nextLong', tokensConsumed: 1, varName: 'N', varType: 'long',
+          narration: '<code>nextLong()</code> reads <code>10000000000</code>, parses as a long. Notice: no L needed in the input — that\'s a code-side rule, not input.' },
+        { line: 2, type: 'print', outputs: ['10000000000'],
+          narration: 'Print <strong>10000000000</strong>.', tone: 'success' }
+      ]
+    },
+    {
+      id: 'q13',
+      label: 'Quiz 13 — L in INPUT (wrong!)',
+      input: '10000000000L',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">scn</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">long</span> <span class="var">N</span> = <span class="var">scn</span>.<span class="method">nextLong</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">println</span>(<span class="var">N</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner created. Watch the token <code>10000000000L</code> — the L is part of the input string here, not a Java suffix.' },
+        { line: 1, type: 'error', method: 'nextLong',
+          narration: '<strong>Runtime crash:</strong> <code>InputMismatchException</code>. <code>nextLong()</code> tried to parse the token <code>10000000000L</code> as a number, but the trailing <code>L</code> isn\'t a digit. <strong>Never write L in input</strong> — it belongs only in source code literals.',
+          tone: 'error', errorToken: 0 }
+      ]
+    },
+    {
+      id: 'q14',
+      label: 'Quiz 14 — nextInt into long var (OK)',
+      input: '2500',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">scn</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">long</span> <span class="var">x</span> = <span class="var">scn</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">x</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner created.' },
+        { line: 1, type: 'scan', method: 'nextInt', tokensConsumed: 1, varName: 'x', varType: 'long',
+          narration: '<code>nextInt()</code> returns an int (2500). Storing int → long is <strong>implicit widening</strong>, no cast needed. <code>x</code> = 2500.' },
+        { line: 2, type: 'print', outputs: ['2500'],
+          narration: 'Print <strong>2500</strong>.', tone: 'success' }
+      ]
+    },
+    {
+      id: 'q15',
+      label: 'Quiz 15 — nextLong into int (Error!)',
+      input: '2500',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">scn</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">int</span> <span class="var">x</span> = <span class="var">scn</span>.<span class="method">nextLong</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">x</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner created. Input value <code>2500</code> fits in int — but the issue is the <em>types</em>, not the value.' },
+        { line: 1, type: 'error',
+          narration: '<strong>Compile error:</strong> possible lossy conversion from long to int. <code>nextLong()</code> returns a long. Storing long → int is narrowing and needs an explicit cast: <code>int x = (int) scn.nextLong();</code>',
+          tone: 'error' }
+      ]
+    },
+    {
+      id: 'q24',
+      label: 'Quiz 24 — nextFloat with decimal',
+      input: '3.14',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">sc</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">float</span> <span class="var">a</span> = <span class="var">sc</span>.<span class="method">nextFloat</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="num">2</span> * <span class="var">a</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Scanner created.' },
+        { line: 1, type: 'scan', method: 'nextFloat', tokensConsumed: 1, varName: 'a', varType: 'float',
+          narration: '<code>nextFloat()</code> reads <code>3.14</code> as a float. No f-suffix needed in input.' },
+        { line: 2, type: 'print', outputs: ['6.28'],
+          narration: 'Print <code>2 * 3.14</code> = <strong>6.28</strong>.', tone: 'success' }
+      ]
+    },
+    {
+      id: 'q25',
+      label: 'Quiz 25 — decimal given to nextInt (Error!)',
+      input: '3.14 20',
+      lines: [
+        { html: '<span class="type">Scanner</span> <span class="var">sc</span> = <span class="kw">new</span> <span class="type">Scanner</span>(<span class="kw">System</span>.<span class="var">in</span>);' },
+        { html: '<span class="type">int</span> <span class="var">a</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="type">int</span> <span class="var">b</span> = <span class="var">sc</span>.<span class="method">nextInt</span>();' },
+        { html: '<span class="kw">System</span>.<span class="method">out</span>.<span class="method">print</span>(<span class="var">a</span> + <span class="var">b</span>);' }
+      ],
+      steps: [
+        { line: 0, type: 'note', narration: 'Input has 2 tokens: a decimal and an int.' },
+        { line: 1, type: 'error', method: 'nextInt',
+          narration: '<strong>Runtime crash:</strong> <code>InputMismatchException</code>. <code>nextInt()</code> looks at the next token <code>3.14</code> and refuses — the dot disqualifies it as an int. Code never gets to read <code>20</code>.',
+          tone: 'error', errorToken: 0 }
+      ]
+    }
+  ];
+
+  // ---- State ----
+  let currentScenarioIdx = 0;
+  let currentStep = -1;
+
+  // ---- Render scenario picker ----
+  function renderScenarios() {
+    const wrap = document.getElementById('scenarios');
+    let html = '<span class="scenarios-label">Scenario:</span>';
+    SCENARIOS.forEach((s, i) => {
+      html += `<span class="scenario ${i === currentScenarioIdx ? 'active' : ''}" data-i="${i}">${s.label}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.scenario').forEach(el => {
+      el.addEventListener('click', () => {
+        currentScenarioIdx = parseInt(el.dataset.i, 10);
+        loadScenario();
+      });
+    });
+  }
+
+  // ---- Load a scenario ----
+  function loadScenario() {
+    currentStep = -1;
+    const s = SCENARIOS[currentScenarioIdx];
+
+    // Active scenario button
+    document.querySelectorAll('.scenario').forEach((el, i) => {
+      el.classList.toggle('active', i === currentScenarioIdx);
+    });
+
+    // Code panel
+    const codeBody = document.getElementById('codeBody');
+    let codeHTML = '';
+    s.lines.forEach((line, i) => {
+      codeHTML += `<div class="code-line" data-line="${i}"><span class="ln">${i + 1}</span><span>${line.html}</span></div>`;
+    });
+    codeBody.innerHTML = codeHTML;
+
+    // Input panel
+    document.getElementById('inputRaw').textContent = s.input;
+    const tokens = s.input.split(/\s+/).filter(Boolean);
+    const tokensWrap = document.getElementById('inputTokens');
+    let tokHTML = '';
+    tokens.forEach((t, i) => {
+      tokHTML += `<span class="token ${i === 0 ? 'next' : ''}" data-idx="${i}">${t}</span>`;
+    });
+    if (tokens.length === 0) {
+      tokHTML = '<span class="output-empty">(no input)</span>';
+    }
+    tokensWrap.innerHTML = tokHTML;
+
+    // Output panel
+    document.getElementById('outputBody').innerHTML = '<span class="output-empty">No output yet…</span>';
+
+    // Vars
+    document.getElementById('varsList').innerHTML = '<span class="vars-empty">(none yet)</span>';
+
+    // Narration
+    const n = document.getElementById('narration');
+    n.className = 'narration';
+    n.innerHTML = '<span class="tag">READY</span>Click <strong>Next step</strong> to begin executing this scenario.';
+
+    // Buttons
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('stepCount').textContent = `step 0 / ${s.steps.length}`;
+  }
+
+  // ---- Variables state ----
+  let varsState = [];
+  let outputsState = [];
+  let consumedCount = 0;
+
+  function renderVars() {
+    const list = document.getElementById('varsList');
+    if (varsState.length === 0) {
+      list.innerHTML = '<span class="vars-empty">(none yet)</span>';
+      return;
+    }
+    list.innerHTML = varsState.map(v =>
+      `<span class="var-pill"><span class="type-label">${v.type}</span><span class="name">${v.name}</span><span class="eq">=</span><span class="val">${v.value}</span></span>`
+    ).join('');
+  }
+
+  function renderOutput() {
+    const out = document.getElementById('outputBody');
+    if (outputsState.length === 0) {
+      out.innerHTML = '<span class="output-empty">No output yet…</span>';
+      return;
+    }
+    out.innerHTML = outputsState.map(o => {
+      if (o.type === 'error') {
+        return `<div class="output-error"><span class="err-title">${o.title}</span>${o.detail}</div>`;
+      }
+      return `<div class="output-line">${o.text}</div>`;
+    }).join('');
+  }
+
+  function markTokenConsumed(idx) {
+    const tok = document.querySelector(`.token[data-idx="${idx}"]`);
+    if (tok) {
+      tok.classList.remove('next');
+      tok.classList.add('consumed');
+    }
+  }
+  function markNextToken(idx) {
+    document.querySelectorAll('.token').forEach(t => t.classList.remove('next'));
+    const tok = document.querySelector(`.token[data-idx="${idx}"]`);
+    if (tok) tok.classList.add('next');
+  }
+  function markTokenError(idx) {
+    const tok = document.querySelector(`.token[data-idx="${idx}"]`);
+    if (tok) {
+      tok.classList.remove('next');
+      tok.classList.add('error');
+    }
+  }
+  function addMissingToken() {
+    const wrap = document.getElementById('inputTokens');
+    const el = document.createElement('span');
+    el.className = 'token missing';
+    el.textContent = '???';
+    wrap.appendChild(el);
+  }
+
+  function setActiveLine(lineIdx, errored = false) {
+    document.querySelectorAll('.code-line').forEach((el, i) => {
+      el.classList.remove('active', 'done', 'error');
+      if (i < lineIdx) el.classList.add('done');
+      if (i === lineIdx) el.classList.add(errored ? 'error' : 'active');
+    });
+  }
+
+  // ---- Step execution ----
+  function nextStep() {
+    const s = SCENARIOS[currentScenarioIdx];
+    currentStep++;
+
+    if (currentStep === 0) {
+      // First step: reset state
+      varsState = [];
+      outputsState = [];
+      consumedCount = 0;
+    }
+
+    if (currentStep >= s.steps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      return;
+    }
+
+    const step = s.steps[currentStep];
+    const n = document.getElementById('narration');
+
+    if (step.type === 'declare' || step.type === 'note') {
+      setActiveLine(step.line);
+      n.className = 'narration';
+      n.innerHTML = `<span class="tag">Step ${currentStep + 1}</span>${step.narration}`;
+    } else if (step.type === 'scan') {
+      setActiveLine(step.line);
+      // Consume tokens
+      for (let i = 0; i < step.tokensConsumed; i++) {
+        markTokenConsumed(consumedCount);
+        consumedCount++;
+      }
+      // Mark next token (or nothing if empty)
+      markNextToken(consumedCount);
+      // Compute value: read the consumed tokens
+      const tokens = s.input.split(/\s+/).filter(Boolean);
+      const consumedToks = tokens.slice(consumedCount - step.tokensConsumed, consumedCount);
+      const value = consumedToks[0]; // single-token reads
+      varsState.push({ name: step.varName, type: step.varType, value });
+      renderVars();
+      n.className = 'narration';
+      n.innerHTML = `<span class="tag">Step ${currentStep + 1}</span>${step.narration}`;
+    } else if (step.type === 'print') {
+      setActiveLine(step.line);
+      step.outputs.forEach(o => outputsState.push({ type: 'text', text: o }));
+      renderOutput();
+      n.className = 'narration ' + (step.tone || '');
+      n.innerHTML = `<span class="tag">Step ${currentStep + 1}</span>${step.narration}`;
+    } else if (step.type === 'error') {
+      if (step.line !== undefined) setActiveLine(step.line, true);
+      else setActiveLine(0, true); // syntax-level errors highlight first line
+      if (step.errorToken !== undefined) markTokenError(step.errorToken);
+      if (step.addMissingToken) addMissingToken();
+      const errText = step.narration;
+      // Strip HTML for the output area
+      const tmp = document.createElement('div');
+      tmp.innerHTML = errText;
+      let title = 'Error';
+      let detail = tmp.textContent;
+      if (detail.includes('InputMismatch')) title = 'InputMismatchException';
+      else if (detail.includes('NoSuchElement')) title = 'NoSuchElementException';
+      else if (detail.includes('Compile error')) title = 'Compilation error';
+      else if (detail.includes('lossy')) title = 'Compilation error';
+      outputsState.push({ type: 'error', title, detail: detail.replace(title + ':', '').replace(title, '').trim().slice(0, 220) });
+      renderOutput();
+      n.className = 'narration error';
+      n.innerHTML = `<span class="tag">Step ${currentStep + 1}</span>${step.narration}`;
+    }
+
+    if (step.done || currentStep === s.steps.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+    }
+
+    document.getElementById('stepCount').textContent = `step ${currentStep + 1} / ${s.steps.length}`;
+  }
+
+  // ---- Init ----
+  renderScenarios();
+  loadScenario();
+
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+</script>
+</body>
+</html>

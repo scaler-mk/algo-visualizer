@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Division by Zero: 5 Different Outcomes</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fef6e7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 26px;
+    max-width: 720px;
+  }
+
+  .grid {
+    max-width: 1080px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .case {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .case:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 #d62828;
+  }
+  .case.active {
+    background: #1a1a1a;
+    color: #ffd95c;
+    border-color: #1a1a1a;
+  }
+  .case-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  .case.active .case-num { color: #ffd95c; }
+  .case-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .case-num-color { color: #ffa657; }
+  .case-op { color: #1a1a1a; }
+  .case.active .case-op { color: #ffd95c; }
+  .case-result-preview {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    display: inline-block;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .case-result-preview.error { background: #ffd0d0; color: #c41e3a; }
+  .case-result-preview.infinity { background: #cfe8f5; color: #1f5a8a; }
+  .case-result-preview.nan { background: #fff8d6; color: #8a6a1f; }
+  .case.active .case-result-preview { opacity: 0.95; }
+
+  .panel {
+    max-width: 1080px;
+    width: 100%;
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .panel-header {
+    background: #161b22;
+    padding: 10px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  .panel-body {
+    padding: 22px 26px;
+    color: #e6edf3;
+  }
+  .panel-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    margin-bottom: 18px;
+    padding: 14px 18px;
+    background: #161b22;
+    border-radius: 6px;
+    border-left: 4px solid #ffd95c;
+  }
+  .panel-code .kw { color: #ff7b72; }
+  .panel-code .method { color: #ffd95c; }
+  .panel-code .num { color: #ffa657; }
+  .panel-code .punct { color: #c9d1d9; }
+
+  .arrow-down {
+    text-align: center;
+    color: #ffd95c;
+    font-size: 22px;
+    margin: 8px 0;
+  }
+
+  .panel-output {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    padding: 16px 20px;
+    border-radius: 6px;
+    margin-bottom: 18px;
+  }
+  .panel-output.error {
+    background: rgba(255, 107, 107, 0.1);
+    border-left: 4px solid #ff6b6b;
+    color: #ff9999;
+  }
+  .panel-output.infinity {
+    background: rgba(121, 192, 255, 0.1);
+    border-left: 4px solid #79c0ff;
+    color: #79c0ff;
+  }
+  .panel-output.nan {
+    background: rgba(255, 217, 92, 0.1);
+    border-left: 4px solid #ffd95c;
+    color: #ffd95c;
+  }
+  .panel-output .lbl {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #888;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .panel-output .val {
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .panel-output .err-detail {
+    font-size: 12px;
+    margin-top: 4px;
+    color: #ff9999;
+    font-style: italic;
+  }
+
+  .explanation {
+    background: #1a1a1a;
+    padding: 18px 22px;
+    border-radius: 8px;
+    color: #e6edf3;
+    font-family: 'Fraunces', serif;
+    font-size: 14.5px;
+    line-height: 1.6;
+    border-left: 5px solid #ffd95c;
+  }
+  .explanation .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 10px;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+  }
+  .explanation strong { color: #ffd95c; }
+  .explanation code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  .takeaway {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 22px 26px;
+  }
+  .takeaway h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #d62828;
+    margin-bottom: 12px;
+  }
+  .takeaway-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 600px) { .takeaway-grid { grid-template-columns: 1fr; } }
+  .takeaway-card {
+    padding: 14px 18px;
+    background: #f5efe2;
+    border-left: 4px solid #1a1a1a;
+    border-radius: 4px;
+  }
+  .takeaway-card.int-rule { border-left-color: #c41e3a; }
+  .takeaway-card.float-rule { border-left-color: #1f5a8a; }
+  .takeaway-card .title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+    color: #1a1a1a;
+  }
+  .takeaway-card .body {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #444;
+  }
+  .takeaway-card .body code {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+  }
+</style>
+</head>
+<body>
+  <h1>Division by Zero: <span class="accent">5 outcomes</span></h1>
+  <p class="subtitle">The result depends on whether you're dividing integers or decimals. Click each card to see why.</p>
+
+  <div class="grid" id="caseGrid">
+    <!-- injected -->
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Detail</div>
+    <div class="panel-body" id="panelBody">
+      <!-- injected -->
+    </div>
+  </div>
+
+  <div class="takeaway">
+    <h3>The two rules</h3>
+    <div class="takeaway-grid">
+      <div class="takeaway-card int-rule">
+        <div class="title">Integer division by 0</div>
+        <div class="body">
+          Always a <strong>runtime crash</strong> — <code>ArithmeticException: / by zero</code>. Java's int type has no "infinity" concept. <code>0/0</code> crashes the same way.
+        </div>
+      </div>
+      <div class="takeaway-card float-rule">
+        <div class="title">Floating-point division by 0</div>
+        <div class="body">
+          Never crashes. Non-zero ÷ 0 = <code>Infinity</code> (or <code>-Infinity</code>). <code>0.0 / 0</code> = <code>NaN</code> (Not a Number). This is the IEEE 754 standard for floats and doubles.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const CASES = [
+    {
+      id: 0,
+      code: '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="num">4</span> <span class="punct">/</span> <span class="num">0</span>);',
+      compact: '<span class="case-num-color">4</span> <span class="case-op">/</span> <span class="case-num-color">0</span>',
+      verdict: 'error',
+      verdictLabel: 'crash',
+      outputLabel: 'ArithmeticException',
+      outputDetail: '/ by zero',
+      narrative:
+        'Both operands are <code>int</code>. Java\'s integer division has no notion of infinity — there\'s no int value that means "infinitely large." ' +
+        'So when the divisor is zero, the runtime throws <strong>ArithmeticException: / by zero</strong> and the program crashes.'
+    },
+    {
+      id: 1,
+      code: '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="num">4.0</span> <span class="punct">/</span> <span class="num">0</span>);',
+      compact: '<span class="case-num-color">4.0</span> <span class="case-op">/</span> <span class="case-num-color">0</span>',
+      verdict: 'infinity',
+      verdictLabel: 'Infinity',
+      outputLabel: 'prints',
+      outputDetail: 'Infinity',
+      narrative:
+        '<code>4.0</code> is a <code>double</code>. The <code>0</code> gets promoted to <code>0.0</code> for the division. ' +
+        'Floating-point types (float/double) use the IEEE 754 standard, which <strong>does</strong> have an infinity value. ' +
+        'So <code>4.0 / 0</code> evaluates to positive <strong>Infinity</strong> — no crash, no error.'
+    },
+    {
+      id: 2,
+      code: '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="num">4.0f</span> <span class="punct">/</span> <span class="num">0</span>);',
+      compact: '<span class="case-num-color">4.0f</span> <span class="case-op">/</span> <span class="case-num-color">0</span>',
+      verdict: 'infinity',
+      verdictLabel: 'Infinity',
+      outputLabel: 'prints',
+      outputDetail: 'Infinity',
+      narrative:
+        '<code>4.0f</code> is a <code>float</code>. Same IEEE 754 rules as double — non-zero ÷ 0 = <strong>Infinity</strong>. ' +
+        'Both float and double get the special Infinity value when divided by zero.'
+    },
+    {
+      id: 3,
+      code: '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="num">0</span> <span class="punct">/</span> <span class="num">0</span>);',
+      compact: '<span class="case-num-color">0</span> <span class="case-op">/</span> <span class="case-num-color">0</span>',
+      verdict: 'error',
+      verdictLabel: 'crash',
+      outputLabel: 'ArithmeticException',
+      outputDetail: '/ by zero',
+      narrative:
+        'Both operands are <code>int</code>. Same rule as <code>4/0</code> — there\'s no special integer value for "indeterminate." ' +
+        'The program crashes with <strong>ArithmeticException: / by zero</strong>.'
+    },
+    {
+      id: 4,
+      code: '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="num">0.0</span> <span class="punct">/</span> <span class="num">0</span>);',
+      compact: '<span class="case-num-color">0.0</span> <span class="case-op">/</span> <span class="case-num-color">0</span>',
+      verdict: 'nan',
+      verdictLabel: 'NaN',
+      outputLabel: 'prints',
+      outputDetail: 'NaN',
+      narrative:
+        '<code>0.0</code> is a <code>double</code>, so this is floating-point division. ' +
+        'But <strong>0 / 0 is mathematically undefined</strong> — it\'s not a real number, not infinity, not anything. ' +
+        'IEEE 754 has a special value for this: <strong>NaN (Not a Number)</strong>. No crash, no error — just NaN.'
+    }
+  ];
+
+  let currentCase = 0;
+
+  function renderCases() {
+    const grid = document.getElementById('caseGrid');
+    grid.innerHTML = CASES.map((c, i) => `
+      <div class="case ${i === currentCase ? 'active' : ''}" data-i="${i}">
+        <div class="case-num">Case ${i + 1}</div>
+        <div class="case-code">${c.compact}</div>
+        <span class="case-result-preview ${c.verdict}">${c.verdictLabel}</span>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.case').forEach(el => {
+      el.addEventListener('click', () => {
+        currentCase = parseInt(el.dataset.i, 10);
+        renderCases();
+        renderDetail();
+      });
+    });
+  }
+
+  function renderDetail() {
+    const c = CASES[currentCase];
+    document.getElementById('panelBody').innerHTML = `
+      <div class="panel-code">${c.code}</div>
+      <div class="arrow-down">↓</div>
+      <div class="panel-output ${c.verdict}">
+        <span class="lbl">${c.outputLabel}</span>
+        <span class="val">${c.outputDetail}</span>
+      </div>
+      <div class="explanation">
+        <span class="tag">Why</span>${c.narrative}
+      </div>
+    `;
+  }
+
+  renderCases();
+  renderDetail();
+</script>
+</body>
+</html>

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Float vs Double: Precision Race</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #eaf4f4;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 720px;
+  }
+
+  .picker {
+    max-width: 1000px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 8px;
+  }
+  .calc {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 8px 14px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .calc:hover { background: #fff8d6; }
+  .calc.active { background: #1a1a1a; color: #ffd95c; }
+
+  .race-track {
+    max-width: 1000px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 30px;
+    margin-bottom: 18px;
+  }
+
+  .race-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .race-row:last-child { margin-bottom: 0; }
+
+  .race-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: right;
+  }
+  .race-label .lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+  }
+  .race-label.float { color: #1f5a8a; }
+  .race-label.double { color: #8a6a1f; }
+
+  .digit-track {
+    background: #f5efe2;
+    padding: 16px 20px;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    min-height: 80px;
+    position: relative;
+    overflow: visible;
+  }
+
+  /* Digits */
+  .digits {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(20px, 3vw, 32px);
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.4;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .digits::-webkit-scrollbar { height: 6px; }
+  .digits::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+
+  .digit {
+    display: inline-block;
+    color: #1a1a1a;
+    transition: opacity 0.4s, color 0.4s;
+    min-width: 0.65ch;
+    text-align: center;
+  }
+  .digit.diff {
+    color: #d62828;
+    background: rgba(214, 40, 40, 0.12);
+    border-radius: 3px;
+    padding: 0 2px;
+  }
+  .digit.extra {
+    color: #2d6e3e;
+    background: rgba(45, 110, 62, 0.12);
+    border-radius: 3px;
+    padding: 0 2px;
+  }
+  .digit.hidden { opacity: 0; }
+
+  .precision-marker {
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .precision-marker .stat {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .precision-marker .num {
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  /* Bottom verdict */
+  .verdict {
+    max-width: 1000px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 22px 26px;
+    border-radius: 10px;
+    line-height: 1.55;
+    font-size: 15px;
+    border-left: 5px solid #ffd95c;
+  }
+  .verdict strong { color: #ffd95c; }
+  .verdict code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .verdict .takeaway {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed #444;
+    font-style: italic;
+    color: #aaa;
+  }
+
+  /* Code preview */
+  .code-preview {
+    max-width: 1000px;
+    width: 100%;
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 14px 22px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    border: 2px solid #1a1a1a;
+  }
+  .code-preview .kw { color: #ff7b72; }
+  .code-preview .type { color: #56d364; font-weight: 700; }
+  .code-preview .var { color: #d2a8ff; }
+  .code-preview .num { color: #ffa657; }
+  .code-preview .comment { color: #6e7681; font-style: italic; }
+</style>
+</head>
+<body>
+  <h1>Float vs Double: <span class="accent">precision race</span></h1>
+  <p class="subtitle">Same calculation, two types. Watch how far each one tracks the answer before rounding off.</p>
+
+  <div class="picker" id="picker">
+    <span class="picker-label">Calculation:</span>
+    <!-- injected -->
+  </div>
+
+  <div class="code-preview" id="codePreview"></div>
+
+  <div class="race-track">
+    <div class="race-row">
+      <div class="race-label float">
+        float
+        <span class="lang">32-bit</span>
+      </div>
+      <div class="digit-track">
+        <div class="digits" id="floatDigits"></div>
+        <div class="precision-marker">
+          <span class="stat">precision: <span class="num">~7 digits</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="race-row">
+      <div class="race-label double">
+        double
+        <span class="lang">64-bit</span>
+      </div>
+      <div class="digit-track">
+        <div class="digits" id="doubleDigits"></div>
+        <div class="precision-marker">
+          <span class="stat">precision: <span class="num">~15-16 digits</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict" id="verdict"></div>
+
+<script>
+  // Each entry: hardcoded Java println output for float and double of the same computation.
+  // Source: actual Java behavior (verified against Float/Double.toString and class script's stated output).
+  const CALCS = [
+    {
+      label: '10.0 / 3.0',
+      code:
+        '<div><span class="type">float</span> <span class="var">a</span> = <span class="num">10.0f</span>; <span class="type">float</span> <span class="var">b</span> = <span class="num">3.0f</span>;</div>' +
+        '<div><span class="kw">System</span>.out.println(<span class="var">a</span>/<span class="var">b</span>); <span class="comment">// float result</span></div>' +
+        '<div><span class="type">double</span> <span class="var">x</span> = <span class="num">10.0</span>; <span class="type">double</span> <span class="var">y</span> = <span class="num">3.0</span>;</div>' +
+        '<div><span class="kw">System</span>.out.println(<span class="var">x</span>/<span class="var">y</span>); <span class="comment">// double result</span></div>',
+      floatStr:  '3.3333333',
+      doubleStr: '3.3333333333333335',
+      verdict:
+        'Both start with <strong>3.3333333</strong>, but <code>double</code> keeps going: <strong>3333333335</strong>. ' +
+        'That\'s 9 more digits of precision after float gives up. ' +
+        'Notice the 16th digit is <strong>5</strong>, not 3 — even double rounds at the end.',
+      takeaway: 'This is the example straight from the class script. <code>double</code> has roughly twice the mantissa bits, which translates to roughly 2× the decimal digits.'
+    },
+    {
+      label: '1.0 / 3.0',
+      code:
+        '<div><span class="kw">System</span>.out.println(<span class="num">1.0f</span> / <span class="num">3.0f</span>); <span class="comment">// float</span></div>' +
+        '<div><span class="kw">System</span>.out.println(<span class="num">1.0</span> / <span class="num">3.0</span>);  <span class="comment">// double</span></div>',
+      floatStr:  '0.33333334',
+      doubleStr: '0.3333333333333333',
+      verdict:
+        '<code>float</code> already rounds at the 8th digit (it shows a <strong>4</strong> instead of <strong>3</strong>). ' +
+        '<code>double</code> tracks 1/3 for 16 digits before rounding kicks in.',
+      takeaway: 'No type can perfectly represent 1/3 in binary — it\'s a repeating fraction. The question is just how soon the rounding shows.'
+    },
+    {
+      label: 'π (pi)',
+      code:
+        '<div><span class="kw">System</span>.out.println(<span class="num">3.14159265358979f</span>); <span class="comment">// float</span></div>' +
+        '<div><span class="kw">System</span>.out.println(<span class="num">3.14159265358979</span>);  <span class="comment">// double</span></div>',
+      floatStr:  '3.1415927',
+      doubleStr: '3.14159265358979',
+      verdict:
+        '<code>float</code> stores π as <strong>3.1415927</strong> — only 7 significant digits. ' +
+        '<code>double</code> keeps the full input we provided.',
+      takeaway: 'Use double for science, engineering, money, anything where precision matters. Use float only when you really need to save memory (and you usually don\'t).'
+    },
+    {
+      label: '0.1 + 0.2',
+      code:
+        '<div><span class="kw">System</span>.out.println(<span class="num">0.1f</span> + <span class="num">0.2f</span>); <span class="comment">// float</span></div>' +
+        '<div><span class="kw">System</span>.out.println(<span class="num">0.1</span> + <span class="num">0.2</span>);  <span class="comment">// double</span></div>',
+      floatStr:  '0.3',
+      doubleStr: '0.30000000000000004',
+      verdict:
+        'Surprise! <code>float</code> rounds the rough edges off and prints a clean <strong>0.3</strong>. ' +
+        '<code>double</code> exposes the binary fraction error: <strong>0.30000000000000004</strong>. ' +
+        'Both are equally <em>wrong</em>, but double is more honest.',
+      takeaway: 'A famous gotcha across every language. Don\'t use == to compare floating-point numbers — they\'re approximations.'
+    }
+  ];
+
+  let currentCalc = 0;
+
+  function render() {
+    const c = CALCS[currentCalc];
+    document.getElementById('codePreview').innerHTML = c.code;
+
+    // Render float digits
+    const floatWrap = document.getElementById('floatDigits');
+    const doubleWrap = document.getElementById('doubleDigits');
+
+    // Strategy: float digits all in default color
+    // double digits up to floatStr length: default color
+    // double digits beyond floatStr length: green (extra precision)
+    // any mismatched digit at same position: float gets red, double gets red
+
+    const floatChars = c.floatStr.split('');
+    const doubleChars = c.doubleStr.split('');
+
+    floatWrap.innerHTML = floatChars.map((ch, i) => {
+      let cls = 'digit';
+      if (doubleChars[i] && doubleChars[i] !== ch) cls += ' diff';
+      return `<span class="${cls}">${ch}</span>`;
+    }).join('');
+
+    doubleWrap.innerHTML = doubleChars.map((ch, i) => {
+      let cls = 'digit';
+      if (i >= floatChars.length) cls += ' extra';
+      else if (floatChars[i] !== ch) cls += ' diff';
+      return `<span class="${cls}">${ch}</span>`;
+    }).join('');
+
+    document.getElementById('verdict').innerHTML =
+      c.verdict +
+      (c.takeaway ? `<div class="takeaway">${c.takeaway}</div>` : '');
+  }
+
+  function renderPicker() {
+    const wrap = document.getElementById('picker');
+    let html = '<span class="picker-label">Calculation:</span>';
+    CALCS.forEach((c, i) => {
+      html += `<span class="calc ${i === currentCalc ? 'active' : ''}" data-i="${i}">${c.label}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.calc').forEach(el => {
+      el.addEventListener('click', () => {
+        currentCalc = parseInt(el.dataset.i, 10);
+        wrap.querySelectorAll('.calc').forEach(e => e.classList.remove('active'));
+        el.classList.add('active');
+        render();
+      });
+    });
+  }
+
+  renderPicker();
+  render();
+</script>
+</body>
+</html>

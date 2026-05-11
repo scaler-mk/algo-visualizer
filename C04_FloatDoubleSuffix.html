@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The f Suffix Mystery</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fcf3e3;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 32px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 24px;
+    max-width: 720px;
+  }
+
+  .scenarios {
+    max-width: 1000px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .scenario-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 8px;
+  }
+  .scenario {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 10px 14px;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1.4;
+    transition: all 0.15s;
+  }
+  .scenario:hover { background: #fff8d6; }
+  .scenario.active {
+    background: #1a1a1a;
+    color: #ffd95c;
+  }
+
+  .stage {
+    max-width: 1000px;
+    width: 100%;
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 28px;
+    color: #e6edf3;
+    margin-bottom: 18px;
+  }
+
+  .code-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    margin-bottom: 22px;
+    padding: 18px 22px;
+    background: #161b22;
+    border-radius: 8px;
+    border-left: 4px solid #ffd95c;
+    overflow-x: auto;
+  }
+  .code-line .type { color: #56d364; font-weight: 700; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .literal {
+    color: #ffa657;
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+  }
+  .code-line .literal.tagged-double {
+    background: rgba(255, 107, 107, 0.2);
+    border-bottom: 2px solid #ff6b6b;
+  }
+  .code-line .literal.tagged-float {
+    background: rgba(86, 211, 100, 0.2);
+    border-bottom: 2px solid #56d364;
+  }
+  .code-line .suffix {
+    color: #ffd95c;
+    font-weight: 900;
+    font-size: 26px;
+  }
+  .code-line .punct { color: #c9d1d9; }
+  .code-line .cast { color: #ffd95c; font-weight: 700; }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 18px;
+    background: #161b22;
+    border-radius: 8px;
+    border-left: 4px solid #333;
+    opacity: 0.35;
+    transition: all 0.4s;
+  }
+  .step.active {
+    opacity: 1;
+    border-left-color: #ffd95c;
+    background: rgba(255, 217, 92, 0.06);
+  }
+  .step.done {
+    opacity: 0.7;
+    border-left-color: #56d364;
+  }
+  .step.error {
+    border-left-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.08);
+  }
+  .step-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #2a2a2a;
+    color: #888;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+  }
+  .step.active .step-num { background: #ffd95c; color: #1a1a1a; }
+  .step.done .step-num { background: #56d364; color: #1a1a1a; }
+  .step.error .step-num { background: #ff6b6b; color: #fff; }
+
+  .step .title {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+  .step .detail {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #999;
+  }
+  .step.active .detail { color: #ffd95c; }
+  .step.error .detail { color: #ff9999; }
+
+  .step .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: #333;
+    color: #888;
+    white-space: nowrap;
+  }
+  .step.active .badge { background: #ffd95c; color: #1a1a1a; }
+  .step.done .badge { background: #56d364; color: #1a1a1a; }
+  .step.error .badge { background: #ff6b6b; color: #fff; }
+
+  .outcome {
+    margin-top: 20px;
+    padding: 18px 22px;
+    background: #050608;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 60px;
+    border: 2px solid transparent;
+    transition: all 0.4s;
+  }
+  .outcome.success {
+    color: #56d364;
+    border-color: rgba(86, 211, 100, 0.4);
+  }
+  .outcome.error {
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.4);
+  }
+  .outcome.idle {
+    color: #888;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+  }
+  .outcome strong { color: #fff; }
+
+  .controls {
+    max-width: 1000px;
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+</style>
+</head>
+<body>
+  <h1>The <span class="accent">f Suffix</span> Mystery</h1>
+  <p class="subtitle">Why does <code>float x = 3.14;</code> fail compilation, but <code>float x = 3.14f;</code> works? Same gotcha as the L suffix — different default type.</p>
+
+  <div class="scenarios" id="scenarios">
+    <span class="scenario-label">Scenario:</span>
+    <div class="scenario active" data-s="0">
+      float x = 3.14;<br><span style="color:#888">Quiz 17 — looks safe, but errors</span>
+    </div>
+    <div class="scenario" data-s="1">
+      float a = 3.14f;<br><span style="color:#888">Quiz 18 — with the f suffix, works</span>
+    </div>
+    <div class="scenario" data-s="2">
+      double d = 6.17;<br><span style="color:#888">Quiz 16 — no suffix needed</span>
+    </div>
+    <div class="scenario" data-s="3">
+      float y = (float) 3.14;<br><span style="color:#888">explicit cast also works</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="code-line" id="codeLine"></div>
+    <div class="steps" id="steps"></div>
+    <div class="outcome idle" id="outcome">Click <strong style="color:#ffd95c">Step through</strong> to walk through the compiler's process.</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Step through</button>
+  </div>
+
+<script>
+  const SCENARIOS = [
+    // 0: float x = 3.14;  (Quiz 17)
+    {
+      code: '<span class="type">float</span> <span class="var">x</span> <span class="punct">=</span> <span class="literal" id="lit">3.14</span><span class="punct">;</span>',
+      steps: [
+        {
+          title: 'Compiler sees a decimal number: 3.14',
+          detail: 'No f suffix, so the compiler tags it as double by default.',
+          litClass: 'tagged-double',
+          badge: 'tag: double',
+          state: 'active'
+        },
+        {
+          title: 'Check: can double be stored in float?',
+          detail: 'double is 64-bit, float is 32-bit — narrowing. Even though 3.14 fits, the compiler refuses the implicit conversion.',
+          badge: 'check fit',
+          state: 'active'
+        },
+        {
+          title: '✗ Compile error: "possible lossy conversion from double to float"',
+          detail: 'Mirror of long → int. Big type to small type is never automatic.',
+          badge: 'error',
+          state: 'error'
+        }
+      ],
+      outcome: { type: 'error', text: '<strong>Compile error:</strong> possible lossy conversion from double to float.<br>The literal <code style="color:#ffa657">3.14</code> is treated as double — and double doesn\'t go into float without help.' }
+    },
+    // 1: float a = 3.14f;  (Quiz 18)
+    {
+      code: '<span class="type">float</span> <span class="var">a</span> <span class="punct">=</span> <span class="literal" id="lit">3.14</span><span class="suffix">f</span><span class="punct">;</span>',
+      steps: [
+        {
+          title: 'Compiler sees a decimal number with f suffix',
+          detail: 'The f explicitly says: "treat this as float, not double."',
+          litClass: 'tagged-float',
+          badge: 'tag: float',
+          state: 'active'
+        },
+        {
+          title: 'Check: does the literal fit in float?',
+          detail: 'Yes — already typed as float by the suffix.',
+          badge: 'check fit',
+          state: 'active'
+        },
+        {
+          title: 'Store into float variable a',
+          detail: 'Same type on both sides, no conversion needed.',
+          badge: 'store',
+          state: 'done'
+        }
+      ],
+      outcome: { type: 'success', text: '<strong>Compiles and prints:</strong> 3.14<br>(The f doesn\'t appear in the output — it was just a hint for the compiler.)' }
+    },
+    // 2: double d = 6.17;  (Quiz 16)
+    {
+      code: '<span class="type">double</span> <span class="var">d</span> <span class="punct">=</span> <span class="literal" id="lit">6.17</span><span class="punct">;</span>',
+      steps: [
+        {
+          title: 'Compiler sees a decimal number: 6.17',
+          detail: 'No suffix → tagged as double (the default for decimals).',
+          litClass: 'tagged-double',
+          badge: 'tag: double',
+          state: 'active'
+        },
+        {
+          title: 'Check: can double be stored in double?',
+          detail: 'Same type — no conversion needed.',
+          badge: 'check fit',
+          state: 'done'
+        },
+        {
+          title: 'Store into double variable d',
+          detail: 'Straightforward assignment.',
+          badge: 'store',
+          state: 'done'
+        }
+      ],
+      outcome: { type: 'success', text: '<strong>Compiles and prints:</strong> 6.17<br>This is the easy case — when storing decimals in double, no suffix is ever needed.' }
+    },
+    // 3: float y = (float) 3.14;
+    {
+      code: '<span class="type">float</span> <span class="var">y</span> <span class="punct">=</span> <span class="cast">(float)</span> <span class="literal" id="lit">3.14</span><span class="punct">;</span>',
+      steps: [
+        {
+          title: 'Compiler sees a decimal number: 3.14',
+          detail: 'No f suffix — tagged as double initially.',
+          litClass: 'tagged-double',
+          badge: 'tag: double',
+          state: 'active'
+        },
+        {
+          title: 'Explicit cast (float) requested',
+          detail: 'Programmer is taking responsibility for any precision loss.',
+          badge: 'cast',
+          state: 'active'
+        },
+        {
+          title: 'Narrow double → float, then store',
+          detail: 'Cast is allowed because programmer used (float). Works.',
+          badge: 'store',
+          state: 'done'
+        }
+      ],
+      outcome: { type: 'success', text: '<strong>Compiles and prints:</strong> 3.14<br>Two ways to win the f-suffix game: <code>3.14f</code> (mark as float) or <code>(float) 3.14</code> (cast from double).' }
+    }
+  ];
+
+  let currentScenario = 0;
+  let currentStep = -1;
+
+  function loadScenario(idx) {
+    currentScenario = idx;
+    currentStep = -1;
+    const s = SCENARIOS[idx];
+    document.getElementById('codeLine').innerHTML = s.code;
+    const litEl = document.getElementById('lit');
+    if (litEl) litEl.className = 'literal';
+
+    const stepsEl = document.getElementById('steps');
+    stepsEl.innerHTML = '';
+    s.steps.forEach((st, i) => {
+      const div = document.createElement('div');
+      div.className = 'step';
+      div.dataset.idx = i;
+      div.innerHTML =
+        '<div class="step-num">' + (i + 1) + '</div>' +
+        '<div class="body">' +
+          '<div class="title">' + st.title + '</div>' +
+          '<div class="detail">' + st.detail + '</div>' +
+        '</div>' +
+        '<div class="badge">' + st.badge + '</div>';
+      stepsEl.appendChild(div);
+    });
+
+    const out = document.getElementById('outcome');
+    out.className = 'outcome idle';
+    out.innerHTML = 'Click <strong style="color:#ffd95c">Step through</strong> to walk through the compiler\'s process.';
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Step through';
+  }
+
+  function nextStep() {
+    const s = SCENARIOS[currentScenario];
+    currentStep++;
+
+    if (currentStep >= s.steps.length) {
+      const out = document.getElementById('outcome');
+      out.className = 'outcome ' + s.outcome.type;
+      out.innerHTML = s.outcome.text;
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      return;
+    }
+
+    document.querySelectorAll('.step').forEach((el, i) => {
+      el.classList.remove('active');
+      if (i < currentStep) {
+        if (s.steps[i].state === 'error') el.classList.add('error');
+        else el.classList.add('done');
+      }
+    });
+
+    const currentEl = document.querySelector('.step[data-idx="' + currentStep + '"]');
+    const stepDef = s.steps[currentStep];
+    if (stepDef.state === 'error') {
+      currentEl.classList.add('error');
+    } else {
+      currentEl.classList.add('active');
+    }
+
+    if (stepDef.litClass) {
+      const litEl = document.getElementById('lit');
+      if (litEl) litEl.className = 'literal ' + stepDef.litClass;
+    }
+
+    if (currentStep === s.steps.length - 1) {
+      setTimeout(() => {
+        const out = document.getElementById('outcome');
+        out.className = 'outcome ' + s.outcome.type;
+        out.innerHTML = s.outcome.text;
+        document.getElementById('stepBtn').disabled = true;
+        document.getElementById('stepBtn').textContent = '✓ done';
+      }, 600);
+    }
+  }
+
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('resetBtn').addEventListener('click', () => loadScenario(currentScenario));
+  document.querySelectorAll('.scenario').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.scenario').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      loadScenario(parseInt(el.dataset.s, 10));
+    });
+  });
+
+  loadScenario(0);
+</script>
+</body>
+</html>
