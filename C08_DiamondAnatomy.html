@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Diamond Anatomy — Three loops per row</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #e8f0e8;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #2d6e3e; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 820px;
+  }
+
+  .controls-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 4px;
+  }
+  .half-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    padding: 8px 14px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .half-btn:hover { background: #f5efe2; }
+  .half-btn.active { background: #1a1a1a; color: #ffd95c; }
+  .n-input-group {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .n-input-group label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .n-input-group input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    width: 60px;
+    padding: 6px 10px;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    text-align: center;
+  }
+
+  /* Stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+  .left-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 24px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+  }
+
+  /* Diamond grid - dramatic centerpiece */
+  .diamond-wrap {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 280px;
+  }
+  .diamond-grid {
+    display: inline-grid;
+    gap: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .d-cell {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 3px;
+    transition: all 0.3s;
+    background: #2a2a2a;
+    color: #444;
+  }
+  .d-cell.stars1 {
+    background: #56d364;
+    color: #1a3a23;
+  }
+  .d-cell.spaces {
+    background: #6a3eb5;
+    color: #fff;
+  }
+  .d-cell.stars2 {
+    background: #ff9b54;
+    color: #1a1a1a;
+  }
+  .d-cell.current {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 3px #ffd95c;
+    z-index: 2;
+  }
+  .d-cell.in-current-row {
+    box-shadow: inset 0 0 0 2px rgba(255, 217, 92, 0.4);
+  }
+
+  /* Section legends */
+  .legend-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .legend-card {
+    padding: 10px 12px;
+    border-radius: 6px;
+    text-align: center;
+    border: 1.5px solid;
+    transition: all 0.3s;
+    opacity: 0.5;
+  }
+  .legend-card.active {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: 3px 3px 0 #1a1a1a;
+  }
+  .legend-card.stars1 { background: #cfe8d3; border-color: #2d6e3e; }
+  .legend-card.spaces { background: #e8dcff; border-color: #6a3eb5; }
+  .legend-card.stars2 { background: #ffe0c2; border-color: #c46a1f; }
+
+  .legend-card .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+  }
+  .legend-card.stars1 .lbl { color: #2d6e3e; }
+  .legend-card.spaces .lbl { color: #6a3eb5; }
+  .legend-card.stars2 .lbl { color: #c46a1f; }
+  .legend-card .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 3px;
+  }
+  .legend-card .count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #555;
+  }
+
+  /* Row-by-row breakdown table */
+  .breakdown-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .breakdown-table th {
+    background: #1a1a1a;
+    color: #ffd95c;
+    padding: 7px 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .breakdown-table th:first-child { border-top-left-radius: 4px; }
+  .breakdown-table th:last-child { border-top-right-radius: 4px; }
+  .breakdown-table td {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid #ece4d0;
+    background: #fff;
+  }
+  .breakdown-table tr.highlighted td {
+    background: #fff8d6;
+  }
+  .breakdown-table .stars1-col { color: #2d6e3e; font-weight: 700; }
+  .breakdown-table .spaces-col { color: #6a3eb5; font-weight: 700; }
+  .breakdown-table .stars2-col { color: #c46a1f; font-weight: 700; }
+  .breakdown-table .row-col { color: #1a1a1a; font-weight: 900; }
+
+  /* Code */
+  .code-block {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px 18px;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .comment { color: #6e7681; font-style: italic; }
+  .code-block .indent { display: inline-block; width: 1.4em; }
+  .code-block div {
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.3s;
+  }
+  .code-block div.active-stars1 {
+    background: rgba(86, 211, 100, 0.18);
+    border-left: 3px solid #56d364;
+    padding-left: 8px;
+    margin-left: -7px;
+  }
+  .code-block div.active-spaces {
+    background: rgba(210, 168, 255, 0.18);
+    border-left: 3px solid #d2a8ff;
+    padding-left: 8px;
+    margin-left: -7px;
+  }
+  .code-block div.active-stars2 {
+    background: rgba(255, 155, 84, 0.2);
+    border-left: 3px solid #ff9b54;
+    padding-left: 8px;
+    margin-left: -7px;
+  }
+  .code-block div.active-outer {
+    background: rgba(255, 217, 92, 0.12);
+    border-left: 3px solid #ffd95c;
+    padding-left: 8px;
+    margin-left: -7px;
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 1100px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 70px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration-tag.stars1 { background: #56d364; color: #1a1a1a; }
+  .narration-tag.spaces { background: #d2a8ff; color: #1a1a1a; }
+  .narration-tag.stars2 { background: #ff9b54; color: #1a1a1a; }
+  .narration-tag.row { background: #ffd95c; color: #1a1a1a; }
+  .narration-tag.done { background: #56d364; color: #1a1a1a; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  .actions {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .btn.fast { background: #fff8d6; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+  <h1>Diamond <span class="accent">Anatomy</span></h1>
+  <p class="subtitle">Each row of a diamond is built from <strong>three</strong> nested loops: left stars, middle spaces, right stars. Watch each section paint a row in turn. The counts change with <code style="font-family:monospace">i</code> — and that's what makes the shape bend.</p>
+
+  <div class="controls-bar">
+    <span class="picker-label">Half:</span>
+    <span class="half-btn active" data-half="upper">Upper half</span>
+    <span class="half-btn" data-half="lower">Lower half</span>
+    <div class="n-input-group">
+      <label>N =</label>
+      <input type="number" id="nInput" value="4" min="2" max="6">
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="left-stack">
+      <div class="panel" style="background:#1a1a1a;">
+        <div class="panel-title">Diamond grid · row by row</div>
+        <div class="diamond-wrap">
+          <div class="diamond-grid" id="diamondGrid"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Current row decomposition</div>
+        <div class="legend-row">
+          <div class="legend-card stars1" id="legendStars1">
+            <div class="lbl">Left stars</div>
+            <div class="formula" id="stars1Formula">—</div>
+            <div class="count" id="stars1Count">—</div>
+          </div>
+          <div class="legend-card spaces" id="legendSpaces">
+            <div class="lbl">Middle spaces</div>
+            <div class="formula" id="spacesFormula">—</div>
+            <div class="count" id="spacesCount">—</div>
+          </div>
+          <div class="legend-card stars2" id="legendStars2">
+            <div class="lbl">Right stars</div>
+            <div class="formula" id="stars2Formula">—</div>
+            <div class="count" id="stars2Count">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="left-stack">
+      <div class="panel">
+        <div class="panel-title">Source code</div>
+        <div class="code-block" id="codeBlock"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Row-by-row breakdown</div>
+        <table class="breakdown-table" id="breakdownTable">
+          <thead>
+            <tr>
+              <th>Row i</th>
+              <th>Left stars</th>
+              <th>Spaces</th>
+              <th>Right stars</th>
+            </tr>
+          </thead>
+          <tbody id="breakdownBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Click <strong>Next section</strong> to advance one segment (stars / spaces / stars) at a time, or <strong>Next row</strong> to jump per row.
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next section</button>
+    <button class="btn fast" id="rowBtn">⏭ Next row</button>
+    <button class="btn fast" id="runBtn">⏩ Run all</button>
+    <span class="step-info" id="stepInfo">—</span>
+  </div>
+
+<script>
+  const HALVES = {
+    upper: {
+      label: 'Upper half',
+      // Per row i (1..N): left stars = N-i+1, spaces = 2*(i-1), right stars = N-i+1
+      stars1: (N, i) => N - i + 1,
+      spaces: (N, i) => 2 * (i - 1),
+      stars2: (N, i) => N - i + 1,
+      stars1Formula: 'N − i + 1',
+      spacesFormula: '2 × (i − 1)',
+      stars2Formula: 'N − i + 1',
+      code: [
+        '<div data-tag="outer"><span class="kw">for</span> (<span class="kw">int</span> <span class="var">i</span> = <span class="num">1</span>; <span class="var">i</span> &lt;= <span class="var">N</span>; <span class="var">i</span><span class="op">++</span>) {</div>',
+        '<div data-tag="c1"><span class="indent"></span><span class="comment">// left stars</span></div>',
+        '<div data-tag="stars1"><span class="indent"></span><span class="kw">for</span> (<span class="kw">int</span> <span class="var">j</span>=<span class="num">1</span>; <span class="var">j</span>&lt;=<span class="var">N</span>-<span class="var">i</span>+<span class="num">1</span>; <span class="var">j</span><span class="op">++</span>) <span class="method">SOP</span>(<span class="str">"*"</span>);</div>',
+        '<div data-tag="c2"><span class="indent"></span><span class="comment">// spaces</span></div>',
+        '<div data-tag="spaces"><span class="indent"></span><span class="kw">for</span> (<span class="kw">int</span> <span class="var">j</span>=<span class="num">1</span>; <span class="var">j</span>&lt;=<span class="num">2</span>*(<span class="var">i</span>-<span class="num">1</span>); <span class="var">j</span><span class="op">++</span>) <span class="method">SOP</span>(<span class="str">" "</span>);</div>',
+        '<div data-tag="c3"><span class="indent"></span><span class="comment">// right stars</span></div>',
+        '<div data-tag="stars2"><span class="indent"></span><span class="kw">for</span> (<span class="kw">int</span> <span class="var">j</span>=<span class="num">1</span>; <span class="var">j</span>&lt;=<span class="var">N</span>-<span class="var">i</span>+<span class="num">1</span>; <span class="var">j</span><span class="op">++</span>) <span class="method">SOP</span>(<span class="str">"*"</span>);</div>',
+        '<div data-tag="newline"><span class="indent"></span><span class="method">SOPln</span>();</div>',
+        '<div data-tag="close">}</div>'
+      ]
+    },
+    lower: {
+      label: 'Lower half',
+      // Per row i (1..N): left stars = i, spaces = 2*(N-i), right stars = i
+      stars1: (N, i) => i,
+      spaces: (N, i) => 2 * (N - i),
+      stars2: (N, i) => i,
+      stars1Formula: 'i',
+      spacesFormula: '2 × (N − i)',
+      stars2Formula: 'i',
+      code: [
+        '<div data-tag="outer"><span class="kw">for</span> (<span class="kw">int</span> <span class="var">i</span> = <span class="num">1</span>; <span class="var">i</span> &lt;= <span class="var">N</span>; <span class="var">i</span><span class="op">++</span>) {</div>',
+        '<div data-tag="c1"><span class="indent"></span><span class="comment">// left stars</span></div>',
+        '<div data-tag="stars1"><span class="indent"></span><span class="kw">for</span> (<span class="kw">int</span> <span class="var">j</span>=<span class="num">1</span>; <span class="var">j</span>&lt;=<span class="var">i</span>; <span class="var">j</span><span class="op">++</span>) <span class="method">SOP</span>(<span class="str">"*"</span>);</div>',
+        '<div data-tag="c2"><span class="indent"></span><span class="comment">// spaces</span></div>',
+        '<div data-tag="spaces"><span class="indent"></span><span class="kw">for</span> (<span class="kw">int</span> <span class="var">j</span>=<span class="num">1</span>; <span class="var">j</span>&lt;=<span class="num">2</span>*(<span class="var">N</span>-<span class="var">i</span>); <span class="var">j</span><span class="op">++</span>) <span class="method">SOP</span>(<span class="str">" "</span>);</div>',
+        '<div data-tag="c3"><span class="indent"></span><span class="comment">// right stars</span></div>',
+        '<div data-tag="stars2"><span class="indent"></span><span class="kw">for</span> (<span class="kw">int</span> <span class="var">j</span>=<span class="num">1</span>; <span class="var">j</span>&lt;=<span class="var">i</span>; <span class="var">j</span><span class="op">++</span>) <span class="method">SOP</span>(<span class="str">"*"</span>);</div>',
+        '<div data-tag="newline"><span class="indent"></span><span class="method">SOPln</span>();</div>',
+        '<div data-tag="close">}</div>'
+      ]
+    }
+  };
+
+  let currentHalf = 'upper';
+  let N = 4;
+  let sections = []; // pre-built section sequence
+  let sectionIdx = 0;
+
+  function buildSections(half, N) {
+    const h = HALVES[half];
+    const out = [];
+    for (let i = 1; i <= N; i++) {
+      const s1 = h.stars1(N, i);
+      const sp = h.spaces(N, i);
+      const s2 = h.stars2(N, i);
+      out.push({ kind: 'row-start', i, s1, sp, s2 });
+      out.push({ kind: 'stars1', i, count: s1, colStart: 0 });
+      out.push({ kind: 'spaces', i, count: sp, colStart: s1 });
+      out.push({ kind: 'stars2', i, count: s2, colStart: s1 + sp });
+      out.push({ kind: 'newline', i });
+    }
+    return out;
+  }
+
+  function renderGrid(half, N) {
+    const h = HALVES[half];
+    // Max row width = max of (stars1 + spaces + stars2) over all rows
+    let maxW = 0;
+    for (let i = 1; i <= N; i++) {
+      const w = h.stars1(N, i) + h.spaces(N, i) + h.stars2(N, i);
+      if (w > maxW) maxW = w;
+    }
+    const grid = document.getElementById('diamondGrid');
+    grid.style.gridTemplateColumns = `repeat(${maxW}, 28px)`;
+
+    let html = '';
+    for (let i = 1; i <= N; i++) {
+      const rowW = h.stars1(N, i) + h.spaces(N, i) + h.stars2(N, i);
+      const padLeft = Math.floor((maxW - rowW) / 2);
+      const padRight = maxW - rowW - padLeft;
+      // We use padding cells to center each row
+      let col = 0;
+      for (let p = 0; p < padLeft; p++) {
+        html += `<div class="d-cell pad" data-i="${i}" data-col="${col}" style="visibility:hidden;"></div>`;
+        col++;
+      }
+      for (let j = 0; j < rowW; j++) {
+        html += `<div class="d-cell" data-i="${i}" data-col="${col}" data-rowcol="${j}"></div>`;
+        col++;
+      }
+      for (let p = 0; p < padRight; p++) {
+        html += `<div class="d-cell pad" data-i="${i}" data-col="${col}" style="visibility:hidden;"></div>`;
+        col++;
+      }
+    }
+    grid.innerHTML = html;
+  }
+
+  function renderCode() {
+    document.getElementById('codeBlock').innerHTML = HALVES[currentHalf].code.join('');
+  }
+
+  function renderBreakdown() {
+    const h = HALVES[currentHalf];
+    const tbody = document.getElementById('breakdownBody');
+    let html = '';
+    for (let i = 1; i <= N; i++) {
+      html += `<tr data-i="${i}">
+        <td class="row-col">${i}</td>
+        <td class="stars1-col">${h.stars1(N, i)}</td>
+        <td class="spaces-col">${h.spaces(N, i)}</td>
+        <td class="stars2-col">${h.stars2(N, i)}</td>
+      </tr>`;
+    }
+    tbody.innerHTML = html;
+  }
+
+  function renderHalfPicker() {
+    document.querySelectorAll('.half-btn').forEach(el => {
+      el.classList.toggle('active', el.dataset.half === currentHalf);
+    });
+  }
+
+  function highlightCodeLine(tag, cssClass) {
+    document.querySelectorAll('.code-block div').forEach(el => {
+      el.classList.remove('active-stars1', 'active-spaces', 'active-stars2', 'active-outer');
+    });
+    if (tag) {
+      const el = document.querySelector(`.code-block div[data-tag="${tag}"]`);
+      if (el) el.classList.add(cssClass);
+    }
+  }
+
+  function setLegend(active) {
+    ['stars1', 'spaces', 'stars2'].forEach(name => {
+      document.getElementById('legend' + name.charAt(0).toUpperCase() + name.slice(1))
+        .classList.toggle('active', name === active || active === 'all');
+    });
+  }
+
+  function highlightBreakdownRow(i) {
+    document.querySelectorAll('.breakdown-table tr').forEach(el => {
+      el.classList.toggle('highlighted', parseInt(el.dataset.i, 10) === i);
+    });
+  }
+
+  function loadScenario() {
+    N = Math.max(2, Math.min(6, parseInt(document.getElementById('nInput').value, 10) || 4));
+    document.getElementById('nInput').value = N;
+
+    sections = buildSections(currentHalf, N);
+    sectionIdx = 0;
+
+    renderHalfPicker();
+    renderCode();
+    renderGrid(currentHalf, N);
+    renderBreakdown();
+    setLegend(null);
+    highlightCodeLine(null);
+    highlightBreakdownRow(null);
+
+    document.getElementById('stars1Formula').textContent = '—';
+    document.getElementById('stars1Count').textContent = '—';
+    document.getElementById('spacesFormula').textContent = '—';
+    document.getElementById('spacesCount').textContent = '—';
+    document.getElementById('stars2Formula').textContent = '—';
+    document.getElementById('stars2Count').textContent = '—';
+
+    document.getElementById('stepInfo').textContent = `step 0 / ${sections.length}`;
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next section';
+    document.getElementById('rowBtn').disabled = false;
+    document.getElementById('runBtn').disabled = false;
+
+    document.getElementById('narration').innerHTML =
+      `<span class="narration-tag">Ready</span>${HALVES[currentHalf].label}, N = ${N}. Each row has three sections. Click <strong>Next section</strong> to advance.`;
+  }
+
+  function applySection(s) {
+    const h = HALVES[currentHalf];
+
+    if (s.kind === 'row-start') {
+      // Highlight the new row, update legend formulas
+      document.querySelectorAll('.d-cell').forEach(c => c.classList.remove('in-current-row', 'current'));
+      document.querySelectorAll(`.d-cell[data-i="${s.i}"]`).forEach(c => {
+        if (!c.classList.contains('pad')) c.classList.add('in-current-row');
+      });
+
+      document.getElementById('stars1Formula').textContent = h.stars1Formula + ` = ${s.s1}`;
+      document.getElementById('stars1Count').textContent = `${s.s1} ${s.s1 === 1 ? 'star' : 'stars'}`;
+      document.getElementById('spacesFormula').textContent = h.spacesFormula + ` = ${s.sp}`;
+      document.getElementById('spacesCount').textContent = `${s.sp} ${s.sp === 1 ? 'space' : 'spaces'}`;
+      document.getElementById('stars2Formula').textContent = h.stars2Formula + ` = ${s.s2}`;
+      document.getElementById('stars2Count').textContent = `${s.s2} ${s.s2 === 1 ? 'star' : 'stars'}`;
+
+      highlightCodeLine('outer', 'active-outer');
+      highlightBreakdownRow(s.i);
+      setLegend('all');
+
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag row">Row ${s.i}</span><strong>Outer iteration i = ${s.i}.</strong> ${HALVES[currentHalf].label}: ${s.s1} left stars, ${s.sp} spaces, ${s.s2} right stars.`;
+    } else if (s.kind === 'stars1') {
+      // Paint stars1 cells
+      const row = s.i;
+      const rowCells = Array.from(document.querySelectorAll(`.d-cell[data-i="${row}"]:not(.pad)`));
+      for (let k = 0; k < s.count; k++) {
+        const cell = rowCells[s.colStart + k];
+        if (cell) {
+          cell.classList.add('stars1');
+          cell.textContent = '*';
+        }
+      }
+      highlightCodeLine('stars1', 'active-stars1');
+      setLegend('stars1');
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag stars1">Left stars</span>Inner loop fires <strong>${s.count}</strong> times, prints <code>*</code>. Formula: <code>${h.stars1Formula} = ${s.count}</code>.`;
+    } else if (s.kind === 'spaces') {
+      const row = s.i;
+      const rowCells = Array.from(document.querySelectorAll(`.d-cell[data-i="${row}"]:not(.pad)`));
+      for (let k = 0; k < s.count; k++) {
+        const cell = rowCells[s.colStart + k];
+        if (cell) {
+          cell.classList.add('spaces');
+          cell.textContent = '·';
+        }
+      }
+      highlightCodeLine('spaces', 'active-spaces');
+      setLegend('spaces');
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag spaces">Spaces</span>` +
+        (s.count === 0
+          ? `Inner loop fires <strong>0</strong> times (the condition <code>j &lt;= ${HALVES[currentHalf].spacesFormula} = 0</code> is false from the start). No spaces this row.`
+          : `Inner loop fires <strong>${s.count}</strong> times, prints <code>' '</code>. Formula: <code>${HALVES[currentHalf].spacesFormula} = ${s.count}</code>.`);
+    } else if (s.kind === 'stars2') {
+      const row = s.i;
+      const rowCells = Array.from(document.querySelectorAll(`.d-cell[data-i="${row}"]:not(.pad)`));
+      for (let k = 0; k < s.count; k++) {
+        const cell = rowCells[s.colStart + k];
+        if (cell) {
+          cell.classList.add('stars2');
+          cell.textContent = '*';
+        }
+      }
+      highlightCodeLine('stars2', 'active-stars2');
+      setLegend('stars2');
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag stars2">Right stars</span>Inner loop fires <strong>${s.count}</strong> times, prints <code>*</code>. Mirror of the left.`;
+    } else if (s.kind === 'newline') {
+      highlightCodeLine('newline', 'active-outer');
+      setLegend(null);
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag row">End of row ${s.i}</span>Print newline, then the outer loop moves to <code>i = ${s.i + 1}</code>.`;
+    }
+  }
+
+  function nextSection() {
+    if (sectionIdx >= sections.length) {
+      finishUp();
+      return;
+    }
+    applySection(sections[sectionIdx]);
+    sectionIdx++;
+    document.getElementById('stepInfo').textContent = `step ${sectionIdx} / ${sections.length}`;
+    if (sectionIdx >= sections.length) finishUp();
+  }
+
+  function nextRow() {
+    if (sectionIdx >= sections.length) {
+      finishUp();
+      return;
+    }
+    while (sectionIdx < sections.length) {
+      const s = sections[sectionIdx];
+      applySection(s);
+      sectionIdx++;
+      if (s.kind === 'newline') break;
+    }
+    document.getElementById('stepInfo').textContent = `step ${sectionIdx} / ${sections.length}`;
+    if (sectionIdx >= sections.length) finishUp();
+  }
+
+  function runAll() {
+    function loop() {
+      if (sectionIdx >= sections.length) {
+        finishUp();
+        return;
+      }
+      nextSection();
+      setTimeout(loop, 350);
+    }
+    loop();
+  }
+
+  function finishUp() {
+    document.getElementById('stepBtn').disabled = true;
+    document.getElementById('stepBtn').textContent = '✓ done';
+    document.getElementById('rowBtn').disabled = true;
+    document.getElementById('runBtn').disabled = true;
+    highlightCodeLine(null);
+    setLegend(null);
+    highlightBreakdownRow(null);
+    document.querySelectorAll('.d-cell.in-current-row').forEach(c => c.classList.remove('in-current-row'));
+    const h = HALVES[currentHalf];
+    const totalChars = (() => {
+      let t = 0;
+      for (let i = 1; i <= N; i++) {
+        t += h.stars1(N, i) + h.spaces(N, i) + h.stars2(N, i);
+      }
+      return t;
+    })();
+    document.getElementById('narration').innerHTML =
+      `<span class="narration-tag done">Done</span>${HALVES[currentHalf].label} complete. The outer loop ran <strong>${N}</strong> times; each row triggered three inner loops with bounds that depend on <code>i</code>. Total characters: <strong>${totalChars}</strong>. Try the other half!`;
+  }
+
+  document.querySelectorAll('.half-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      currentHalf = el.dataset.half;
+      loadScenario();
+    });
+  });
+  document.getElementById('nInput').addEventListener('change', loadScenario);
+  document.getElementById('stepBtn').addEventListener('click', nextSection);
+  document.getElementById('rowBtn').addEventListener('click', nextRow);
+  document.getElementById('runBtn').addEventListener('click', runAll);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+
+  loadScenario();
+</script>
+</body>
+</html>

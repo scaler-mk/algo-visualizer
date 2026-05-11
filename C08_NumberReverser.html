@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Number Reverser — Build rev one digit at a time</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #f0e8d8;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 820px;
+  }
+
+  .controls-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+  }
+  @media (max-width: 700px) { .controls-bar { grid-template-columns: 1fr; } }
+  .mode-picker, .n-presets {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 4px;
+  }
+  .mode-btn, .n-preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 8px 13px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mode-btn:hover, .n-preset:hover { background: #fff8d6; }
+  .mode-btn.active, .n-preset.active { background: #1a1a1a; color: #ffd95c; }
+  .n-preset {
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .n-preset .tag {
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  .n-preset.active .tag { background: #ffd95c; }
+  .n-preset .tag.edge { background: #d62828; color: #fff; }
+  .n-preset .tag.pal { background: #56d364; color: #1a1a1a; }
+  .n-preset .tag.neg { background: #d2a8ff; color: #1a1a1a; }
+
+  /* Main stage — two columns */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 28px 26px;
+    margin-bottom: 18px;
+  }
+  .registers {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 18px;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 800px) {
+    .registers { grid-template-columns: 1fr; }
+    .arrow-wrap { transform: rotate(90deg); justify-self: center; }
+  }
+  .register {
+    text-align: center;
+  }
+  .register-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  .register.source .register-label { color: #d62828; }
+  .register.dest .register-label { color: #2d6e3e; }
+
+  .digit-row {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    min-height: 80px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .digit-card {
+    width: 56px;
+    height: 70px;
+    background: #fff8d6;
+    border: 3px solid #1a1a1a;
+    border-radius: 8px;
+    box-shadow: 3px 3px 0 #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 900;
+    color: #1a1a1a;
+    transition: all 0.4s;
+    position: relative;
+  }
+  .digit-card.source-last {
+    background: rgba(214, 40, 40, 0.18);
+    border-color: #d62828;
+    box-shadow: 3px 3px 0 #d62828;
+    transform: translateY(-4px) scale(1.05);
+  }
+  .digit-card.in-flight {
+    background: #ffd95c;
+    border-color: #1a1a1a;
+    box-shadow: 3px 3px 0 #1a1a1a;
+    animation: travel 0.6s;
+  }
+  .digit-card.dest-new {
+    background: rgba(86, 211, 100, 0.25);
+    border-color: #2d6e3e;
+    box-shadow: 3px 3px 0 #2d6e3e;
+    color: #2d6e3e;
+    animation: arrive 0.4s;
+  }
+  .digit-card.dropping {
+    animation: drop 0.5s forwards;
+  }
+  @keyframes drop {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(40px) rotate(15deg); }
+  }
+  @keyframes arrive {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes travel {
+    0% { transform: scale(1.1); }
+    50% { transform: scale(1.3) translateY(-8px); }
+    100% { transform: scale(1); }
+  }
+  .digit-card.empty-state {
+    background: #f5efe2;
+    border-style: dashed;
+    color: #aaa;
+    font-size: 14px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+
+  .arrow-wrap {
+    text-align: center;
+    color: #888;
+  }
+  .arrow-wrap .arrow {
+    font-size: 32px;
+    margin-bottom: 4px;
+  }
+  .arrow-wrap .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Operations strip */
+  .ops-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    max-width: 780px;
+    margin: 0 auto 20px;
+  }
+  .op-card {
+    background: #f5efe2;
+    border: 2px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 12px 14px;
+    text-align: center;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .op-card.active {
+    opacity: 1;
+    background: #fff8d6;
+    box-shadow: 4px 4px 0 #1a1a1a;
+    transform: translateY(-2px);
+  }
+  .op-card .op-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 4px;
+  }
+  .op-card.active .op-num { color: #d62828; }
+  .op-card .op-formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 6px;
+  }
+  .op-card .op-result {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 900;
+    color: #1f5a8a;
+    min-height: 20px;
+  }
+
+  /* Bottom row: code + trace */
+  .bottom {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .bottom { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 20px 22px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+  }
+  .code-block {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .indent { display: inline-block; width: 1.4em; }
+  .code-block div {
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: all 0.3s;
+  }
+  .code-block div.active {
+    background: rgba(255, 217, 92, 0.18);
+  }
+
+  .verdict-box {
+    margin-top: 14px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    background: #1a1a1a;
+    color: #ffd95c;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .verdict-box.palindrome {
+    background: #2d6e3e;
+    color: #fff;
+  }
+  .verdict-box.not-palindrome {
+    background: #c41e3a;
+    color: #fff;
+  }
+  .verdict-box .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    opacity: 0.7;
+    margin-bottom: 4px;
+  }
+  .verdict-box .val {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+  }
+
+  /* Trace table */
+  .trace-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .trace-table th {
+    background: #1a1a1a;
+    color: #ffd95c;
+    padding: 6px 8px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .trace-table th:first-child { border-top-left-radius: 4px; }
+  .trace-table th:last-child { border-top-right-radius: 4px; }
+  .trace-table td {
+    padding: 7px 8px;
+    text-align: center;
+    border-bottom: 1px solid #ece4d0;
+  }
+  .trace-table tr.new {
+    animation: rowSlide 0.4s;
+  }
+  @keyframes rowSlide {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .trace-table .digit-col { color: #d62828; font-weight: 700; }
+  .trace-table .rev-col { color: #2d6e3e; font-weight: 700; }
+
+  /* Narration */
+  .narration {
+    max-width: 1100px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 70px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration-tag.read { background: #ff9999; color: #1a1a1a; }
+  .narration-tag.append { background: #56d364; color: #1a1a1a; }
+  .narration-tag.drop { background: #d2a8ff; color: #1a1a1a; }
+  .narration-tag.done { background: #ffd95c; color: #1a1a1a; }
+  .narration-tag.neg { background: #d2a8ff; color: #1a1a1a; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  .actions {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .btn.fast { background: #fff8d6; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Insight */
+  .insight {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #d62828;
+    padding: 18px 22px;
+  }
+  .insight h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #d62828;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  .insight p {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    line-height: 1.55;
+    margin-bottom: 6px;
+  }
+  .insight p:last-child { margin-bottom: 0; }
+  .insight code {
+    background: #f5efe2;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+</style>
+</head>
+<body>
+  <h1>Number <span class="accent">Reverser</span></h1>
+  <p class="subtitle">Same pattern as digit extraction, but now digits don't disappear — they get glued to the back of a growing <code style="font-family:monospace">rev</code> via <code style="font-family:monospace">rev = rev * 10 + d</code>. The number flips before your eyes.</p>
+
+  <div class="controls-bar">
+    <div class="mode-picker">
+      <span class="picker-label">Mode:</span>
+      <span class="mode-btn active" data-mode="reverse">Reverse</span>
+      <span class="mode-btn" data-mode="palindrome">Palindrome check</span>
+    </div>
+    <div class="n-presets" id="nPresets"></div>
+  </div>
+
+  <div class="stage">
+    <div class="registers">
+      <div class="register source">
+        <div class="register-label">Source · n</div>
+        <div class="digit-row" id="sourceRow"></div>
+      </div>
+      <div class="arrow-wrap">
+        <div class="arrow">→</div>
+        <div class="label">digit by digit</div>
+      </div>
+      <div class="register dest">
+        <div class="register-label" id="destLabel">Destination · rev</div>
+        <div class="digit-row" id="destRow">
+          <div class="digit-card empty-state">empty</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ops-strip">
+      <div class="op-card" id="op1">
+        <div class="op-num">Step 1 — Read</div>
+        <div class="op-formula">d = n % 10</div>
+        <div class="op-result" id="op1Result">—</div>
+      </div>
+      <div class="op-card" id="op2">
+        <div class="op-num">Step 2 — Append</div>
+        <div class="op-formula">rev = rev*10 + d</div>
+        <div class="op-result" id="op2Result">—</div>
+      </div>
+      <div class="op-card" id="op3">
+        <div class="op-num">Step 3 — Drop</div>
+        <div class="op-formula">n = n / 10</div>
+        <div class="op-result" id="op3Result">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Pick a number above and click <strong>Next step</strong>. Each iteration peels one digit off <code>n</code> and glues it to the back of <code>rev</code>.
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <button class="btn fast" id="runBtn">⏩ Run all</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+  <div class="bottom">
+    <div class="panel">
+      <div class="panel-title">Source code</div>
+      <div class="code-block" id="codeBlock"></div>
+      <div class="verdict-box" id="verdictBox" style="display:none;">
+        <div class="lbl" id="verdictLabel">Result</div>
+        <div class="val" id="verdictText">—</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Iteration trace</div>
+      <table class="trace-table">
+        <thead>
+          <tr>
+            <th>n</th>
+            <th>d = n%10</th>
+            <th>rev = rev*10 + d</th>
+            <th>n / 10</th>
+          </tr>
+        </thead>
+        <tbody id="traceBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="insight">
+    <h3>Two things to notice</h3>
+    <p><strong>Trailing zeros vanish.</strong> Try <code>n = 2400</code> in reverse mode — the output is <code>42</code>, not <code>0042</code>. The integer type can't store leading zeros. The first digit pulled is 0, but <code>rev = 0*10 + 0 = 0</code> doesn't show.</p>
+    <p><strong>Negatives flip first.</strong> The script's code flips a negative <code>n</code> to positive before the loop, then re-negates at the end. The digits of <code>-417</code> are the same as the digits of <code>417</code>; the sign rides along separately.</p>
+  </div>
+
+<script>
+  const TEST_NUMBERS = [
+    { n: 1456, note: '' },
+    { n: 2400, note: 'zeros', tag: 'edge' },
+    { n: 1221, note: 'palindrome', tag: 'pal' },
+    { n: 161, note: 'palindrome', tag: 'pal' },
+    { n: 566, note: '' },
+    { n: -417, note: 'negative', tag: 'neg' }
+  ];
+
+  const MODES = {
+    reverse: {
+      label: 'Reverse',
+      code: [
+        '<div data-line="init"><span class="kw">int</span> <span class="var">copy</span> = <span class="var">n</span>;</div>',
+        '<div data-line="neg"><span class="kw">if</span> (<span class="var">n</span> &lt; <span class="num">0</span>) <span class="var">n</span> = -<span class="var">n</span>;</div>',
+        '<div data-line="zero"><span class="kw">int</span> <span class="var">rev</span> = <span class="num">0</span>;</div>',
+        '<div data-line="while"><span class="kw">while</span> (<span class="var">n</span> &gt; <span class="num">0</span>) {</div>',
+        '<div data-line="mod"><span class="indent"></span><span class="kw">int</span> <span class="var">d</span> = <span class="var">n</span> % <span class="num">10</span>;</div>',
+        '<div data-line="rev"><span class="indent"></span><span class="var">rev</span> = <span class="var">rev</span> * <span class="num">10</span> + <span class="var">d</span>;</div>',
+        '<div data-line="div"><span class="indent"></span><span class="var">n</span> = <span class="var">n</span> / <span class="num">10</span>;</div>',
+        '<div data-line="close">}</div>',
+        '<div data-line="restore"><span class="kw">if</span> (<span class="var">copy</span> &lt; <span class="num">0</span>) <span class="var">rev</span> = -<span class="var">rev</span>;</div>',
+        '<div data-line="print"><span class="method">SOPln</span>(<span class="var">rev</span>);</div>'
+      ]
+    },
+    palindrome: {
+      label: 'Palindrome check',
+      code: [
+        '<div data-line="init"><span class="kw">int</span> <span class="var">copy</span> = <span class="var">n</span>;</div>',
+        '<div data-line="zero"><span class="kw">int</span> <span class="var">rev</span> = <span class="num">0</span>;</div>',
+        '<div data-line="while"><span class="kw">while</span> (<span class="var">n</span> &gt; <span class="num">0</span>) {</div>',
+        '<div data-line="mod"><span class="indent"></span><span class="kw">int</span> <span class="var">d</span> = <span class="var">n</span> % <span class="num">10</span>;</div>',
+        '<div data-line="rev"><span class="indent"></span><span class="var">rev</span> = <span class="var">rev</span> * <span class="num">10</span> + <span class="var">d</span>;</div>',
+        '<div data-line="div"><span class="indent"></span><span class="var">n</span> = <span class="var">n</span> / <span class="num">10</span>;</div>',
+        '<div data-line="close">}</div>',
+        '<div data-line="check"><span class="kw">if</span> (<span class="var">rev</span> == <span class="var">copy</span>) <span class="method">SOPln</span>(<span class="str">"PALINDROME"</span>);</div>',
+        '<div data-line="else"><span class="kw">else</span> <span class="method">SOPln</span>(<span class="str">"NOT PALINDROME"</span>);</div>'
+      ]
+    }
+  };
+
+  let currentMode = 'reverse';
+  let currentN = 1456;
+  let originalN = 1456; // signed
+  let workingN = 1456;  // absolute value during loop
+  let rev = 0;
+  let microStep = 0; // 0=show last, 1=append, 2=drop
+  let iterCount = 0;
+  let isNegative = false;
+  let phase = 'pre'; // pre, loop, post
+
+  function renderNPresets() {
+    const wrap = document.getElementById('nPresets');
+    wrap.innerHTML = '<span class="picker-label">n =</span>';
+    TEST_NUMBERS.forEach(t => {
+      const sp = document.createElement('span');
+      sp.className = 'n-preset' + (t.n === currentN ? ' active' : '');
+      sp.dataset.n = t.n;
+      const tagClass = t.tag || '';
+      sp.innerHTML = `${t.n}${t.note ? `<span class="tag ${tagClass}">${t.note}</span>` : ''}`;
+      sp.addEventListener('click', () => {
+        currentN = t.n;
+        loadScenario();
+      });
+      wrap.appendChild(sp);
+    });
+  }
+
+  function renderModePicker() {
+    document.querySelectorAll('.mode-btn').forEach(el => {
+      el.classList.toggle('active', el.dataset.mode === currentMode);
+    });
+    document.getElementById('destLabel').textContent =
+      currentMode === 'reverse' ? 'Destination · rev' : 'Destination · rev (then compare with original)';
+  }
+
+  function renderSource(value, negative) {
+    const wrap = document.getElementById('sourceRow');
+    if (value === 0 && workingN === 0 && iterCount > 0) {
+      wrap.innerHTML = '<div class="digit-card empty-state">n = 0</div>';
+      return;
+    }
+    const digits = String(Math.abs(value)).split('');
+    let html = '';
+    if (negative) {
+      html += '<div class="digit-card" style="background:#d2a8ff;border-color:#6a3eb5;color:#3d1e6e;">−</div>';
+    }
+    html += digits.map(d => `<div class="digit-card">${d}</div>`).join('');
+    wrap.innerHTML = html;
+  }
+
+  function renderDest(value, negative) {
+    const wrap = document.getElementById('destRow');
+    if (value === 0 && iterCount === 0) {
+      wrap.innerHTML = '<div class="digit-card empty-state">empty</div>';
+      return;
+    }
+    const digits = String(Math.abs(value)).split('');
+    let html = '';
+    if (negative && value !== 0) {
+      html += '<div class="digit-card" style="background:#d2a8ff;border-color:#6a3eb5;color:#3d1e6e;">−</div>';
+    }
+    html += digits.map(d => `<div class="digit-card">${d}</div>`).join('');
+    wrap.innerHTML = html;
+  }
+
+  function renderCode() {
+    document.getElementById('codeBlock').innerHTML = MODES[currentMode].code.join('');
+  }
+
+  function highlightCode(name) {
+    document.querySelectorAll('.code-block div').forEach(el => el.classList.remove('active'));
+    if (name) {
+      const el = document.querySelector(`.code-block div[data-line="${name}"]`);
+      if (el) el.classList.add('active');
+    }
+  }
+
+  function highlightOp(num) {
+    [1, 2, 3].forEach(i => {
+      document.getElementById(`op${i}`).classList.toggle('active', i === num);
+    });
+  }
+
+  function clearOps() {
+    document.querySelectorAll('.op-card').forEach(el => el.classList.remove('active'));
+    document.getElementById('op1Result').textContent = '—';
+    document.getElementById('op2Result').textContent = '—';
+    document.getElementById('op3Result').textContent = '—';
+  }
+
+  function loadScenario() {
+    originalN = currentN;
+    isNegative = currentN < 0;
+    workingN = Math.abs(currentN);
+    rev = 0;
+    microStep = 0;
+    iterCount = 0;
+    phase = isNegative ? 'pre-negflip' : 'init';
+
+    renderNPresets();
+    renderModePicker();
+    renderCode();
+    renderSource(currentN, isNegative);
+    renderDest(0, false);
+    clearOps();
+    highlightCode(null);
+
+    document.getElementById('traceBody').innerHTML = '';
+    document.getElementById('verdictBox').style.display = 'none';
+
+    const numDigits = String(Math.abs(currentN)).length;
+    const baseSteps = numDigits * 3;
+    let extraSteps = 0;
+    if (isNegative) extraSteps += 2; // pre-flip narration step + restore step
+    if (currentMode === 'palindrome') extraSteps += 1;
+    document.getElementById('stepInfo').textContent = `step 0 / ${baseSteps + extraSteps}`;
+
+    document.getElementById('narration').innerHTML =
+      '<span class="narration-tag">Ready</span>' +
+      (isNegative
+        ? `<strong>n = ${currentN}</strong> is negative. We'll flip to positive first, reverse, then re-attach the minus at the end. Click <strong>Next step</strong>.`
+        : `<strong>n = ${currentN}</strong>. We'll peel digits off <code>n</code> and build <code>rev</code>. Click <strong>Next step</strong>.`);
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('runBtn').disabled = false;
+  }
+
+  let stepCounter = 0;
+
+  function doNextStep() {
+    stepCounter++;
+
+    // Pre-flip step (negative numbers)
+    if (phase === 'pre-negflip') {
+      highlightCode('neg');
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag neg">Sign flip</span>Flip <code>n = ${originalN}</code> to <code>n = ${workingN}</code>. Remember <code>copy = ${originalN}</code> for later.`;
+      // Re-render source without the minus sign
+      renderSource(workingN, false);
+      phase = 'init';
+      updateStepInfo();
+      return;
+    }
+
+    if (phase === 'init') {
+      highlightCode('zero');
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag">Init</span>Set <code>rev = 0</code>. Now ready to peel digits.`;
+      phase = 'loop';
+      updateStepInfo();
+      return;
+    }
+
+    if (phase === 'loop') {
+      if (workingN === 0) {
+        // Loop ends
+        highlightCode('close');
+        clearOps();
+        if (isNegative) {
+          phase = 'restore';
+          document.getElementById('narration').innerHTML =
+            `<span class="narration-tag neg">Restore sign</span>Condition <code>n > 0</code> is now false. Loop exits with <code>rev = ${rev}</code>. Now re-attach the minus.`;
+          updateStepInfo();
+          return;
+        } else if (currentMode === 'palindrome') {
+          phase = 'palcheck';
+          document.getElementById('narration').innerHTML =
+            `<span class="narration-tag done">Compare</span>Loop done. <code>rev = ${rev}</code>. Compare with <code>copy = ${originalN}</code>.`;
+          updateStepInfo();
+          return;
+        } else {
+          phase = 'done';
+          finishUp();
+          return;
+        }
+      }
+
+      if (microStep === 0) {
+        // Highlight last digit
+        const lastDigit = workingN % 10;
+        const sourceCards = document.querySelectorAll('#sourceRow .digit-card');
+        sourceCards.forEach((c, i) => {
+          c.classList.toggle('source-last', i === sourceCards.length - 1);
+        });
+        highlightOp(1);
+        document.getElementById('op1Result').textContent = `${workingN} % 10 = ${lastDigit}`;
+        highlightCode('mod');
+        document.getElementById('narration').innerHTML =
+          `<span class="narration-tag read">Read</span>Last digit of <code>${workingN}</code> is <strong>${lastDigit}</strong>.`;
+        microStep = 1;
+      } else if (microStep === 1) {
+        // Append to rev
+        const lastDigit = workingN % 10;
+        const newRev = rev * 10 + lastDigit;
+        highlightOp(2);
+        document.getElementById('op2Result').textContent = `${rev} * 10 + ${lastDigit} = ${newRev}`;
+        highlightCode('rev');
+        rev = newRev;
+        renderDest(rev, false);
+        // Mark the new digit as fresh
+        const destCards = document.querySelectorAll('#destRow .digit-card');
+        if (destCards.length > 0) {
+          destCards[destCards.length - 1].classList.add('dest-new');
+        }
+        document.getElementById('narration').innerHTML =
+          `<span class="narration-tag append">Append</span>Append <strong>${lastDigit}</strong> to the back of <code>rev</code>: <code>rev = ${rev}</code>.`;
+        microStep = 2;
+      } else if (microStep === 2) {
+        // Drop from source
+        const lastDigit = workingN % 10;
+        const nextN = Math.floor(workingN / 10);
+        highlightOp(3);
+        document.getElementById('op3Result').textContent = `${workingN} / 10 = ${nextN}`;
+        highlightCode('div');
+
+        // Animate drop
+        const sourceCards = document.querySelectorAll('#sourceRow .digit-card');
+        const lastCard = sourceCards[sourceCards.length - 1];
+        if (lastCard) lastCard.classList.add('dropping');
+
+        // Trace
+        const tbody = document.getElementById('traceBody');
+        const row = document.createElement('tr');
+        row.className = 'new';
+        row.innerHTML = `<td>${workingN}</td><td class="digit-col">${lastDigit}</td><td class="rev-col">${rev}</td><td>${nextN}</td>`;
+        tbody.appendChild(row);
+        setTimeout(() => row.classList.remove('new'), 500);
+
+        setTimeout(() => {
+          workingN = nextN;
+          renderSource(workingN, false);
+        }, 450);
+
+        document.getElementById('narration').innerHTML =
+          `<span class="narration-tag drop">Drop</span>Drop last digit: <code>${workingN} / 10 = ${nextN}</code>.`;
+        microStep = 0;
+        iterCount++;
+      }
+      updateStepInfo();
+      return;
+    }
+
+    if (phase === 'restore') {
+      highlightCode('restore');
+      rev = -rev;
+      renderDest(rev, true);
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag neg">Restore</span><code>copy = ${originalN}</code> was negative, so <code>rev = -${Math.abs(rev)} = ${rev}</code>.`;
+      if (currentMode === 'palindrome') {
+        phase = 'palcheck';
+      } else {
+        phase = 'done';
+        finishUp();
+      }
+      updateStepInfo();
+      return;
+    }
+
+    if (phase === 'palcheck') {
+      highlightCode(rev === originalN ? 'check' : 'else');
+      const isPal = rev === originalN;
+      const vb = document.getElementById('verdictBox');
+      vb.style.display = 'block';
+      vb.className = 'verdict-box ' + (isPal ? 'palindrome' : 'not-palindrome');
+      document.getElementById('verdictLabel').textContent = isPal ? '✓ Palindrome' : '✗ Not a palindrome';
+      document.getElementById('verdictText').textContent =
+        isPal ? `${originalN} reads the same backward` : `${originalN} ≠ ${rev}`;
+      document.getElementById('narration').innerHTML =
+        `<span class="narration-tag done">Verdict</span>` +
+        (isPal
+          ? `<code>${rev} == ${originalN}</code> → <strong>true</strong>. It's a palindrome!`
+          : `<code>${rev} != ${originalN}</code> → not a palindrome.`);
+      phase = 'done';
+      finishUp();
+      return;
+    }
+
+    if (phase === 'done') {
+      return;
+    }
+  }
+
+  function finishUp() {
+    document.getElementById('stepBtn').disabled = true;
+    document.getElementById('stepBtn').textContent = '✓ done';
+    document.getElementById('runBtn').disabled = true;
+    clearOps();
+    highlightCode(currentMode === 'reverse' ? 'print' : null);
+
+    if (currentMode === 'reverse') {
+      const vb = document.getElementById('verdictBox');
+      vb.style.display = 'block';
+      vb.className = 'verdict-box';
+      document.getElementById('verdictLabel').textContent = 'Reversed value';
+      document.getElementById('verdictText').textContent = String(rev);
+      // Special note for 2400 → 42
+      if (originalN === 2400) {
+        document.getElementById('narration').innerHTML =
+          `<span class="narration-tag done">Done</span>Reversed = <strong>42</strong>, not <strong>0042</strong>. Integers can't store leading zeros — the trailing zeros of 2400 simply don't survive the reversal.`;
+      } else {
+        document.getElementById('narration').innerHTML =
+          `<span class="narration-tag done">Done</span>Final reversed value: <strong>${rev}</strong>.`;
+      }
+    }
+    // Remove any lingering current markers
+    document.querySelectorAll('.source-last').forEach(el => el.classList.remove('source-last'));
+  }
+
+  function updateStepInfo() {
+    // simplified counter
+    const numDigits = String(Math.abs(originalN)).length;
+    const baseSteps = numDigits * 3;
+    let extraSteps = 1; // init step
+    if (isNegative) extraSteps += 2; // neg-flip + restore
+    if (currentMode === 'palindrome') extraSteps += 1;
+    document.getElementById('stepInfo').textContent = `step ${stepCounter} / ${baseSteps + extraSteps}`;
+  }
+
+  function runAll() {
+    function loop() {
+      if (phase === 'done') return;
+      doNextStep();
+      const delay = (phase === 'loop' && microStep === 0) ? 700 : 400;
+      setTimeout(loop, delay);
+    }
+    loop();
+  }
+
+  document.querySelectorAll('.mode-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      currentMode = el.dataset.mode;
+      stepCounter = 0;
+      loadScenario();
+    });
+  });
+  document.getElementById('stepBtn').addEventListener('click', doNextStep);
+  document.getElementById('runBtn').addEventListener('click', runAll);
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    stepCounter = 0;
+    loadScenario();
+  });
+
+  stepCounter = 0;
+  loadScenario();
+</script>
+</body>
+</html>

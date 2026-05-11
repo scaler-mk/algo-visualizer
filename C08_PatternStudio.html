@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pattern Studio — Change the bounds, change the pattern</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fef3e7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 820px;
+  }
+
+  /* Preset bar */
+  .preset-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 4px;
+  }
+  .preset-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    padding: 8px 13px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-btn:hover { background: #fff8d6; }
+  .preset-btn.active { background: #1a1a1a; color: #ffd95c; }
+  .n-input-group {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .n-input-group label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .n-input-group input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    width: 60px;
+    padding: 6px 10px;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    text-align: center;
+  }
+
+  /* Main stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+  .editor-panel, .output-panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 24px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+  }
+  .panel-subtitle {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: #888;
+    font-size: 13px;
+    margin-top: -8px;
+    margin-bottom: 14px;
+  }
+
+  /* Recipe editor */
+  .recipe-block {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px 18px;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .recipe-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .recipe-line.indent { margin-left: 1.4em; }
+  .recipe-line.indent2 { margin-left: 2.8em; }
+  .recipe-line .kw { color: #ff7b72; }
+  .recipe-line .var { color: #d2a8ff; }
+  .recipe-line .num { color: #ffa657; }
+  .recipe-line .op { color: #ffd95c; }
+  .recipe-line .method { color: #ffd95c; }
+  .recipe-line .str { color: #a5d6ff; }
+  .recipe-line .punct { color: #e6edf3; }
+
+  .editable-input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    background: rgba(255, 217, 92, 0.15);
+    color: #ffd95c;
+    border: 1.5px solid rgba(255, 217, 92, 0.4);
+    border-radius: 4px;
+    padding: 3px 7px;
+    width: 80px;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .editable-input:focus {
+    outline: none;
+    border-color: #ffd95c;
+    background: rgba(255, 217, 92, 0.25);
+    box-shadow: 0 0 0 2px rgba(255, 217, 92, 0.2);
+  }
+  .editable-input.bound { width: 100px; }
+  .editable-input.char { width: 50px; }
+  .editable-input.error {
+    border-color: #ff6b6b;
+    color: #ff9999;
+    background: rgba(255, 107, 107, 0.15);
+  }
+
+  .recipe-hint {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #161b22;
+    border-left: 3px solid #ffd95c;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #aaa;
+    line-height: 1.5;
+  }
+  .recipe-hint code {
+    color: #ffd95c;
+    background: rgba(255, 217, 92, 0.1);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+
+  /* Result */
+  .result-section {
+    background: #f5efe2;
+    border-radius: 8px;
+    padding: 18px;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .result-grid {
+    display: inline-block;
+    background: #fff;
+    border-radius: 6px;
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    line-height: 1.4;
+    white-space: pre;
+    color: #1a1a1a;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .result-grid.error {
+    color: #c41e3a;
+    background: #fff5f5;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 14px;
+  }
+
+  /* Stats below result */
+  .stats-row {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-card {
+    background: #fff;
+    border-radius: 6px;
+    padding: 10px 12px;
+    text-align: center;
+    border: 1.5px solid #e0d8c0;
+  }
+  .stat-card .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 3px;
+  }
+  .stat-card .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    color: #1a1a1a;
+  }
+
+  /* Worked example callout */
+  .example-callout {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #d62828;
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 16px;
+    align-items: center;
+  }
+  .example-callout .num {
+    font-family: 'Fraunces', serif;
+    font-size: 44px;
+    font-weight: 900;
+    font-style: italic;
+    color: #d62828;
+    line-height: 1;
+  }
+  .example-callout .body {
+    font-family: 'Fraunces', serif;
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+  .example-callout .body strong { color: #d62828; }
+  .example-callout .body code {
+    background: #f5efe2;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+</style>
+</head>
+<body>
+  <h1>Pattern <span class="accent">Studio</span></h1>
+  <p class="subtitle">Pick a preset, then tweak the inner loop's <strong>start</strong>, <strong>end</strong>, and <strong>character</strong>. Every legal pattern problem is just a different combination of these three values.</p>
+
+  <div class="preset-bar">
+    <span class="picker-label">Preset:</span>
+    <span class="preset-btn active" data-preset="square">Square</span>
+    <span class="preset-btn" data-preset="staircase">Staircase</span>
+    <span class="preset-btn" data-preset="reverse">Reverse staircase</span>
+    <span class="preset-btn" data-preset="custom">Custom</span>
+    <div class="n-input-group">
+      <label>N =</label>
+      <input type="number" id="nInput" value="5" min="1" max="9">
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="editor-panel">
+      <div class="panel-title">Recipe</div>
+      <div class="panel-subtitle">Edit the highlighted fields to change the pattern. Use <code style="font-family:monospace;background:#f5efe2;padding:1px 4px;border-radius:3px">i</code> in the inner bound to make the row count depend on the outer.</div>
+
+      <div class="recipe-block">
+        <div class="recipe-line">
+          <span class="kw">for</span>
+          <span class="punct">(</span>
+          <span class="kw">int</span>
+          <span class="var">i</span>
+          <span class="op">=</span>
+          <span class="num">1</span>
+          <span class="punct">;</span>
+          <span class="var">i</span>
+          <span class="op">&lt;=</span>
+          <span class="var">N</span>
+          <span class="punct">;</span>
+          <span class="var">i</span><span class="op">++</span>
+          <span class="punct">) {</span>
+        </div>
+        <div class="recipe-line indent">
+          <span class="kw">for</span>
+          <span class="punct">(</span>
+          <span class="kw">int</span>
+          <span class="var">j</span>
+          <span class="op">=</span>
+          <input type="text" class="editable-input" id="jStart" value="1">
+          <span class="punct">;</span>
+          <span class="var">j</span>
+          <span class="op">&lt;=</span>
+          <input type="text" class="editable-input bound" id="jEnd" value="N">
+          <span class="punct">;</span>
+          <span class="var">j</span><span class="op">++</span>
+          <span class="punct">) {</span>
+        </div>
+        <div class="recipe-line indent2">
+          <span class="method">SOP</span>
+          <span class="punct">(</span>
+          <input type="text" class="editable-input char" id="charInput" value="*">
+          <span class="punct">);</span>
+        </div>
+        <div class="recipe-line indent">
+          <span class="punct">}</span>
+        </div>
+        <div class="recipe-line indent">
+          <span class="method">SOPln</span><span class="punct">();</span>
+        </div>
+        <div class="recipe-line">
+          <span class="punct">}</span>
+        </div>
+      </div>
+
+      <div class="recipe-hint">
+        Try: <code>j &lt;= i</code> (staircase), <code>j &lt;= N-i+1</code> (reverse), <code>j &lt;= 2*i-1</code> (odd-row triangle), <code>j &lt;= N</code> (square).
+      </div>
+    </div>
+
+    <div class="output-panel">
+      <div class="panel-title">Result</div>
+      <div class="result-section">
+        <div class="result-grid" id="resultGrid">—</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="lbl">Total chars</div>
+          <div class="val" id="totalChars">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">Lines</div>
+          <div class="val" id="totalLines">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">Iterations</div>
+          <div class="val" id="totalIters">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="example-callout">
+    <div class="num">1</div>
+    <div class="body">
+      <strong>One pattern, one formula.</strong> The trick to every pattern problem: figure out the relationship between <code>i</code> (row number) and how many things go on that row. Make a tiny table — row 1: ?, row 2: ?, row 3: ?. Once you spot the pattern (always something like <code>i</code>, <code>N-i+1</code>, <code>2*i-1</code>, etc.), drop it into the inner loop's bound. The code writes itself.
+    </div>
+  </div>
+
+<script>
+  const PRESETS = {
+    square: { jStart: '1', jEnd: 'N', char: '*' },
+    staircase: { jStart: '1', jEnd: 'i', char: '*' },
+    reverse: { jStart: '1', jEnd: 'N-i+1', char: '*' },
+    custom: { jStart: '1', jEnd: 'N', char: '*' }
+  };
+
+  let currentPreset = 'square';
+
+  function applyPreset(name) {
+    currentPreset = name;
+    document.querySelectorAll('.preset-btn').forEach(el => {
+      el.classList.toggle('active', el.dataset.preset === name);
+    });
+    const p = PRESETS[name];
+    document.getElementById('jStart').value = p.jStart;
+    document.getElementById('jEnd').value = p.jEnd;
+    document.getElementById('charInput').value = p.char;
+    renderPattern();
+  }
+
+  // Safe expression evaluator for j start/end bounds.
+  // Allowed identifiers: N, i. Allowed operators: + - * / ( ) and digits.
+  function safeEval(expr, N, i) {
+    expr = expr.trim();
+    if (!expr) return null;
+    // Validate: only digits, N, i, + - * / ( ) and whitespace
+    if (!/^[\sNi0-9+\-*/()]+$/.test(expr)) return null;
+    try {
+      // Replace identifiers with values
+      const code = expr.replace(/N/g, `(${N})`).replace(/i/g, `(${i})`);
+      // eslint-disable-next-line no-new-func
+      const fn = new Function('return ' + code);
+      const v = fn();
+      if (typeof v !== 'number' || !isFinite(v)) return null;
+      return Math.floor(v);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function renderPattern() {
+    const N = Math.max(1, Math.min(9, parseInt(document.getElementById('nInput').value, 10) || 5));
+    document.getElementById('nInput').value = N;
+
+    const jStartExpr = document.getElementById('jStart').value;
+    const jEndExpr = document.getElementById('jEnd').value;
+    let char = document.getElementById('charInput').value || '*';
+    if (char.length > 1) char = char.charAt(0);
+
+    // Validate inputs
+    const startEl = document.getElementById('jStart');
+    const endEl = document.getElementById('jEnd');
+    startEl.classList.remove('error');
+    endEl.classList.remove('error');
+
+    let result = '';
+    let totalChars = 0;
+    let totalLines = 0;
+    let totalIters = 0;
+    let invalid = false;
+
+    for (let i = 1; i <= N; i++) {
+      const start = safeEval(jStartExpr, N, i);
+      const end = safeEval(jEndExpr, N, i);
+      if (start === null) {
+        startEl.classList.add('error');
+        invalid = true;
+        break;
+      }
+      if (end === null) {
+        endEl.classList.add('error');
+        invalid = true;
+        break;
+      }
+
+      let line = '';
+      for (let j = start; j <= end; j++) {
+        // Safety: cap inner iterations to prevent runaway loops
+        if (j - start > 200) {
+          invalid = true;
+          break;
+        }
+        line += char;
+        totalChars++;
+        totalIters++;
+      }
+      result += line + '\n';
+      totalLines++;
+    }
+
+    const grid = document.getElementById('resultGrid');
+    if (invalid) {
+      grid.classList.add('error');
+      grid.textContent = startEl.classList.contains('error') || endEl.classList.contains('error')
+        ? 'Invalid expression. Use only digits, N, i, and + − × ÷ ( ).'
+        : 'Pattern too large or invalid.';
+    } else {
+      grid.classList.remove('error');
+      grid.textContent = result;
+      document.getElementById('totalChars').textContent = totalChars;
+      document.getElementById('totalLines').textContent = totalLines;
+      document.getElementById('totalIters').textContent = totalIters;
+    }
+  }
+
+  document.querySelectorAll('.preset-btn').forEach(el => {
+    el.addEventListener('click', () => applyPreset(el.dataset.preset));
+  });
+  ['jStart', 'jEnd', 'charInput', 'nInput'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      // If the user edits any field, switch to "custom"
+      if (id !== 'nInput' && currentPreset !== 'custom') {
+        // Check if values still match a preset
+        const cur = {
+          jStart: document.getElementById('jStart').value,
+          jEnd: document.getElementById('jEnd').value,
+          char: document.getElementById('charInput').value
+        };
+        let matched = null;
+        for (const [name, p] of Object.entries(PRESETS)) {
+          if (name === 'custom') continue;
+          if (cur.jStart === p.jStart && cur.jEnd === p.jEnd && cur.char === p.char) {
+            matched = name;
+            break;
+          }
+        }
+        if (!matched) {
+          currentPreset = 'custom';
+          document.querySelectorAll('.preset-btn').forEach(el => {
+            el.classList.toggle('active', el.dataset.preset === 'custom');
+          });
+        }
+      }
+      renderPattern();
+    });
+  });
+
+  // Init
+  applyPreset('square');
+</script>
+</body>
+</html>
