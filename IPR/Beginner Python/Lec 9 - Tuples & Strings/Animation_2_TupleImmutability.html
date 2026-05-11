@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuple Immutability — locked shelf, open box</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 360px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* The "shelf" container */
+  .shelf-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .shelf-label { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 4px; }
+  .shelf { background: var(--panel-2); border: 2px solid var(--accent); border-radius: 6px; padding: 14px; display: flex; align-items: center; gap: 8px; position: relative; transition: all 0.3s; }
+  .shelf.locked::after {
+    content: '🔒'; position: absolute; top: -10px; right: -10px;
+    background: var(--accent); color: #1a1d23; padding: 2px 6px; border-radius: 4px; font-size: 13px;
+  }
+  .shelf.shake { animation: shake 0.45s; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  .bin { min-width: 52px; padding: 10px 6px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; font-family: 'JetBrains Mono', monospace; background: rgba(240,160,75,0.18); border: 2px solid var(--accent); color: var(--accent); position: relative; }
+  .bin.list-bin { background: rgba(192, 132, 232, 0.1); border: 2px dashed var(--purple); padding: 10px 10px; min-width: 140px; }
+  .bin .ix { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--muted); letter-spacing: 0.05em; }
+  .bin.attempt-write { animation: redflash 0.6s; }
+  @keyframes redflash {
+    0%, 100% { background: rgba(240,160,75,0.18); border-color: var(--accent); }
+    40% { background: rgba(229,115,115,0.25); border-color: var(--red); }
+  }
+  .list-contents { display: flex; gap: 4px; align-items: center; }
+  .list-bracket { color: var(--purple); font-size: 14px; }
+  .list-item { padding: 4px 8px; background: rgba(93, 173, 236, 0.18); border: 1.5px solid var(--blue); border-radius: 4px; color: var(--blue); font-size: 12px; font-weight: 600; transition: all 0.3s; }
+  .list-item.new { animation: pop 0.4s; }
+  @keyframes pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+  .op-display { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px; min-height: 44px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .op-display .label { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; }
+  .op-display .val { color: var(--ink); font-weight: 600; }
+  .op-display .val.bad { color: var(--red); }
+  .op-display .val.ok { color: var(--green); }
+  .op-display.pending { opacity: 0.4; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 70px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .purple { color: var(--purple); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Tuple Immutability — the locked shelf, the open box</h1>
+    <p class="sub">A tuple's references are fixed. The objects those references point to may not be.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb warn" data-i="0">Direct assignment (Quiz 1)</button>
+      <button class="qb" data-i="1">List inside tuple — append works</button>
+      <button class="qb warn" data-i="2">Replace the list — fails</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="shelf-wrap">
+            <div class="shelf-label">TUPLE (locked shelf)</div>
+            <div class="shelf locked" id="shelf"></div>
+          </div>
+          <div class="op-display pending" id="opDisplay">
+            <span class="label">OPERATION:</span>
+            <span class="val" id="opVal">—</span>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|tuple|type|append)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+// Helper: bin rendering. Items may be strings (regular) or {type:'list', items:[...]} for nested list bin.
+function renderBin(item, ix, hl) {
+  const ixLabel = `<span class="ix">[${ix}]</span>`;
+  if (typeof item === 'object' && item.type === 'list') {
+    const listHtml = '<div class="list-contents"><span class="list-bracket">[</span>' +
+      item.items.map((v,i) => `<span class="list-item ${item.newIx===i?'new':''}">${v}</span>`).join('<span style="color:var(--muted)">, </span>') +
+      '<span class="list-bracket">]</span></div>';
+    return `<div class="bin list-bin ${hl?'attempt-write':''}">${ixLabel}${listHtml}</div>`;
+  } else {
+    return `<div class="bin ${hl?'attempt-write':''}">${ixLabel}${item}</div>`;
+  }
+}
+
+const SCENARIOS = [
+  {
+    name: "Direct assignment to a tuple slot",
+    sub: "Quiz 1: t = (1, 2, 3); t[0] = 4",
+    code: [
+      't = (1, 2, 3)',
+      't[0] = 4',
+      '# TypeError: \'tuple\' object',
+      '# does not support item assignment'
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Create the tuple. Three bins on the <span class="accent">locked shelf</span>.', bins: ['1','2','3'] },
+      { kind: 'exec-fail', line: 1, msg: 'Try to <span class="bad">replace</span> the bin at index 0 with 4.', bins: ['1','2','3'], shake: true, hlBin: 0, op: { text: 't[0] = 4', bad: true } },
+      { kind: 'exec-fail', line: 2, msg: '<span class="bad">TypeError!</span> The shelf is locked — you can\'t swap a bin.', bins: ['1','2','3'], op: { text: "TypeError: 'tuple' object does not support item assignment", bad: true } }
+    ],
+    insight: 'Tuple slots are <span class="accent">fixed references</span>. <span class="accent">t[i] = x</span> tries to change a reference, which the lock forbids.'
+  },
+  {
+    name: "List inside tuple — append works",
+    sub: "a = (1, 2, 3, ['a', 'b']); a[3].append('c')",
+    code: [
+      "a = (1, 2, 3, ['a', 'b'])",
+      "a[3].append('c')",
+      'print(a)',
+      "# (1, 2, 3, ['a', 'b', 'c'])"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Three numbers and a <span class="purple">list</span>. The list is one bin on the shelf.', bins: ['1','2','3', {type:'list', items:["'a'","'b'"]}] },
+      { kind: 'exec', line: 1, msg: 'We don\'t touch the shelf — we reach <span class="ok">into</span> the list bin and append.', bins: ['1','2','3', {type:'list', items:["'a'","'b'","'c'"], newIx:2}], op: { text: "a[3].append('c')  →  modifies the list IN PLACE", ok: true } },
+      { kind: 'exec-return', line: 2, msg: 'The tuple still points at the <span class="ok">same list object</span> — but the list\'s contents changed.', bins: ['1','2','3', {type:'list', items:["'a'","'b'","'c'"]}], op: { text: "(1, 2, 3, ['a', 'b', 'c'])", ok: true } }
+    ],
+    insight: 'The shelf never changed which bin is in slot 3 — the same list, same address. The contents of that list are a separate story.'
+  },
+  {
+    name: "Try to replace the list reference",
+    sub: "a[3] = ['x'] — still fails, even with a list inside",
+    code: [
+      "a = (1, 2, 3, ['a', 'b'])",
+      "a[3] = ['x']",
+      '# TypeError: \'tuple\' object',
+      '# does not support item assignment'
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Same setup — list at index 3.', bins: ['1','2','3', {type:'list', items:["'a'","'b'"]}] },
+      { kind: 'exec-fail', line: 1, msg: 'Try to <span class="bad">swap</span> the bin for a brand-new list.', bins: ['1','2','3', {type:'list', items:["'a'","'b'"]}], shake: true, hlBin: 3, op: { text: "a[3] = ['x']", bad: true } },
+      { kind: 'exec-fail', line: 2, msg: '<span class="bad">Same TypeError.</span> Reaching INTO the bin is fine; replacing the bin itself isn\'t.', bins: ['1','2','3', {type:'list', items:["'a'","'b'"]}], op: { text: "TypeError: 'tuple' object does not support item assignment", bad: true } }
+    ],
+    insight: 'Mutating the list <span class="accent">inside</span> the bin: ✓. Swapping the bin: ✗. The shelf lock controls references, not the objects those references point at.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  const shelf = document.getElementById('shelf');
+  const bins = cur ? cur.bins : [];
+  if (bins.length === 0) {
+    shelf.innerHTML = '<span style="color:var(--muted);font-style:italic;font-family:Georgia,serif;padding:8px;">— empty —</span>';
+  } else {
+    shelf.innerHTML = bins.map((b, i) => renderBin(b, i, cur && cur.hlBin === i)).join('');
+  }
+  shelf.classList.toggle('shake', !!(cur && cur.shake));
+
+  const opDisp = document.getElementById('opDisplay');
+  const opVal = document.getElementById('opVal');
+  if (cur && cur.op) {
+    opDisp.classList.remove('pending');
+    opVal.textContent = cur.op.text;
+    opVal.classList.toggle('bad', !!cur.op.bad);
+    opVal.classList.toggle('ok', !!cur.op.ok);
+  } else {
+    opDisp.classList.add('pending');
+    opVal.textContent = '—';
+    opVal.classList.remove('bad', 'ok');
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

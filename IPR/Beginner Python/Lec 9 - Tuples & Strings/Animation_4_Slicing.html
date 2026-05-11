@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>String Slicing — the fencepost rule</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.05fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 380px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* The string display with fenceposts */
+  .string-viz { padding: 22px 8px 10px 8px; background: rgba(0,0,0,0.25); border-radius: 6px; overflow-x: auto; }
+  .string-row { display: flex; align-items: center; justify-content: center; gap: 0; min-width: 540px; margin: 0 auto; }
+  .fence { width: 26px; display: flex; flex-direction: column; align-items: center; position: relative; }
+  .fence .pole { width: 2px; height: 36px; background: var(--muted); transition: all 0.3s; }
+  .fence .ix { font-size: 10px; color: var(--muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; transition: all 0.3s; }
+  .fence.start .pole { background: var(--accent); width: 3px; height: 44px; box-shadow: 0 0 8px var(--accent); }
+  .fence.start .ix { color: var(--accent); font-weight: 700; }
+  .fence.stop .pole { background: var(--red); width: 3px; height: 44px; box-shadow: 0 0 8px var(--red); }
+  .fence.stop .ix { color: var(--red); font-weight: 700; }
+  .fence.in-range .pole { background: var(--green); height: 40px; }
+  .fence.in-range .ix { color: var(--green); }
+  .char-cell { width: 36px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--ink); border-radius: 3px; transition: all 0.3s; }
+  .char-cell.captured { background: rgba(163, 217, 119, 0.22); color: var(--green); }
+
+  .result-card { background: rgba(0,0,0,0.3); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .result-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .result-card .val { font-family: 'JetBrains Mono', monospace; font-size: 18px; color: var(--green); font-weight: 700; }
+  .result-card .val.pending { color: var(--muted); opacity: 0.5; }
+  .result-card .calc { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-left: auto; }
+  .result-card .calc .accent-c { color: var(--accent); }
+  .result-card .calc .red-c { color: var(--red); }
+  .result-card .calc .green-c { color: var(--green); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 60px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>String Slicing — fences between characters</h1>
+    <p class="sub">[start : stop] always captures exactly <em>stop − start</em> characters.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">s[0:5]</button>
+      <button class="qb" data-i="1">s[0:6]</button>
+      <button class="qb" data-i="2">s[-3:]</button>
+      <button class="qb" data-i="3">s[::-1]</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">FENCEPOST VIEW</div>
+        <div class="viz-area">
+          <div class="string-viz">
+            <div class="string-row" id="stringRow"></div>
+          </div>
+          <div class="result-card">
+            <span class="lbl">RESULT:</span>
+            <span class="val pending" id="resultVal">—</span>
+            <span class="calc" id="calcText"></span>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+const TEXT = "ScalerAcademy";  // length 13
+
+const SCENARIOS = [
+  {
+    name: "text[0:5] — first 5 characters",
+    sub: "Quiz 4: print(s[0:5]) where s = 'Scaler Academy'",
+    code: [
+      'text = "ScalerAcademy"',
+      'print(text[0:5])',
+      '# Output: Scale',
+      '# (5 - 0 = 5 chars)'
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'The string is 13 characters long. Fences run from <span class="accent">0</span> to <span class="accent">13</span>.', start: null, stop: null, result: null },
+      { kind: 'exec', line: 1, msg: 'Plant the <span class="accent">start fence</span> at index 0 — just before \'S\'.', start: 0, stop: null, result: null },
+      { kind: 'exec', line: 1, msg: 'Plant the <span class="bad">stop fence</span> at index 5 — just before \'r\'.', start: 0, stop: 5, result: null },
+      { kind: 'exec-return', line: 2, msg: 'Capture every character <span class="ok">between</span> the two fences: <span class="ok">5 − 0 = 5</span> chars.', start: 0, stop: 5, result: 'Scale', calc: 'stop − start = <span class="red-c">5</span> − <span class="accent-c">0</span> = <span class="green-c">5 chars</span>' }
+    ],
+    insight: 'Fences sit <span class="accent">between</span> characters. <span class="accent">[0:5]</span> captures the 5 chars sitting between fence 0 and fence 5 — including index 0, but not index 5.'
+  },
+  {
+    name: "text[0:6]",
+    sub: "Same idea, one more character",
+    code: [
+      'text = "ScalerAcademy"',
+      'print(text[0:6])',
+      '# Output: Scaler',
+      '# (6 - 0 = 6 chars)'
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Same string — let\'s shift the stop fence one step right.', start: null, stop: null, result: null },
+      { kind: 'exec', line: 1, msg: 'Start at <span class="accent">0</span>, stop at <span class="bad">6</span>.', start: 0, stop: 6, result: null },
+      { kind: 'exec-return', line: 2, msg: 'Six chars now — the \'r\' is included because the stop fence moved past it.', start: 0, stop: 6, result: 'Scaler', calc: '<span class="red-c">6</span> − <span class="accent-c">0</span> = <span class="green-c">6 chars</span>' }
+    ],
+    insight: 'Bump the stop fence by 1 → one more character. The arithmetic <span class="accent">stop − start</span> always tells you the length.'
+  },
+  {
+    name: "text[-3:] — last 3 characters",
+    sub: "Negative index = count from the right",
+    code: [
+      'text = "ScalerAcademy"',
+      'print(text[-3:])',
+      '# Output: emy',
+      '# (last 3 chars)'
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: '<span class="accent">−3</span> is the same as index <span class="accent">13 − 3 = 10</span>. Stop is omitted, meaning "go to the end."', start: null, stop: null, result: null },
+      { kind: 'exec', line: 1, msg: 'Start fence at <span class="accent">10</span>, stop fence at <span class="bad">13</span> (the end).', start: 10, stop: 13, result: null },
+      { kind: 'exec-return', line: 2, msg: 'Capture the 3 chars after fence 10: <span class="ok">\'e\', \'m\', \'y\'</span>.', start: 10, stop: 13, result: 'emy', calc: '<span class="red-c">13</span> − <span class="accent-c">10</span> = <span class="green-c">3 chars</span>' }
+    ],
+    insight: 'Negative indices wrap from the end. <span class="accent">[-3:]</span> = <span class="accent">[len-3:]</span> = always the last 3 characters, regardless of string length.'
+  },
+  {
+    name: "text[::-1] — full reverse",
+    sub: "Step of -1 walks the string backwards",
+    code: [
+      'text = "ScalerAcademy"',
+      'print(text[::-1])',
+      '# Output: ymedacArelacS',
+      '# Step -1 reverses direction'
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Both start and stop are blank. Step is <span class="accent">−1</span>.', start: null, stop: null, result: null },
+      { kind: 'exec', line: 1, msg: 'A negative step means: <span class="bad">walk right to left</span>. Effective start = last index, stop = past the start.', start: 0, stop: 13, result: null, allCaptured: true },
+      { kind: 'exec-return', line: 2, msg: 'Same characters, reversed order — the slice walked the string backwards one char at a time.', start: 0, stop: 13, result: 'ymedacArelacS', allCaptured: true, calc: 'step = <span class="red-c">−1</span> → reversed' }
+    ],
+    insight: 'The step controls direction and stride. <span class="accent">[::-1]</span> is the universal "give me this reversed" trick — works on strings, lists, and tuples.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Build the fencepost row
+  const row = document.getElementById('stringRow');
+  const n = TEXT.length; // 13
+  let html = '';
+  for (let i = 0; i <= n; i++) {
+    // Fence at index i
+    let fc = 'fence';
+    if (cur) {
+      if (cur.start !== null && cur.start === i) fc += ' start';
+      else if (cur.stop !== null && cur.stop === i) fc += ' stop';
+      else if (cur.start !== null && cur.stop !== null && i > cur.start && i < cur.stop) fc += ' in-range';
+    }
+    html += `<div class="${fc}"><div class="pole"></div><div class="ix">${i}</div></div>`;
+    // Char to the right of fence i (except after last fence)
+    if (i < n) {
+      let cc = 'char-cell';
+      if (cur) {
+        const captured = cur.allCaptured ||
+          (cur.start !== null && cur.stop !== null && i >= cur.start && i < cur.stop);
+        if (captured) cc += ' captured';
+      }
+      html += `<div class="${cc}">${TEXT[i]}</div>`;
+    }
+  }
+  row.innerHTML = html;
+
+  // Result card
+  const resultVal = document.getElementById('resultVal');
+  const calcText = document.getElementById('calcText');
+  if (cur && cur.result) {
+    resultVal.textContent = `"${cur.result}"`;
+    resultVal.classList.remove('pending');
+    calcText.innerHTML = cur.calc || '';
+  } else {
+    resultVal.textContent = '—';
+    resultVal.classList.add('pending');
+    calcText.innerHTML = '';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>join() — the type trap</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 380px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* The list-with-separator visual */
+  .input-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+  .input-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; }
+  .item-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; }
+  .item-bracket { color: var(--purple); font-size: 18px; font-weight: 700; }
+  .item-cell { padding: 6px 12px; border-radius: 4px; font-size: 14px; font-weight: 700; transition: all 0.3s; position: relative; }
+  .item-cell.str-item { background: rgba(212, 165, 116, 0.18); border: 1.5px solid #d4a574; color: #d4a574; }
+  .item-cell.int-item { background: rgba(163, 217, 119, 0.18); border: 1.5px solid var(--green); color: var(--green); }
+  .item-cell.bad-item { background: rgba(229, 115, 115, 0.2); border-color: var(--red); color: var(--red); animation: flash 0.6s; }
+  .item-cell .type-tag { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--muted); letter-spacing: 0.05em; }
+  .item-cell.int-item .type-tag { color: var(--green); }
+  .item-cell.str-item .type-tag { color: #d4a574; }
+  .item-cell.bad-item .type-tag { color: var(--red); font-weight: 700; }
+  @keyframes flash {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  .item-comma { color: var(--muted); font-size: 14px; }
+
+  .sep-display { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .sep-display .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .sep-display .sep-val { padding: 6px 12px; background: rgba(240, 160, 75, 0.18); border: 1.5px solid var(--accent); color: var(--accent); border-radius: 4px; font-weight: 700; font-size: 16px; }
+
+  .output-card { background: var(--panel-2); border-left: 3px solid var(--green); border-radius: 6px; padding: 14px 16px; transition: opacity 0.3s; }
+  .output-card.pending { opacity: 0.3; border-left-color: var(--muted); }
+  .output-card.fail { border-left-color: var(--red); }
+  .output-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .output-val { font-family: 'JetBrains Mono', monospace; font-size: 18px; color: var(--green); font-weight: 700; }
+  .output-val.bad { color: var(--red); font-size: 12.5px; line-height: 1.5; }
+  .output-val .sep-mark { color: var(--accent); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 60px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>join() — every element must be a string</h1>
+    <p class="sub">join() is the opposite of split() — but only if the list contains strings.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">All strings — works</button>
+      <button class="qb warn" data-i="1">Mixed: ints in the list — fails</button>
+      <button class="qb" data-i="2">Fix: map(str, ...)</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="input-card">
+            <div class="lbl">LIST OF ITEMS</div>
+            <div class="item-row" id="itemRow"></div>
+          </div>
+          <div class="sep-display">
+            <span class="lbl">SEPARATOR:</span>
+            <span class="sep-val" id="sepVal">'.'</span>
+          </div>
+          <div class="output-card pending" id="outputCard">
+            <div class="lbl" id="outLbl">RESULT</div>
+            <div class="output-val" id="outputVal">—</div>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|join)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+// Items have form {val: 'Hi', type: 'str'} or {val: 2, type: 'int'}
+const SCENARIOS = [
+  {
+    name: "join() with strings — works",
+    sub: "'.'.join(['Hi', 'there'])",
+    code: [
+      "separator = '.'",
+      "result = separator.join(['Hi', 'there'])",
+      "print(result)",
+      "# Output: 'Hi.there'"
+    ],
+    sep: "'.'",
+    plan: [
+      { kind: 'exec', line: 0, msg: 'The separator is a single dot.', items: [{val:'Hi',type:'str'},{val:'there',type:'str'}] },
+      { kind: 'exec', line: 1, msg: 'Both items in the list are <span class="ok">strings</span> ✓. join() glues them with the separator between.', items: [{val:'Hi',type:'str'},{val:'there',type:'str'}] },
+      { kind: 'exec-return', line: 2, msg: 'Result: <span class="ok">\'Hi.there\'</span> — one string, separator dropped between items.', items: [{val:'Hi',type:'str'},{val:'there',type:'str'}], out: "'Hi<span class=\"sep-mark\">.</span>there'" }
+    ],
+    insight: 'join() never adds the separator at the ends — only <em>between</em> items. For N items, you get exactly N−1 separators.'
+  },
+  {
+    name: "join() with integers — fails",
+    sub: "'.'.join([2, 3]) — TypeError",
+    code: [
+      "result = '.'.join([2, 3])",
+      "# TypeError: sequence item 0:",
+      "# expected str instance, int found"
+    ],
+    sep: "'.'",
+    plan: [
+      { kind: 'exec', line: 0, msg: 'The list contains <span class="bad">integers</span>, not strings.', items: [{val:'2',type:'int'},{val:'3',type:'int'}] },
+      { kind: 'exec-fail', line: 0, msg: 'join() checks the first item — it\'s an <span class="bad">int</span>, not a str. <span class="bad">Python refuses to auto-convert.</span>', items: [{val:'2',type:'int',bad:true},{val:'3',type:'int'}] },
+      { kind: 'exec-fail', line: 1, msg: '<span class="bad">TypeError raised.</span> No silent str(int) — that\'s strong typing in action.', items: [{val:'2',type:'int',bad:true},{val:'3',type:'int'}], out: "TypeError: sequence item 0: expected str instance, int found", outFail: true }
+    ],
+    insight: 'join() is strict: <span class="accent">every</span> element must already be a string. Even one int kills it.'
+  },
+  {
+    name: "Fix it with map(str, ...)",
+    sub: "Convert each int to a string first",
+    code: [
+      "nums = [2, 3]",
+      "result = '.'.join(map(str, nums))",
+      "print(result)",
+      "# Output: '2.3'"
+    ],
+    sep: "'.'",
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Start with the same problematic list of ints.', items: [{val:'2',type:'int'},{val:'3',type:'int'}] },
+      { kind: 'exec', line: 1, msg: '<span class="blue">map(str, nums)</span> wraps each int in <span class="ok">str()</span> — same digits, now string type.', items: [{val:"'2'",type:'str'},{val:"'3'",type:'str'}] },
+      { kind: 'exec', line: 1, msg: 'Now every item is a string ✓. join() proceeds normally.', items: [{val:"'2'",type:'str'},{val:"'3'",type:'str'}] },
+      { kind: 'exec-return', line: 2, msg: 'Result: <span class="ok">\'2.3\'</span>.', items: [{val:"'2'",type:'str'},{val:"'3'",type:'str'}], out: "'2<span class=\"sep-mark\">.</span>3'" }
+    ],
+    insight: 'Two common fixes: <span class="accent">map(str, nums)</span> or a generator <span class="accent">(str(n) for n in nums)</span>. Both convert each element to string first.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Item row
+  const itemRow = document.getElementById('itemRow');
+  if (cur && cur.items) {
+    let html = '<span class="item-bracket">[</span>';
+    cur.items.forEach((it, i) => {
+      const cls = `item-cell ${it.type}-item${it.bad?' bad-item':''}`;
+      const tagText = it.bad ? 'TYPE ERROR HERE' : it.type;
+      // Display: for strings, show 'Hi' with quotes; for ints, just 2
+      const disp = it.type === 'str' && !it.val.startsWith("'") ? `'${it.val}'` : it.val;
+      html += `<span class="${cls}"><span class="type-tag">${tagText}</span>${disp}</span>`;
+      if (i < cur.items.length - 1) html += '<span class="item-comma">,</span>';
+    });
+    html += '<span class="item-bracket">]</span>';
+    itemRow.innerHTML = html;
+  } else {
+    itemRow.innerHTML = '<span style="color:var(--muted);font-style:italic;font-family:Georgia,serif;">— empty —</span>';
+  }
+
+  // Separator
+  document.getElementById('sepVal').textContent = sc.sep;
+
+  // Output
+  const outputCard = document.getElementById('outputCard');
+  const outputVal = document.getElementById('outputVal');
+  const outLbl = document.getElementById('outLbl');
+  if (cur && cur.out) {
+    outputCard.classList.remove('pending');
+    if (cur.outFail) {
+      outputCard.classList.add('fail');
+      outputVal.classList.add('bad');
+      outLbl.textContent = 'ERROR';
+    } else {
+      outputCard.classList.remove('fail');
+      outputVal.classList.remove('bad');
+      outLbl.textContent = 'RESULT (joined string)';
+    }
+    outputVal.innerHTML = cur.out;
+  } else {
+    outputCard.classList.add('pending');
+    outputCard.classList.remove('fail');
+    outputVal.classList.remove('bad');
+    outLbl.textContent = 'RESULT';
+    outputVal.textContent = '—';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Longest Log Entry — single-pass scan</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .auto-btn { background: transparent; color: var(--blue); border: 1px solid var(--blue); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .auto-btn:hover { background: rgba(93, 173, 236, 0.1); }
+  .auto-btn.playing { background: var(--blue); color: #1a1d23; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.05fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-alt { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 460px; display: flex; flex-direction: column; gap: 14px; }
+
+  .lines-list { display: flex; flex-direction: column; gap: 6px; }
+  .lines-list .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .log-line { display: grid; grid-template-columns: 28px 1fr 60px; gap: 8px; align-items: center; padding: 8px 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; transition: all 0.25s; }
+  .log-line.cursor { border-color: var(--accent); background: rgba(240, 160, 75, 0.1); transform: translateX(4px); }
+  .log-line.checked { opacity: 0.55; }
+  .log-line.was-winner { border-left: 3px solid var(--green); }
+  .log-line .ix { color: var(--muted); font-size: 11px; text-align: center; }
+  .log-line.cursor .ix { color: var(--accent); font-weight: 700; }
+  .log-line .txt { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-line .len { text-align: right; color: var(--muted); font-size: 11px; }
+  .log-line.cursor .len { color: var(--accent); font-weight: 700; }
+
+  .tracker { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .tracker-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tracker-row .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; min-width: 110px; }
+  .tracker-row .val { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--green); font-weight: 700; background: rgba(163, 217, 119, 0.1); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--green); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tracker-row .val.empty { color: var(--muted); border-color: var(--line); background: transparent; }
+  .tracker-row .len-tag { color: var(--muted); font-size: 11px; padding: 4px 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
+  .tracker-row .len-tag .v { color: var(--green); font-weight: 700; }
+
+  .check-display { background: rgba(0,0,0,0.25); border-radius: 6px; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; min-height: 38px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .check-display .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
+  .check-display .check-val { color: var(--ink); }
+  .check-display .ok { color: var(--green); font-weight: 700; }
+  .check-display .skip { color: var(--muted); }
+  .check-display.pending { opacity: 0.4; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Longest Log Entry — keep the best seen so far</h1>
+    <p class="sub">A classic running-max pattern, applied to string length.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIO:</span>
+      <button class="qb active" data-i="0">Four log lines</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="auto-btn" id="autoBtn">▶ Auto-play</button>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="lines-list">
+            <div class="lbl">LOG LINES</div>
+            <div id="logRows"></div>
+          </div>
+          <div class="tracker">
+            <div class="tracker-row">
+              <span class="lbl">longest_line:</span>
+              <span class="val empty" id="longestVal">""</span>
+              <span class="len-tag">len = <span class="v" id="longestLen">0</span></span>
+            </div>
+          </div>
+          <div class="check-display pending" id="checkDisplay">
+            <span class="lbl">CHECK:</span>
+            <span class="check-val" id="checkVal">—</span>
+          </div>
+          <div class="commentary" id="commentary">Click <strong>Step ▸</strong> to begin.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+const LINES = [
+  "DevOps is awesome.",
+  "Error: Disk not found.",
+  "Server started successfully at 10:05 AM.",
+  "OK"
+];
+
+// Build the plan: initialize, then for each line: visit, check, decide, then final print.
+function buildPlan() {
+  const plan = [];
+  plan.push({
+    kind: 'exec', line: 1, msg: 'Initialize <span class="accent">longest_line</span> to the empty string. Its length is 0.',
+    cursor: null, longest: '', checked: []
+  });
+  let longest = '';
+  for (let i = 0; i < LINES.length; i++) {
+    const line = LINES[i];
+    const lineLen = line.length;
+    const longestLen = longest.length;
+    const won = lineLen > longestLen;
+    plan.push({
+      kind: 'exec', line: 4, msg: `Visit line <span class="accent">[${i}]</span>: "${line.length > 30 ? line.slice(0,28)+'…' : line}".`,
+      cursor: i, longest: longest, checked: Array.from({length:i}, (_,k)=>k)
+    });
+    plan.push({
+      kind: 'exec', line: 5, msg: `Compare: <span class="accent">len(line) = ${lineLen}</span> vs <span class="ok">len(longest_line) = ${longestLen}</span>.`,
+      cursor: i, longest: longest, checked: Array.from({length:i}, (_,k)=>k),
+      check: { lineLen, longestLen, won }
+    });
+    if (won) {
+      plan.push({
+        kind: 'exec', line: 6, msg: `${lineLen} &gt; ${longestLen} → <span class="ok">update</span>. This line is the new longest.`,
+        cursor: i, longest: line, checked: Array.from({length:i}, (_,k)=>k),
+        check: { lineLen, longestLen, won }, justUpdated: true
+      });
+      longest = line;
+    } else {
+      plan.push({
+        kind: 'exec-alt', line: 5, msg: `${lineLen} ≤ ${longestLen} → <span class="blue">skip</span>. Current champ stays.`,
+        cursor: i, longest: longest, checked: Array.from({length:i}, (_,k)=>k),
+        check: { lineLen, longestLen, won }
+      });
+    }
+  }
+  plan.push({
+    kind: 'exec-return', line: 9, msg: `Loop done. Print the winner: <span class="ok">"${longest}"</span>.`,
+    cursor: null, longest: longest, checked: Array.from({length:LINES.length}, (_,k)=>k),
+    finished: true
+  });
+  return plan;
+}
+
+const SCENARIO = {
+  name: "Four log lines — find the longest",
+  sub: "lines = [\"DevOps is awesome.\", \"Error: Disk not found.\", …]",
+  code: [
+    "lines = [...]",
+    "",
+    "# Track the longest seen so far",
+    "longest_line = \"\"",
+    "",
+    "for line in lines:",
+    "    if len(line) > len(longest_line):",
+    "        longest_line = line",
+    "",
+    "print(longest_line)"
+  ],
+  insight: 'Classic <span class="accent">running-best</span> pattern: one variable holds the best seen so far, one pass updates it whenever something better shows up. O(N) time, O(1) extra space.',
+  plan: buildPlan()
+};
+
+let stepIdx = 0;
+let autoTimer = null;
+
+function render() {
+  const sc = SCENARIO;
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-alt') cls += ' exec-alt';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Log rows
+  const logRows = document.getElementById('logRows');
+  logRows.innerHTML = LINES.map((line, i) => {
+    let cls = 'log-line';
+    if (cur && cur.cursor === i) cls += ' cursor';
+    else if (cur && cur.checked && cur.checked.includes(i)) cls += ' checked';
+    if (cur && cur.longest === line && cur.checked && cur.checked.includes(i)) cls += ' was-winner';
+    return `<div class="${cls}"><span class="ix">[${i}]</span><span class="txt">${line}</span><span class="len">len=${line.length}</span></div>`;
+  }).join('');
+
+  // Tracker
+  const longestVal = document.getElementById('longestVal');
+  const longestLen = document.getElementById('longestLen');
+  if (cur) {
+    if (cur.longest === '') {
+      longestVal.textContent = '""';
+      longestVal.classList.add('empty');
+    } else {
+      longestVal.textContent = `"${cur.longest}"`;
+      longestVal.classList.remove('empty');
+    }
+    longestLen.textContent = cur.longest.length;
+  } else {
+    longestVal.textContent = '""';
+    longestVal.classList.add('empty');
+    longestLen.textContent = '0';
+  }
+
+  // Check display
+  const checkDisp = document.getElementById('checkDisplay');
+  const checkVal = document.getElementById('checkVal');
+  if (cur && cur.check) {
+    checkDisp.classList.remove('pending');
+    const symbol = cur.check.won ? '&gt;' : '≤';
+    const verdict = cur.check.won ? '<span class="ok">UPDATE</span>' : '<span class="skip">SKIP</span>';
+    checkVal.innerHTML = `len(line) = <strong>${cur.check.lineLen}</strong> ${symbol} len(longest_line) = <strong>${cur.check.longestLen}</strong>  →  ${verdict}`;
+  } else {
+    checkDisp.classList.add('pending');
+    checkVal.textContent = '—';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset() {
+  stopAuto();
+  stepIdx = 0;
+  render();
+}
+
+function stopAuto() {
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    document.getElementById('autoBtn').classList.remove('playing');
+    document.getElementById('autoBtn').textContent = '▶ Auto-play';
+  }
+}
+
+function startAuto() {
+  document.getElementById('autoBtn').classList.add('playing');
+  document.getElementById('autoBtn').textContent = '⏸ Pause';
+  autoTimer = setInterval(() => {
+    if (stepIdx < SCENARIO.plan.length) {
+      stepIdx++;
+      render();
+    } else {
+      stopAuto();
+    }
+  }, 1200);
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  stopAuto();
+  if (stepIdx < SCENARIO.plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('autoBtn').addEventListener('click', () => {
+  if (autoTimer) stopAuto();
+  else startAuto();
+});
+
+reset();
+</script>
+</body>
+</html>

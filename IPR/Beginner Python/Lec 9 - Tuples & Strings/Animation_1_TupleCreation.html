@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuple Creation — the comma is the tuple</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 320px; display: flex; flex-direction: column; gap: 14px; }
+  .viz-title { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+
+  .expr-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+  .expr-label { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 8px; }
+  .expr-text { font-family: 'JetBrains Mono', monospace; font-size: 16px; color: var(--ink); letter-spacing: 0.5px; }
+  .expr-text .paren { color: var(--muted); }
+  .expr-text .comma { color: var(--red); font-weight: 700; transition: all 0.3s; }
+  .expr-text .comma.glow { text-shadow: 0 0 8px var(--red); }
+  .expr-text .item { color: var(--accent); }
+  .expr-text .empty-marker { color: var(--muted); font-style: italic; }
+
+  .container-viz { display: flex; align-items: center; justify-content: center; min-height: 110px; gap: 8px; padding: 14px; background: rgba(0,0,0,0.2); border-radius: 6px; }
+  .bin { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bin-label { font-size: 9px; color: var(--muted); letter-spacing: 0.05em; }
+  .bin-cell { width: 56px; height: 56px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; font-family: 'JetBrains Mono', monospace; background: rgba(240,160,75,0.15); border: 2px solid var(--accent); color: var(--accent); transition: all 0.3s; }
+  .bin-cell.enter { animation: pop 0.4s ease-out; }
+  @keyframes pop { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .container-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 13px; }
+
+  .type-display { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px; min-height: 44px; display: flex; align-items: center; gap: 10px; }
+  .type-display .label { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; }
+  .type-display .val { color: var(--green); font-weight: 600; }
+  .type-display .val.bad { color: var(--red); }
+  .type-display.pending { opacity: 0.4; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 70px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Tuple Creation — the comma is what makes a tuple</h1>
+    <p class="sub">It's not the parentheses, it's the comma.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">Multi-element</button>
+      <button class="qb" data-i="1">Single element (with comma)</button>
+      <button class="qb warn" data-i="2">No comma — NOT a tuple</button>
+      <button class="qb" data-i="3">Empty tuple</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="expr-card">
+            <div class="expr-label">EXPRESSION</div>
+            <div class="expr-text" id="exprText">—</div>
+          </div>
+          <div>
+            <div class="viz-title">CONTAINER CONTENTS</div>
+            <div class="container-viz" id="containerViz">
+              <span class="container-empty">— nothing yet —</span>
+            </div>
+          </div>
+          <div class="type-display pending" id="typeDisplay">
+            <span class="label">type():</span>
+            <span class="val" id="typeVal">—</span>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|tuple|type)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+const SCENARIOS = [
+  {
+    name: "Multi-element tuple",
+    sub: "(1, 2, 3, 4) — the canonical case",
+    code: [
+      'a = (1, 2, 3, 4)',
+      'print(type(a))',
+      '# Output: <class \'tuple\'>'
+    ],
+    expr: { html: '<span class="paren">(</span><span class="item">1</span><span class="comma">,</span> <span class="item">2</span><span class="comma">,</span> <span class="item">3</span><span class="comma">,</span> <span class="item">4</span><span class="paren">)</span>' },
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Python sees <span class="accent">parentheses</span> with <span class="bad">commas</span> inside — that\'s the tuple-maker.', items: [] },
+      { kind: 'fill', line: 0, msg: 'Four values get packed in, one bin per item.', items: ['1','2','3','4'] },
+      { kind: 'exec-return', line: 1, msg: 'type() asks: "what kind of container is this?"', items: ['1','2','3','4'], type: 'tuple' }
+    ],
+    insight: 'Multi-element case is unambiguous — commas everywhere tell Python "tuple."'
+  },
+  {
+    name: "Single-element tuple",
+    sub: "(1,) — the trailing comma is mandatory",
+    code: [
+      'b = (1,)',
+      'print(type(b))',
+      '# Output: <class \'tuple\'>'
+    ],
+    expr: { html: '<span class="paren">(</span><span class="item">1</span><span class="comma glow">,</span><span class="paren">)</span>' },
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Only one value — but the <span class="bad">trailing comma</span> is the giveaway.', items: [] },
+      { kind: 'fill', line: 0, msg: 'Single bin packed in, comma anchors it as a tuple.', items: ['1'] },
+      { kind: 'exec-return', line: 1, msg: 'Without that comma, this would be just the integer <span class="ok">1</span>.', items: ['1'], type: 'tuple' }
+    ],
+    insight: 'The comma — not the parens — is what creates a tuple. <span class="accent">(1,)</span> is a tuple of one; <span class="accent">(1)</span> is just the number 1 in grouping parens.'
+  },
+  {
+    name: "No comma — just grouping parens",
+    sub: "t = (a)  ← Quiz 2 — this is NOT a tuple",
+    code: [
+      'a = 23',
+      't = (a)',
+      'print(type(t))',
+      '# Output: <class \'int\'>'
+    ],
+    expr: { html: '<span class="paren">(</span><span class="item">23</span><span class="paren">)</span>' },
+    plan: [
+      { kind: 'exec', line: 0, msg: 'a is the integer <span class="ok">23</span>.', items: [] },
+      { kind: 'exec-fail', line: 1, msg: 'No comma inside! Python reads (a) as <span class="bad">grouping</span>, like math parentheses.', items: [] },
+      { kind: 'exec-return', line: 2, msg: 't is just <span class="ok">23</span> — an int, not a tuple. The parens did nothing.', items: ['23'], type: 'int', wrong: true }
+    ],
+    insight: 'To force a single-element tuple, use the comma: <span class="accent">t = (a,)</span>. Without it, parens are just grouping.'
+  },
+  {
+    name: "Empty tuple",
+    sub: "() — the one case where () means tuple without a comma",
+    code: [
+      'd = ()',
+      'print(type(d))',
+      '# Output: <class \'tuple\'>'
+    ],
+    expr: { html: '<span class="paren">(</span><span class="empty-marker">empty</span><span class="paren">)</span>' },
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Nothing inside the parens at all.', items: [] },
+      { kind: 'exec-return', line: 1, msg: 'Empty parens are a special case — they always mean empty tuple.', items: [], type: 'tuple' }
+    ],
+    insight: 'Empty parens <span class="accent">()</span> = empty tuple. This is the only case where parens-without-comma still produce a tuple.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  // Code box
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Expression card
+  document.getElementById('exprText').innerHTML = sc.expr.html;
+
+  // Container viz
+  const containerViz = document.getElementById('containerViz');
+  const items = cur ? (cur.items || []) : [];
+  if (items.length === 0) {
+    containerViz.innerHTML = '<span class="container-empty">— empty —</span>';
+  } else {
+    containerViz.innerHTML = items.map((v, i) =>
+      `<div class="bin"><div class="bin-label">[${i}]</div><div class="bin-cell enter">${v}</div></div>`
+    ).join('');
+  }
+
+  // Type display
+  const typeDisp = document.getElementById('typeDisplay');
+  const typeVal = document.getElementById('typeVal');
+  if (cur && cur.type) {
+    typeDisp.classList.remove('pending');
+    typeVal.textContent = `<class '${cur.type}'>`;
+    typeVal.classList.toggle('bad', !!cur.wrong);
+  } else {
+    typeDisp.classList.add('pending');
+    typeVal.textContent = '—';
+    typeVal.classList.remove('bad');
+  }
+
+  // Commentary
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  // Insight
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

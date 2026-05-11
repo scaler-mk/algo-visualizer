@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>String Methods — a tour</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 380px; display: flex; flex-direction: column; gap: 14px; }
+
+  .string-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+  .string-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .string-card.before { border-left: 3px solid var(--muted); }
+  .string-card.after { border-left: 3px solid var(--green); }
+  .string-card.after.pending { opacity: 0.3; }
+  .char-row { display: flex; flex-wrap: wrap; gap: 2px; font-family: 'JetBrains Mono', monospace; font-size: 17px; padding: 2px 0; }
+  .char-row .ch { padding: 4px 6px; border-radius: 4px; transition: all 0.3s; min-width: 22px; text-align: center; }
+  .char-row .ch.space { color: var(--muted); }
+  .char-row .ch.changed { background: rgba(163, 217, 119, 0.22); color: var(--green); font-weight: 700; }
+  .char-row .ch.cap { background: rgba(240, 160, 75, 0.22); color: var(--accent); font-weight: 700; }
+  .char-row .ch.match { background: rgba(229, 115, 115, 0.22); color: var(--red); font-weight: 700; }
+  .char-row .ch.matched-new { background: rgba(93, 173, 236, 0.22); color: var(--blue); font-weight: 700; }
+  .char-row .ch.split-sep { background: rgba(229, 115, 115, 0.18); color: var(--red); font-weight: 700; }
+
+  .method-display { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+  .method-display .arrow { color: var(--accent); }
+  .method-display .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .method-display .method-name { color: var(--blue); font-weight: 700; }
+
+  .split-result { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .split-result .bracket { color: var(--purple); font-size: 18px; font-weight: 700; }
+  .split-result .item { padding: 6px 10px; background: rgba(93, 173, 236, 0.18); border: 1.5px solid var(--blue); border-radius: 4px; color: var(--blue); font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; }
+  .split-result .comma { color: var(--muted); }
+
+  .count-bubble { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 38px; border-radius: 50%; background: rgba(163, 217, 119, 0.18); border: 2px solid var(--green); color: var(--green); font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; margin-left: 12px; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 60px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>String Methods — six common operations</h1>
+    <p class="sub">Strings are immutable, so every method returns a <em>new</em> string.</p>
+
+    <div class="controls">
+      <span class="ctl-label">METHOD:</span>
+      <button class="qb" data-i="0">capitalize()</button>
+      <button class="qb" data-i="1">title()</button>
+      <button class="qb" data-i="2">count()</button>
+      <button class="qb" data-i="3">replace()</button>
+      <button class="qb" data-i="4">split()</button>
+      <button class="qb" data-i="5">upper()</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="string-card before">
+            <div class="lbl">INPUT</div>
+            <div class="char-row" id="beforeRow"></div>
+          </div>
+          <div class="method-display">
+            <span class="lbl">METHOD CALL:</span>
+            <span id="methodCall">—</span>
+          </div>
+          <div class="string-card after pending" id="afterCard">
+            <div class="lbl" id="outLbl">OUTPUT</div>
+            <div id="afterContent">—</div>
+          </div>
+          <div class="commentary" id="commentary">Pick a method, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+// Helper: render a row of characters with optional class per index
+function renderCharRow(text, classFn) {
+  return text.split('').map((c, i) => {
+    let cls = 'ch';
+    if (c === ' ') cls += ' space';
+    const extra = classFn ? classFn(c, i) : '';
+    if (extra) cls += ' ' + extra;
+    const disp = c === ' ' ? '·' : c;
+    return `<span class="${cls}">${disp}</span>`;
+  }).join('');
+}
+
+const SCENARIOS = [
+  {
+    name: "capitalize() — first letter up, rest down",
+    sub: "'john doe'.capitalize() → 'John doe'",
+    code: [
+      "'john doe'.capitalize()",
+      "# Output: 'John doe'"
+    ],
+    inputText: 'john doe',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Input is all lowercase.', methodCall: "'john doe'.capitalize()" },
+      { kind: 'exec', line: 0, msg: 'capitalize() uppercases the <span class="accent">first character</span>, lowercases the rest.', methodCall: "'john doe'.capitalize()", hl: [0] },
+      { kind: 'exec-return', line: 1, msg: 'Only one letter changed: lowercase j → uppercase <span class="ok">J</span>.', methodCall: "'john doe'.capitalize()", out: 'John doe', changed: [0] }
+    ],
+    insight: '<span class="accent">capitalize()</span> only touches the first character. Later words stay lowercase even if you typed them uppercase.'
+  },
+  {
+    name: "title() — capitalize every word",
+    sub: "'sneha sudam'.title() → 'Sneha Sudam'",
+    code: [
+      "'sneha sudam'.title()",
+      "# Output: 'Sneha Sudam'"
+    ],
+    inputText: 'sneha sudam',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Two words, both lowercase.', methodCall: "'sneha sudam'.title()" },
+      { kind: 'exec', line: 0, msg: 'title() finds the <span class="accent">first letter of each word</span> and capitalizes it.', methodCall: "'sneha sudam'.title()", hl: [0, 6] },
+      { kind: 'exec-return', line: 1, msg: 'Two letters changed: <span class="ok">S</span> and <span class="ok">S</span>. The rest stays as-is.', methodCall: "'sneha sudam'.title()", out: 'Sneha Sudam', changed: [0, 6] }
+    ],
+    insight: '<span class="accent">title()</span> works on each word independently. Words are separated by spaces (and other non-letter characters).'
+  },
+  {
+    name: "count(substring) — how many occurrences",
+    sub: "'pooja makhija'.count('ja') → 2",
+    code: [
+      "'pooja makhija'.count('ja')",
+      "# Output: 2"
+    ],
+    inputText: 'pooja makhija',
+    needle: 'ja',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Scan the string looking for the substring <span class="bad">\'ja\'</span>.', methodCall: "'pooja makhija'.count('ja')" },
+      { kind: 'exec', line: 0, msg: 'First match found at index <span class="ok">3–4</span>.', methodCall: "'pooja makhija'.count('ja')", matchIndices: [3, 4] },
+      { kind: 'exec', line: 0, msg: 'Second match found at index <span class="ok">11–12</span>.', methodCall: "'pooja makhija'.count('ja')", matchIndices: [3, 4, 11, 12] },
+      { kind: 'exec-return', line: 1, msg: 'Two non-overlapping matches → count = <span class="ok">2</span>.', methodCall: "'pooja makhija'.count('ja')", matchIndices: [3, 4, 11, 12], countResult: 2 }
+    ],
+    insight: '<span class="accent">count()</span> walks left-to-right, counting <em>non-overlapping</em> matches. count(\'aa\') in \'aaaa\' returns 2, not 3.'
+  },
+  {
+    name: "replace(old, new) — substitute every match",
+    sub: "'Vicky Sharma'.replace('a', 'e') → 'Vicky Sherme'",
+    code: [
+      "'Vicky Sharma'.replace('a', 'e')",
+      "# Output: 'Vicky Sherme'"
+    ],
+    inputText: 'Vicky Sharma',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Look at every <span class="bad">\'a\'</span> in the original string.', methodCall: "'Vicky Sharma'.replace('a', 'e')" },
+      { kind: 'exec', line: 0, msg: 'Two matches at indices <span class="ok">8</span> and <span class="ok">11</span>.', methodCall: "'Vicky Sharma'.replace('a', 'e')", matchIndices: [8, 11] },
+      { kind: 'exec-return', line: 1, msg: 'Each \'a\' becomes <span class="ok">\'e\'</span>. Original untouched — a <em>new</em> string is returned.', methodCall: "'Vicky Sharma'.replace('a', 'e')", out: 'Vicky Sherme', changed: [8, 11] }
+    ],
+    insight: 'By default, <span class="accent">replace()</span> swaps <em>every</em> occurrence. Pass a third argument — <span class="accent">replace(\'a\', \'e\', 1)</span> — to limit how many.'
+  },
+  {
+    name: "split(separator) — break apart by separator",
+    sub: "'Aakar, Saurav, Kusum'.split(',')",
+    code: [
+      "a = 'Aakar, Saurav, Kusum'",
+      "print(a.split(','))",
+      "# ['Aakar', ' Saurav', ' Kusum']"
+    ],
+    inputText: 'Aakar, Saurav, Kusum',
+    plan: [
+      { kind: 'exec', line: 1, msg: 'The separator is <span class="bad">\',\'</span> — every comma is a cut point.', methodCall: "a.split(',')" },
+      { kind: 'exec', line: 1, msg: 'Two commas, two cuts, three pieces.', methodCall: "a.split(',')", sepIndices: [5, 13] },
+      { kind: 'exec-return', line: 2, msg: 'Result is a <span class="blue">list of strings</span>. The cuts vanish; spaces stick to the next piece.', methodCall: "a.split(',')", sepIndices: [5, 13], splitOut: ['Aakar', ' Saurav', ' Kusum'] }
+    ],
+    insight: '<span class="accent">split()</span> returns a <em>list</em>, not a tuple. The separator characters disappear from the result.'
+  },
+  {
+    name: "upper() — every letter uppercase",
+    sub: "'ThisIsAString'.upper() → 'THISISASTRING'",
+    code: [
+      "a = 'ThisIsAString'",
+      "result = a.upper()",
+      "print(result)",
+      "# Output: 'THISISASTRING'"
+    ],
+    inputText: 'ThisIsAString',
+    plan: [
+      { kind: 'exec', line: 1, msg: 'Walk every character.', methodCall: "a.upper()" },
+      { kind: 'exec', line: 1, msg: 'Each <em>letter</em> gets uppercased. Already-uppercase letters and non-letters stay put.', methodCall: "a.upper()", hl: [1,2,3,5,8,9,10,11,12] },
+      { kind: 'exec-return', line: 2, msg: 'New uppercase string returned; original is unchanged.', methodCall: "a.upper()", out: 'THISISASTRING', changed: [1,2,3,5,8,9,10,11,12] }
+    ],
+    insight: 'Mirror methods: <span class="accent">upper()</span> and <span class="accent">lower()</span>. Both return brand-new strings. The original is immutable.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Before row
+  const hlSet = new Set(cur && cur.hl ? cur.hl : []);
+  const matchSet = new Set(cur && cur.matchIndices ? cur.matchIndices : []);
+  const sepSet = new Set(cur && cur.sepIndices ? cur.sepIndices : []);
+  document.getElementById('beforeRow').innerHTML = renderCharRow(sc.inputText, (c, i) => {
+    if (sepSet.has(i)) return 'split-sep';
+    if (matchSet.has(i)) return 'match';
+    if (hlSet.has(i)) return 'cap';
+    return '';
+  });
+
+  // Method call
+  document.getElementById('methodCall').innerHTML = cur && cur.methodCall ? `<span class="method-name">${cur.methodCall}</span>` : '—';
+
+  // After / output card
+  const afterCard = document.getElementById('afterCard');
+  const afterContent = document.getElementById('afterContent');
+  const outLbl = document.getElementById('outLbl');
+  if (cur && cur.out) {
+    afterCard.classList.remove('pending');
+    outLbl.textContent = 'OUTPUT (new string)';
+    const changedSet = new Set(cur.changed || []);
+    afterContent.innerHTML = `<div class="char-row">${renderCharRow(cur.out, (c, i) => changedSet.has(i) ? 'changed' : '')}</div>`;
+  } else if (cur && cur.countResult !== undefined) {
+    afterCard.classList.remove('pending');
+    outLbl.textContent = 'OUTPUT (count)';
+    afterContent.innerHTML = `<div style="display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--muted);">matches found <span class="count-bubble">${cur.countResult}</span></div>`;
+  } else if (cur && cur.splitOut) {
+    afterCard.classList.remove('pending');
+    outLbl.textContent = 'OUTPUT (list)';
+    afterContent.innerHTML = `<div class="split-result"><span class="bracket">[</span>` +
+      cur.splitOut.map((s, i) =>
+        `<span class="item">'${s.replace(/ /g, '·')}'</span>` + (i < cur.splitOut.length - 1 ? '<span class="comma">,</span>' : '')
+      ).join('') +
+      `<span class="bracket">]</span></div>`;
+  } else {
+    afterCard.classList.add('pending');
+    outLbl.textContent = 'OUTPUT';
+    afterContent.textContent = '—';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

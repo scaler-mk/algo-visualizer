@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ASCII — ord and chr</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 380px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* The big char↔num bridge */
+  .bridge { display: flex; align-items: center; justify-content: center; gap: 20px; min-height: 130px; padding: 18px 14px; background: rgba(0,0,0,0.25); border-radius: 6px; }
+  .bridge-side { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 110px; }
+  .bridge-side .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .bridge-cell { width: 92px; height: 92px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700; font-family: 'JetBrains Mono', monospace; transition: all 0.35s; }
+  .bridge-cell.char { background: rgba(240,160,75,0.15); border: 2px solid var(--accent); color: var(--accent); }
+  .bridge-cell.num-cell { background: rgba(163, 217, 119, 0.15); border: 2px solid var(--green); color: var(--green); font-size: 32px; }
+  .bridge-cell.pending { opacity: 0.25; }
+  .bridge-cell.active { box-shadow: 0 0 0 4px rgba(240,160,75,0.25); }
+  .bridge-cell.num-cell.active { box-shadow: 0 0 0 4px rgba(163, 217, 119, 0.25); }
+  .arrow { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .arrow-fn { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--blue); font-weight: 700; padding: 4px 10px; border-radius: 4px; background: rgba(93,173,236,0.1); }
+  .arrow-line { font-size: 26px; color: var(--muted); transition: color 0.3s; }
+  .arrow-line.active { color: var(--accent); }
+  .arrow.reverse .arrow-line::after { content: '←'; }
+  .arrow.forward .arrow-line::after { content: '→'; }
+
+  /* Reference strip showing ASCII ranges */
+  .ascii-strip { background: rgba(0,0,0,0.2); border-radius: 6px; padding: 10px 14px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; font-size: 11px; }
+  .strip-item { color: var(--muted); }
+  .strip-item .range { color: var(--ink); font-family: 'JetBrains Mono', monospace; }
+  .strip-item.hl { color: var(--accent); }
+  .strip-item.hl .range { color: var(--accent); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 60px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ASCII — ord() and chr() are translators</h1>
+    <p class="sub">Every character has a number; every number (in the standard range) names a character.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">ord('A') — letter to number</button>
+      <button class="qb" data-i="1">ord('0') vs ord('9') — digits</button>
+      <button class="qb" data-i="2">chr(33), chr(100) — number to char</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="bridge">
+            <div class="bridge-side">
+              <div class="lbl">CHARACTER</div>
+              <div class="bridge-cell char pending" id="charCell">—</div>
+            </div>
+            <div class="arrow" id="arrow">
+              <div class="arrow-fn" id="arrowFn">ord / chr</div>
+              <div class="arrow-line" id="arrowLine">↔</div>
+            </div>
+            <div class="bridge-side">
+              <div class="lbl">ASCII VALUE</div>
+              <div class="bridge-cell num-cell pending" id="numCell">—</div>
+            </div>
+          </div>
+          <div class="ascii-strip" id="asciiStrip">
+            <div class="strip-item" data-range="upper"><span class="range">A–Z</span>: 65 to 90</div>
+            <div class="strip-item" data-range="lower"><span class="range">a–z</span>: 97 to 122</div>
+            <div class="strip-item" data-range="digit"><span class="range">0–9</span>: 48 to 57</div>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|ord|chr)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+const SCENARIOS = [
+  {
+    name: "ord('A') — letter to number",
+    sub: "Map an uppercase letter to its ASCII code",
+    code: [
+      "print(ord('A'))",
+      "# Output: 65"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Start with the character <span class="accent">\'A\'</span>.', char: 'A', num: null, hlRange: 'upper', dir: 'forward' },
+      { kind: 'exec', line: 0, msg: '<span class="blue">ord()</span> looks up the ASCII code for that character.', char: 'A', num: '?', hlRange: 'upper', dir: 'forward', arrowActive: true },
+      { kind: 'exec-return', line: 1, msg: '\'A\' is in the <span class="accent">A–Z range</span>, which starts at <span class="ok">65</span>.', char: 'A', num: '65', hlRange: 'upper', dir: 'forward' }
+    ],
+    insight: '<span class="accent">ord()</span> takes a one-char string and returns its ASCII number. Uppercase letters live at <span class="accent">65–90</span>, in alphabetical order.'
+  },
+  {
+    name: "ord('0') and ord('9')",
+    sub: "Digit characters are different from integer values",
+    code: [
+      "print(ord('0'))",
+      "# Output: 48",
+      "print(ord('9'))",
+      "# Output: 57"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Character <span class="accent">\'0\'</span> — the digit, in a string. Not the number 0.', char: "'0'", num: null, hlRange: 'digit', dir: 'forward' },
+      { kind: 'exec-return', line: 1, msg: 'ord(\'0\') is <span class="ok">48</span>, the start of the digit range.', char: "'0'", num: '48', hlRange: 'digit', dir: 'forward', arrowActive: true },
+      { kind: 'exec', line: 2, msg: 'Now <span class="accent">\'9\'</span> — last digit.', char: "'9'", num: null, hlRange: 'digit', dir: 'forward' },
+      { kind: 'exec-return', line: 3, msg: '<span class="ok">57</span> — digits sit 48 through 57, exactly 10 codes.', char: "'9'", num: '57', hlRange: 'digit', dir: 'forward' }
+    ],
+    insight: 'Digit characters \'0\'–\'9\' are <span class="accent">48</span> through <span class="accent">57</span>. To get the integer 5 from \'5\', subtract: <span class="accent">ord(\'5\') - ord(\'0\') = 5</span>.'
+  },
+  {
+    name: "chr() — number to character",
+    sub: "The reverse direction",
+    code: [
+      "print(chr(33))",
+      "# Output: !",
+      "print(chr(100))",
+      "# Output: d"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Start with the number <span class="ok">33</span>.', char: null, num: '33', dir: 'reverse', arrowActive: true },
+      { kind: 'exec-return', line: 1, msg: '<span class="blue">chr(33)</span> = <span class="accent">\'!\'</span>. Number 33 names the exclamation mark.', char: '!', num: '33', dir: 'reverse' },
+      { kind: 'exec', line: 2, msg: 'Now the number <span class="ok">100</span>.', char: null, num: '100', hlRange: 'lower', dir: 'reverse', arrowActive: true },
+      { kind: 'exec-return', line: 3, msg: '100 is in the <span class="accent">a–z range (97–122)</span>. 100 - 97 = 3, so it\'s the 4th letter: <span class="accent">\'d\'</span>.', char: 'd', num: '100', hlRange: 'lower', dir: 'reverse' }
+    ],
+    insight: '<span class="accent">chr()</span> is the inverse of <span class="accent">ord()</span>. Together they bridge the human view (characters) and the machine view (numbers).'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  const charCell = document.getElementById('charCell');
+  const numCell = document.getElementById('numCell');
+  if (cur && cur.char !== null && cur.char !== undefined) {
+    charCell.textContent = cur.char;
+    charCell.classList.remove('pending');
+    charCell.classList.add('active');
+  } else {
+    charCell.textContent = '—';
+    charCell.classList.add('pending');
+    charCell.classList.remove('active');
+  }
+  if (cur && cur.num !== null && cur.num !== undefined) {
+    numCell.textContent = cur.num;
+    numCell.classList.remove('pending');
+    numCell.classList.add('active');
+  } else {
+    numCell.textContent = '—';
+    numCell.classList.add('pending');
+    numCell.classList.remove('active');
+  }
+
+  const arrow = document.getElementById('arrow');
+  const arrowFn = document.getElementById('arrowFn');
+  const arrowLine = document.getElementById('arrowLine');
+  if (cur && cur.dir === 'forward') {
+    arrowFn.textContent = 'ord()';
+    arrowLine.textContent = '→';
+  } else if (cur && cur.dir === 'reverse') {
+    arrowFn.textContent = 'chr()';
+    arrowLine.textContent = '←';
+  } else {
+    arrowFn.textContent = 'ord/chr';
+    arrowLine.textContent = '↔';
+  }
+  arrowLine.classList.toggle('active', !!(cur && cur.arrowActive));
+
+  // Highlight strip range
+  document.querySelectorAll('.strip-item').forEach(el => {
+    el.classList.toggle('hl', !!(cur && cur.hlRange === el.dataset.range));
+  });
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>
