@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Add a digit to the back — n * 10 + d</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px 22px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 20px; align-items: center; }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input { background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); padding: 9px 12px; border-radius: 5px; font-family: inherit; font-size: 14px; outline: none; }
+  .num-input:focus { border-color: var(--accent); }
+  .preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .formula-box { background: #0d1117; border-radius: 8px; padding: 24px 20px; text-align: center; margin-bottom: 20px; font-family: 'JetBrains Mono', monospace; }
+  .formula { font-size: 22px; line-height: 1.6; }
+  .formula .n { color: var(--accent); font-weight: 600; padding: 2px 8px; background: rgba(240,160,75,0.1); border-radius: 4px; }
+  .formula .d { color: var(--blue); font-weight: 600; padding: 2px 8px; background: rgba(93,173,236,0.1); border-radius: 4px; }
+  .formula .res { color: var(--green); font-weight: 700; padding: 2px 8px; background: rgba(163,217,119,0.1); border-radius: 4px; }
+  .formula .op { color: #ff9bb3; margin: 0 6px; }
+
+  /* Number visualization */
+  .num-stage { display: flex; flex-direction: column; gap: 14px; }
+  .num-row { background: #0d1117; border-radius: 8px; padding: 18px; }
+  .num-row-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; text-align: center; }
+  .num-digits { display: flex; justify-content: center; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 600; min-height: 50px; align-items: center; }
+  .digit { padding: 4px 10px; border-radius: 4px; min-width: 24px; text-align: center; }
+  .digit.orig { color: var(--accent); background: rgba(240,160,75,0.1); }
+  .digit.zero { color: var(--muted); background: rgba(255,255,255,0.05); }
+  .digit.new { color: var(--blue); background: rgba(93,173,236,0.15); }
+  .digit.result { color: var(--green); background: rgba(163,217,119,0.12); }
+  .digit.arrow { color: var(--muted); font-size: 22px; padding: 4px 6px; }
+
+  /* Steps panel */
+  .step-row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .step-row:last-child { border-bottom: none; }
+  .step-num { background: var(--accent); color: var(--bg); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .step-text { color: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .step-text .h { color: var(--accent); }
+  .step-text .h-blue { color: var(--blue); }
+  .step-text .h-green { color: var(--green); }
+
+  .examples-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .ex { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; font-size: 11.5px; }
+  .ex .e-input { color: var(--muted); }
+  .ex .e-arrow { color: var(--muted); margin: 0 6px; }
+  .ex .e-output { color: var(--green); font-weight: 600; }
+
+  .insight { background: rgba(240,160,75,0.06); border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 0 6px 6px 0; margin-top: 18px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.6; }
+  .insight .hot { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .insight .hot-blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .err { color: var(--red); font-size: 12px; font-family: Georgia, serif; font-style: italic; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Add a digit to the back — <code style="color:var(--green)">n × 10 + d</code></h1>
+  <div class="sub">Multiply <span style="color:var(--accent)">n</span> by 10 to make room for a zero at the back, then add <span style="color:var(--blue)">d</span> to fill it. Try your own numbers.</div>
+
+  <div class="controls">
+    <div class="input-group">
+      <span class="input-label">N (the number)</span>
+      <input class="num-input" id="inputN" type="number" value="42" min="0" max="999999" />
+    </div>
+    <div class="input-group">
+      <span class="input-label">d (single digit, 0-9)</span>
+      <input class="num-input" id="inputD" type="number" value="7" min="0" max="9" />
+    </div>
+    <div class="input-group">
+      <span class="input-label">QUICK EXAMPLES</span>
+      <div class="preset-row">
+        <button class="qb" data-n="42" data-d="7">42, 7</button>
+        <button class="qb" data-n="9" data-d="3">9, 3</button>
+        <button class="qb" data-n="1456" data-d="0">1456, 0</button>
+        <button class="qb" data-n="0" data-d="5">0, 5</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">THE FORMULA</div>
+      <div class="formula-box">
+        <div class="formula">
+          new&nbsp;=&nbsp;<span class="n" id="fN">42</span><span class="op">×</span><span style="color:var(--ink)">10</span>&nbsp;<span class="op">+</span>&nbsp;<span class="d" id="fD">7</span>
+        </div>
+        <div class="formula" style="margin-top:10px;font-size:18px">
+          =&nbsp;<span style="color:var(--ink)" id="fMult">420</span>&nbsp;<span class="op">+</span>&nbsp;<span class="d" id="fD2">7</span>&nbsp;=&nbsp;<span class="res" id="fRes">427</span>
+        </div>
+      </div>
+
+      <div class="panel-title">STEP BY STEP</div>
+      <div id="stepsBlock">
+        <div class="step-row">
+          <div class="step-num">1</div>
+          <div class="step-text">Start with <span class="h" id="s1n">42</span></div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">2</div>
+          <div class="step-text">Multiply by 10 → <span class="h" id="s2n">42</span> × 10 = <span class="h" id="s2m">420</span>. A <strong style="color:var(--muted)">0</strong> appears at the back, ready to be replaced.</div>
+        </div>
+        <div class="step-row">
+          <div class="step-num">3</div>
+          <div class="step-text">Add <span class="h-blue" id="s3d">7</span> → <span class="h" id="s3m">420</span> + <span class="h-blue" id="s3d2">7</span> = <span class="h-green" id="s3r">427</span>. The new digit takes its place.</div>
+        </div>
+      </div>
+
+      <div class="insight">
+        Why <span class="hot">× 10</span>? In base-10, every digit shifts left when you multiply by 10 — leaving a fresh <span class="hot">0</span> on the right. Then <span class="hot-blue">+ d</span> simply replaces that 0 with the digit you want.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">VISUALIZATION</div>
+      <div class="num-stage">
+        <div class="num-row">
+          <div class="num-row-label">START · n</div>
+          <div class="num-digits" id="visN"></div>
+        </div>
+        <div class="num-row">
+          <div class="num-row-label">AFTER × 10 — last position now empty (0)</div>
+          <div class="num-digits" id="visMult"></div>
+        </div>
+        <div class="num-row">
+          <div class="num-row-label">AFTER + d — digit slotted in</div>
+          <div class="num-digits" id="visResult"></div>
+        </div>
+      </div>
+
+      <div class="panel-title" style="margin-top:20px">TRY THESE</div>
+      <div class="examples-strip">
+        <div class="ex"><span class="e-input">n=42, d=7</span><span class="e-arrow">→</span><span class="e-output">427</span></div>
+        <div class="ex"><span class="e-input">n=9, d=3</span><span class="e-arrow">→</span><span class="e-output">93</span></div>
+        <div class="ex"><span class="e-input">n=1456, d=0</span><span class="e-arrow">→</span><span class="e-output">14560</span></div>
+        <div class="ex"><span class="e-input">n=0, d=5</span><span class="e-arrow">→</span><span class="e-output">5</span></div>
+      </div>
+      <div class="err" id="err"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function renderDigits(num, klass, withTrailingZero=false, replacedDigit=null) {
+  if (num === 0 && !withTrailingZero && replacedDigit === null) {
+    return `<span class="digit ${klass}">0</span>`;
+  }
+  const s = String(num);
+  return s.split('').map((c, i) => {
+    const isLast = i === s.length - 1;
+    if (withTrailingZero && isLast) return `<span class="digit zero">${c}</span>`;
+    if (replacedDigit !== null && isLast) return `<span class="digit new">${c}</span>`;
+    return `<span class="digit ${klass}">${c}</span>`;
+  }).join('');
+}
+
+function update() {
+  const nRaw = document.getElementById('inputN').value;
+  const dRaw = document.getElementById('inputD').value;
+  const n = parseInt(nRaw, 10);
+  const d = parseInt(dRaw, 10);
+  const err = document.getElementById('err');
+  err.textContent = '';
+  if (isNaN(n) || isNaN(d) || n < 0 || d < 0 || d > 9) {
+    err.textContent = 'Enter a non-negative number for n and a single digit (0–9) for d.';
+    return;
+  }
+  const mult = n * 10;
+  const result = mult + d;
+
+  document.getElementById('fN').textContent = n;
+  document.getElementById('fD').textContent = d;
+  document.getElementById('fMult').textContent = mult;
+  document.getElementById('fD2').textContent = d;
+  document.getElementById('fRes').textContent = result;
+
+  document.getElementById('s1n').textContent = n;
+  document.getElementById('s2n').textContent = n;
+  document.getElementById('s2m').textContent = mult;
+  document.getElementById('s3d').textContent = d;
+  document.getElementById('s3m').textContent = mult;
+  document.getElementById('s3d2').textContent = d;
+  document.getElementById('s3r').textContent = result;
+
+  // Visualization
+  document.getElementById('visN').innerHTML = renderDigits(n, 'orig');
+  document.getElementById('visMult').innerHTML = renderDigits(mult, 'orig', true);
+  document.getElementById('visResult').innerHTML = renderDigits(result, 'orig', false, d);
+}
+
+document.getElementById('inputN').addEventListener('input', update);
+document.getElementById('inputD').addEventListener('input', update);
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.getElementById('inputN').value = b.dataset.n;
+    document.getElementById('inputD').value = b.dataset.d;
+    update();
+  });
+});
+
+update();
+</script>
+</body>
+</html>

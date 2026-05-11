@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scraper & Scissors — %10 and //10</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 22px; margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+
+  .stage { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 6px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 13px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-scrape { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-cut { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  /* Number visualization */
+  .num-display { background: #0d1117; border-radius: 6px; padding: 18px 14px; text-align: center; margin-bottom: 14px; position: relative; }
+  .num-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .num-digits { display: flex; justify-content: center; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 600; min-height: 44px; align-items: center; }
+  .digit { padding: 4px 12px; border-radius: 4px; transition: all 0.25s; }
+  .digit.tail-scrape { background: rgba(93, 173, 236, 0.22); color: var(--blue); transform: translateY(-4px); box-shadow: 0 4px 12px rgba(93,173,236,0.3); }
+  .digit.tail-cut { background: rgba(229, 115, 115, 0.22); color: var(--red); opacity: 0.45; text-decoration: line-through; text-decoration-thickness: 2px; }
+  .empty-display { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 14px; }
+
+  .operations-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .op-box { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px 13px; transition: all 0.2s; }
+  .op-box.active-scrape { border-color: var(--blue); background: rgba(93,173,236,0.08); }
+  .op-box.active-cut { border-color: var(--red); background: rgba(229,115,115,0.08); }
+  .op-icon { font-size: 16px; margin-bottom: 4px; }
+  .op-name { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 4px; }
+  .op-expr { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); }
+  .op-expr .res { color: var(--accent); font-weight: 600; margin-left: 6px; }
+  .op-box.active-scrape .op-expr .res { color: var(--blue); }
+  .op-box.active-cut .op-expr .res { color: var(--red); }
+
+  /* State pills */
+  .state-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 5px 13px; font-size: 12px; }
+  .pill-key { color: var(--muted); font-size: 10px; margin-right: 6px; letter-spacing: 0.08em; }
+  .pill-val { color: var(--ink); font-weight: 600; }
+  .pill.hot { border-color: var(--accent); background: rgba(240, 160, 75, 0.08); }
+  .pill.hot .pill-val { color: var(--accent); }
+  .pill.blue-pill { border-color: var(--blue); background: rgba(93,173,236,0.08); }
+  .pill.blue-pill .pill-val { color: var(--blue); }
+  .pill.green-pill { border-color: var(--green); background: rgba(163,217,119,0.08); }
+  .pill.green-pill .pill-val { color: var(--green); }
+
+  .output-block { background: #0d1117; border-radius: 6px; padding: 12px 14px; min-height: 60px; font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1.8; }
+  .output-line { color: var(--green); }
+  .output-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; color: var(--ink); font-size: 13px; line-height: 1.55; min-height: 50px; padding: 10px 0; border-top: 1px solid var(--line); margin-top: 14px; }
+  .commentary .hot { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-red { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-green { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .scenario-row { display: flex; gap: 8px; margin-right: auto; flex-wrap: wrap; }
+  .iter-counter { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; font-size: 13px; margin: 0 4px; font-family: 'JetBrains Mono', monospace; }
+
+  .legend { display: flex; gap: 14px; font-size: 10.5px; color: var(--muted); margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .legend-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .legend-dot.blue { background: var(--blue); }
+  .legend-dot.red { background: var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Scraper &amp; Scissors — <code style="color:var(--blue)">% 10</code> and <code style="color:var(--red)">// 10</code></h1>
+  <div class="sub">Two operators do all the digit-by-digit work. <span style="color:var(--blue)">%10</span> scrapes the last digit. <span style="color:var(--red)">//10</span> cuts the last digit off. Watch them compose into three different problems.</div>
+
+  <div class="controls">
+    <div class="scenario-row">
+      <button class="qb active" data-sc="0">Print digits reversed (459)</button>
+      <button class="qb" data-sc="1">Sum of digits (6531)</button>
+      <button class="qb" data-sc="2">Reverse the number (1456)</button>
+    </div>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="scenario-head" id="sceneHead">Print digits in reverse — 459</div>
+      <div class="scenario-sub" id="sceneSub">Scrape and print, then cut. Repeat while n > 0.</div>
+      <div class="code" id="codeBlock"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION</div>
+
+      <div class="num-display">
+        <div class="num-label">CURRENT VALUE OF n</div>
+        <div class="num-digits" id="numDigits"><span class="empty-display">— press Step ▸ —</span></div>
+      </div>
+
+      <div class="operations-grid">
+        <div class="op-box" id="opScrape">
+          <div class="op-icon">🪛</div>
+          <div class="op-name">SCRAPER · n % 10</div>
+          <div class="op-expr" id="scrapeExpr">— last digit —</div>
+        </div>
+        <div class="op-box" id="opCut">
+          <div class="op-icon">✂️</div>
+          <div class="op-name">SCISSORS · n // 10</div>
+          <div class="op-expr" id="cutExpr">— cut tail —</div>
+        </div>
+      </div>
+
+      <div class="state-row" id="stateRow"></div>
+
+      <div style="font-size:10px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px">OUTPUT / RESULT</div>
+      <div class="output-block" id="outputBlock"><div class="output-empty">— nothing yet —</div></div>
+
+      <div class="commentary" id="commentary">Press <span class="hot">Step ▸</span> to begin.</div>
+
+      <div class="legend">
+        <span><span class="legend-dot blue"></span>scraper · n % 10 (last digit)</span>
+        <span><span class="legend-dot red"></span>scissors · n // 10 (cut tail)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Code templates ===
+const codePrint = [
+  {t: 'n <span class="op">=</span> <span class="fn">int</span>(<span class="fn">input</span>())', i: 0},
+  {t: '<span class="kw">while</span> n <span class="op">&gt;</span> <span class="num">0</span>:', i: 1},
+  {t: '    <span class="fn">print</span>(n <span class="op">%</span> <span class="num">10</span>)        <span class="cmt"># 🪛 scrape</span>', i: 2},
+  {t: '    n <span class="op">=</span> n <span class="op">//</span> <span class="num">10</span>          <span class="cmt"># ✂️ cut</span>', i: 3},
+];
+const codeSum = [
+  {t: 'n <span class="op">=</span> <span class="fn">int</span>(<span class="fn">input</span>())', i: 0},
+  {t: 'total <span class="op">=</span> <span class="num">0</span>', i: 1},
+  {t: '<span class="kw">while</span> n <span class="op">&gt;</span> <span class="num">0</span>:', i: 2},
+  {t: '    total <span class="op">+=</span> n <span class="op">%</span> <span class="num">10</span>   <span class="cmt"># 🪛 add last digit</span>', i: 3},
+  {t: '    n <span class="op">=</span> n <span class="op">//</span> <span class="num">10</span>       <span class="cmt"># ✂️ cut last digit</span>', i: 4},
+  {t: '<span class="fn">print</span>(total)', i: 5},
+];
+const codeRev = [
+  {t: 'n <span class="op">=</span> <span class="fn">int</span>(<span class="fn">input</span>())', i: 0},
+  {t: 'rev <span class="op">=</span> <span class="num">0</span>', i: 1},
+  {t: '<span class="kw">while</span> n <span class="op">&gt;</span> <span class="num">0</span>:', i: 2},
+  {t: '    d <span class="op">=</span> n <span class="op">%</span> <span class="num">10</span>           <span class="cmt"># 🪛 scrape</span>', i: 3},
+  {t: '    rev <span class="op">=</span> rev <span class="op">*</span> <span class="num">10</span> <span class="op">+</span> d  <span class="cmt"># append to back</span>', i: 4},
+  {t: '    n <span class="op">=</span> n <span class="op">//</span> <span class="num">10</span>          <span class="cmt"># ✂️ cut</span>', i: 5},
+  {t: '<span class="fn">print</span>(rev)', i: 6},
+];
+
+// === Step builders ===
+function buildPrint(n) {
+  const steps = [];
+  const initN = n;
+  steps.push({line: 0, n, scrapeRes: null, cutRes: null, vars: {n: initN}, out: [], comment: `Start with <span class="hot">n = ${initN}</span>.`, op: null});
+  while (n > 0) {
+    steps.push({line: 1, n, scrapeRes: null, cutRes: null, vars: {n}, out: steps[steps.length-1].out, comment: `Check <span class="hot">n &gt; 0</span> → ${n} &gt; 0 → True. Enter loop.`, op: null});
+    const d = n % 10;
+    const nextN = Math.floor(n / 10);
+    const newOut = [...steps[steps.length-1].out, d];
+    steps.push({line: 2, n, scrapeRes: d, cutRes: null, vars: {n}, out: newOut, comment: `<span class="hot-blue">🪛 Scrape:</span> ${n} % 10 → <span class="hot-blue">${d}</span>. Print it.`, op: 'scrape'});
+    steps.push({line: 3, n: nextN, scrapeRes: d, cutRes: nextN, vars: {n: nextN}, out: newOut, comment: `<span class="hot-red">✂️ Cut:</span> ${n} // 10 → <span class="hot-red">${nextN}</span>. Last digit removed.`, op: 'cut'});
+    n = nextN;
+  }
+  steps.push({line: 1, n, scrapeRes: null, cutRes: null, vars: {n: 0}, out: steps[steps.length-1].out, comment: `Check <span class="hot">n &gt; 0</span> → 0 &gt; 0 → <span class="hot-red">False</span>. Exit loop. Done!`, op: null});
+  return steps;
+}
+
+function buildSum(n) {
+  const steps = [];
+  const initN = n;
+  steps.push({line: 0, n, scrapeRes: null, cutRes: null, vars: {n: initN, total: '—'}, out: [], comment: `Read input: <span class="hot">n = ${initN}</span>.`, op: null});
+  let total = 0;
+  steps.push({line: 1, n, scrapeRes: null, cutRes: null, vars: {n, total}, out: [], comment: `Initialize accumulator: <span class="hot">total = 0</span>.`, op: null});
+  while (n > 0) {
+    steps.push({line: 2, n, scrapeRes: null, cutRes: null, vars: {n, total}, out: [], comment: `<span class="hot">n &gt; 0</span> → True. Continue.`, op: null});
+    const d = n % 10;
+    const newTotal = total + d;
+    steps.push({line: 3, n, scrapeRes: d, cutRes: null, vars: {n, total: newTotal}, out: [], comment: `<span class="hot-blue">🪛 Scrape:</span> ${n} % 10 → <span class="hot-blue">${d}</span>. <span class="hot-green">total += ${d}</span> → <span class="hot-green">${newTotal}</span>.`, op: 'scrape'});
+    const nextN = Math.floor(n / 10);
+    steps.push({line: 4, n: nextN, scrapeRes: d, cutRes: nextN, vars: {n: nextN, total: newTotal}, out: [], comment: `<span class="hot-red">✂️ Cut:</span> ${n} // 10 → <span class="hot-red">${nextN}</span>.`, op: 'cut'});
+    total = newTotal;
+    n = nextN;
+  }
+  steps.push({line: 2, n, scrapeRes: null, cutRes: null, vars: {n, total}, out: [], comment: `<span class="hot">n &gt; 0</span> → False. Exit loop.`, op: null});
+  steps.push({line: 5, n, scrapeRes: null, cutRes: null, vars: {n, total}, out: [`total = ${total}`], comment: `Print <span class="hot-green">total = ${total}</span>. The sum of digits of ${initN} is ${total}.`, op: null});
+  return steps;
+}
+
+function buildRev(n) {
+  const steps = [];
+  const initN = n;
+  steps.push({line: 0, n, scrapeRes: null, cutRes: null, vars: {n: initN, rev: '—', d: '—'}, out: [], comment: `Read input: <span class="hot">n = ${initN}</span>.`, op: null});
+  let rev = 0;
+  steps.push({line: 1, n, scrapeRes: null, cutRes: null, vars: {n, rev, d: '—'}, out: [], comment: `Initialize <span class="hot">rev = 0</span>. We'll build the reversed number digit by digit.`, op: null});
+  while (n > 0) {
+    steps.push({line: 2, n, scrapeRes: null, cutRes: null, vars: {n, rev, d: '—'}, out: [], comment: `<span class="hot">n &gt; 0</span> → True. Continue.`, op: null});
+    const d = n % 10;
+    steps.push({line: 3, n, scrapeRes: d, cutRes: null, vars: {n, rev, d}, out: [], comment: `<span class="hot-blue">🪛 Scrape:</span> ${n} % 10 → <span class="hot-blue">d = ${d}</span>.`, op: 'scrape'});
+    const newRev = rev * 10 + d;
+    steps.push({line: 4, n, scrapeRes: d, cutRes: null, vars: {n, rev: newRev, d}, out: [], comment: `Append d to back of rev: <span class="hot-green">rev = ${rev} × 10 + ${d}</span> → <span class="hot-green">${newRev}</span>.`, op: null});
+    const nextN = Math.floor(n / 10);
+    steps.push({line: 5, n: nextN, scrapeRes: d, cutRes: nextN, vars: {n: nextN, rev: newRev, d}, out: [], comment: `<span class="hot-red">✂️ Cut:</span> ${n} // 10 → <span class="hot-red">${nextN}</span>.`, op: 'cut'});
+    rev = newRev;
+    n = nextN;
+  }
+  steps.push({line: 2, n, scrapeRes: null, cutRes: null, vars: {n, rev, d: '—'}, out: [], comment: `<span class="hot">n &gt; 0</span> → False. Exit loop.`, op: null});
+  steps.push({line: 6, n, scrapeRes: null, cutRes: null, vars: {n, rev, d: '—'}, out: [`rev = ${rev}`], comment: `Print <span class="hot-green">rev = ${rev}</span>. Reverse of ${initN} is ${rev}.`, op: null});
+  return steps;
+}
+
+const SCENARIOS = [
+  {label: 'print', code: codePrint, head: 'Print digits in reverse — 459', sub: 'Scrape & print the last digit, cut, repeat while n > 0.', build: () => buildPrint(459)},
+  {label: 'sum', code: codeSum, head: 'Sum of digits — 6531', sub: 'Same toolkit, but accumulate instead of print.', build: () => buildSum(6531)},
+  {label: 'rev', code: codeRev, head: 'Reverse the number — 1456', sub: 'Append each scraped digit to the back of rev via rev*10 + d.', build: () => buildRev(1456)},
+];
+
+let scIdx = 0;
+let stepIdx = 0;
+let steps = SCENARIOS[0].build();
+
+function renderCode() {
+  const sc = SCENARIOS[scIdx];
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const block = document.getElementById('codeBlock');
+  block.innerHTML = sc.code.map(line => {
+    let cls = 'code-line';
+    if (cur && line.i === cur.line) {
+      if (cur.op === 'scrape') cls += ' exec-scrape';
+      else if (cur.op === 'cut') cls += ' exec-cut';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${line.t}</span>`;
+  }).join('');
+}
+
+function renderNumDisplay() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const display = document.getElementById('numDigits');
+  if (!cur || cur.n === undefined) {
+    display.innerHTML = '<span class="empty-display">— press Step ▸ —</span>';
+    return;
+  }
+  if (cur.n === 0) {
+    display.innerHTML = '<span class="digit" style="color:var(--muted)">0</span>';
+    return;
+  }
+  const digitStr = String(cur.n);
+  let highlight = '';
+  if (cur.op === 'scrape') highlight = 'tail-scrape';
+  else if (cur.op === 'cut') highlight = 'tail-cut';
+  // For cut: show what WAS the number with last digit struck through; the result is the next state's number
+  if (cur.op === 'cut') {
+    // Reconstruct old number = newN * 10 + scrapeRes
+    const oldN = cur.n * 10 + cur.scrapeRes;
+    const oldStr = String(oldN);
+    display.innerHTML = oldStr.split('').map((d, i) => {
+      const isLast = i === oldStr.length - 1;
+      return `<span class="digit ${isLast ? 'tail-cut' : ''}">${d}</span>`;
+    }).join('');
+  } else {
+    display.innerHTML = digitStr.split('').map((d, i) => {
+      const isLast = i === digitStr.length - 1;
+      return `<span class="digit ${isLast && highlight ? highlight : ''}">${d}</span>`;
+    }).join('');
+  }
+}
+
+function renderOps() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const opS = document.getElementById('opScrape');
+  const opC = document.getElementById('opCut');
+  const exprS = document.getElementById('scrapeExpr');
+  const exprC = document.getElementById('cutExpr');
+  opS.className = 'op-box';
+  opC.className = 'op-box';
+  if (!cur) {
+    exprS.textContent = '— last digit —';
+    exprC.textContent = '— cut tail —';
+    return;
+  }
+  if (cur.op === 'scrape') opS.classList.add('active-scrape');
+  if (cur.op === 'cut') opC.classList.add('active-cut');
+  if (cur.scrapeRes !== null) {
+    const oldN = cur.op === 'cut' ? cur.n * 10 + cur.scrapeRes : cur.n;
+    exprS.innerHTML = `${oldN} % 10 <span class="res">→ ${cur.scrapeRes}</span>`;
+  } else {
+    exprS.textContent = '— last digit —';
+  }
+  if (cur.cutRes !== null) {
+    const oldN = cur.n * 10 + cur.scrapeRes;
+    exprC.innerHTML = `${oldN} // 10 <span class="res">→ ${cur.cutRes}</span>`;
+  } else {
+    exprC.textContent = '— cut tail —';
+  }
+}
+
+function renderState() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const row = document.getElementById('stateRow');
+  if (!cur) { row.innerHTML = ''; return; }
+  const v = cur.vars;
+  row.innerHTML = Object.entries(v).map(([k, val]) => {
+    let cls = 'pill';
+    if (k === 'n') cls += ' hot';
+    else if (k === 'rev' || k === 'total') cls += ' green-pill';
+    else if (k === 'd') cls += ' blue-pill';
+    return `<span class="${cls}"><span class="pill-key">${k}</span><span class="pill-val">${val}</span></span>`;
+  }).join('');
+}
+
+function renderOutput() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const out = document.getElementById('outputBlock');
+  if (!cur || cur.out.length === 0) {
+    out.innerHTML = '<div class="output-empty">— nothing yet —</div>';
+    return;
+  }
+  out.innerHTML = cur.out.map(line => `<div class="output-line">${line}</div>`).join('');
+}
+
+function renderCommentary() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  document.getElementById('commentary').innerHTML = cur ? cur.comment : 'Press <span class="hot">Step ▸</span> to begin.';
+}
+
+function render() {
+  renderCode();
+  renderNumDisplay();
+  renderOps();
+  renderState();
+  renderOutput();
+  renderCommentary();
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = steps.length;
+  document.getElementById('stepBtn').disabled = stepIdx >= steps.length;
+  const sc = SCENARIOS[scIdx];
+  document.getElementById('sceneHead').textContent = sc.head;
+  document.getElementById('sceneSub').textContent = sc.sub;
+}
+
+function selectScenario(i) {
+  scIdx = i;
+  stepIdx = 0;
+  steps = SCENARIOS[i].build();
+  document.querySelectorAll('.qb').forEach((b, k) => b.classList.toggle('active', k === i));
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < steps.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  stepIdx = 0;
+  render();
+});
+document.querySelectorAll('.qb').forEach((b, i) => {
+  b.addEventListener('click', () => selectScenario(i));
+});
+
+render();
+</script>
+</body>
+</html>

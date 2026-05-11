@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reverse the number — with edge cases</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 22px; margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 6px; font-weight: 600; }
+  .scenario-head.warn { color: var(--red); }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  .dry-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 14px; }
+  .dry-table th { background: var(--panel-2); color: var(--muted); padding: 8px 10px; text-align: left; font-weight: 600; letter-spacing: 0.05em; font-size: 10px; border-bottom: 1px solid var(--line); }
+  .dry-table td { padding: 8px 10px; border-bottom: 1px dashed var(--line); font-family: 'JetBrains Mono', monospace; color: var(--ink); }
+  .dry-table tr.current td { background: rgba(240,160,75,0.1); color: var(--accent); font-weight: 600; }
+  .dry-table tr.done td { color: var(--muted); }
+  .dry-table tr.exit td { background: rgba(229,115,115,0.08); color: var(--red); font-style: italic; }
+
+  .state-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 5px 13px; font-size: 12px; }
+  .pill-key { color: var(--muted); font-size: 10px; margin-right: 6px; letter-spacing: 0.08em; }
+  .pill-val { color: var(--ink); font-weight: 600; }
+  .pill.hot { border-color: var(--accent); background: rgba(240, 160, 75, 0.08); }
+  .pill.hot .pill-val { color: var(--accent); }
+  .pill.green-pill { border-color: var(--green); background: rgba(163,217,119,0.08); }
+  .pill.green-pill .pill-val { color: var(--green); }
+  .pill.blue-pill { border-color: var(--blue); background: rgba(93,173,236,0.08); }
+  .pill.blue-pill .pill-val { color: var(--blue); }
+  .pill.red-pill { border-color: var(--red); background: rgba(229,115,115,0.08); }
+  .pill.red-pill .pill-val { color: var(--red); }
+
+  .output-block { background: #0d1117; border-radius: 6px; padding: 12px 14px; min-height: 60px; font-family: 'JetBrains Mono', monospace; font-size: 18px; line-height: 1.8; }
+  .output-line { color: var(--green); font-weight: 700; }
+  .output-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .insight { background: rgba(240,160,75,0.06); border-left: 3px solid var(--accent); padding: 12px 14px; border-radius: 0 6px 6px 0; margin-top: 14px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; line-height: 1.55; }
+  .insight.red { background: rgba(229,115,115,0.06); border-left-color: var(--red); }
+  .insight .hot { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .insight .hot-red { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; color: var(--ink); font-size: 13px; line-height: 1.55; min-height: 42px; padding: 10px 0; border-top: 1px solid var(--line); margin-top: 14px; }
+  .commentary .hot { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-red { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-green { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .scenario-row { display: flex; gap: 8px; margin-right: auto; flex-wrap: wrap; }
+  .iter-counter { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; font-size: 13px; margin: 0 4px; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reverse the number — with edge cases</h1>
+  <div class="sub">The standard reverse algorithm — plus two cases where surprises happen: trailing zeros vanish, and negative numbers need sign handling.</div>
+
+  <div class="controls">
+    <div class="scenario-row">
+      <button class="qb active" data-sc="0">Standard — n = 1456</button>
+      <button class="qb warn" data-sc="1">⚠ Trailing zeros — n = 2400</button>
+      <button class="qb" data-sc="2">Negative — n = -417</button>
+    </div>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="scenario-head" id="sceneHead">Standard — n = 1456</div>
+      <div class="scenario-sub" id="sceneSub">Reverse 1456 to get 6541.</div>
+      <div class="code" id="codeBlock"></div>
+
+      <div class="panel-title" style="margin-top:18px">DRY-RUN TABLE</div>
+      <table class="dry-table">
+        <thead><tr><th>copy</th><th>copy &gt; 0</th><th>d = copy%10</th><th>rev = rev*10+d</th><th>copy //= 10</th></tr></thead>
+        <tbody id="dryTable"></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION STATE</div>
+      <div class="state-row" id="stateRow"></div>
+
+      <div style="font-size:10px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px">OUTPUT</div>
+      <div class="output-block" id="outputBlock"><div class="output-empty">— press Step ▸ —</div></div>
+
+      <div class="insight" id="insightBox">
+        Standard case. Each iteration: scrape last digit of <code style="color:var(--accent)">copy</code>, append it to <code style="color:var(--green)">rev</code>, cut. Loop ends when <code style="color:var(--accent)">copy</code> reaches 0.
+      </div>
+
+      <div class="commentary" id="commentary">Press <span class="hot">Step ▸</span> to begin.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CODE = [
+  {t: 'n <span class="op">=</span> <span class="fn">int</span>(<span class="fn">input</span>())', i: 0},
+  {t: 'copy <span class="op">=</span> <span class="fn">abs</span>(n)         <span class="cmt"># handle sign separately</span>', i: 1},
+  {t: 'rev <span class="op">=</span> <span class="num">0</span>', i: 2},
+  {t: '<span class="kw">while</span> copy <span class="op">&gt;</span> <span class="num">0</span>:', i: 3},
+  {t: '    rev <span class="op">=</span> rev <span class="op">*</span> <span class="num">10</span> <span class="op">+</span> copy <span class="op">%</span> <span class="num">10</span>', i: 4},
+  {t: '    copy <span class="op">//=</span> <span class="num">10</span>', i: 5},
+  {t: '<span class="kw">if</span> n <span class="op">&lt;</span> <span class="num">0</span>:', i: 6},
+  {t: '    rev <span class="op">=</span> <span class="op">-</span>rev', i: 7},
+  {t: '<span class="fn">print</span>(rev)', i: 8},
+];
+
+function buildSteps(initN) {
+  const steps = [];
+  let copy = Math.abs(initN);
+  let rev = 0;
+  let n = initN;
+  const dryRows = [];
+
+  steps.push({line: 0, vars: {n, copy: '—', rev: '—', d: '—'}, dry: [...dryRows], out: null, comment: `Read input: <span class="hot">n = ${n}</span>.`});
+  steps.push({line: 1, vars: {n, copy, rev: '—', d: '—'}, dry: [...dryRows], out: null, comment: n < 0 ? `<span class="hot">copy = abs(${n})</span> → <span class="hot">${copy}</span>. We work on the positive value; the sign is restored at the end.` : `<span class="hot">copy = abs(${n})</span> → <span class="hot">${copy}</span> (same value since n is positive).`});
+  steps.push({line: 2, vars: {n, copy, rev: 0, d: '—'}, dry: [...dryRows], out: null, comment: `Initialize <span class="hot-green">rev = 0</span>. This is where the reversed number gets built.`});
+
+  while (copy > 0) {
+    const d = copy % 10;
+    const newRev = rev * 10 + d;
+    const newCopy = Math.floor(copy / 10);
+    steps.push({line: 3, vars: {n, copy, rev, d: '—'}, dry: [...dryRows], out: null, comment: `<span class="hot">copy &gt; 0</span> → ${copy} &gt; 0 → True. Enter the loop body.`});
+    steps.push({line: 4, vars: {n, copy, rev: newRev, d}, dry: [...dryRows, {copy, gt: 'true', d, rev: newRev, nextCopy: '—', state: 'current'}], out: null, comment: `Scrape: <span class="hot">${copy} % 10</span> → d = <span class="hot-green">${d}</span>. Append: <span class="hot-green">rev = ${rev}×10 + ${d}</span> → <span class="hot-green">${newRev}</span>.`});
+    dryRows.push({copy, gt: 'true', d, rev: newRev, nextCopy: newCopy, state: 'done'});
+    steps.push({line: 5, vars: {n, copy: newCopy, rev: newRev, d}, dry: [...dryRows], out: null, comment: `Cut: <span class="hot">copy //= 10</span> → <span class="hot">${newCopy}</span>. Back to the top.`});
+    rev = newRev;
+    copy = newCopy;
+  }
+
+  steps.push({line: 3, vars: {n, copy, rev, d: '—'}, dry: [...dryRows, {copy: 0, gt: 'false', d: '—', rev: '—', nextCopy: '—', state: 'exit'}], out: null, comment: `<span class="hot">copy &gt; 0</span> → 0 &gt; 0 → <span class="hot-red">False</span>. Exit the while loop.`});
+
+  if (n < 0) {
+    steps.push({line: 6, vars: {n, copy, rev, d: '—'}, dry: [...dryRows, {copy: 0, gt: 'false', d: '—', rev: '—', nextCopy: '—', state: 'exit'}], out: null, comment: `<span class="hot">n &lt; 0</span> → True. Flip the sign.`});
+    steps.push({line: 7, vars: {n, copy, rev: -rev, d: '—'}, dry: [...dryRows, {copy: 0, gt: 'false', d: '—', rev: '—', nextCopy: '—', state: 'exit'}], out: null, comment: `<span class="hot-green">rev = -rev</span> → <span class="hot-green">${-rev}</span>. Sign restored.`});
+    rev = -rev;
+  } else {
+    steps.push({line: 6, vars: {n, copy, rev, d: '—'}, dry: [...dryRows, {copy: 0, gt: 'false', d: '—', rev: '—', nextCopy: '—', state: 'exit'}], out: null, comment: `<span class="hot">n &lt; 0</span> → False. Skip sign flip.`});
+  }
+
+  steps.push({line: 8, vars: {n, copy, rev, d: '—'}, dry: [...dryRows, {copy: 0, gt: 'false', d: '—', rev: '—', nextCopy: '—', state: 'exit'}], out: rev, comment: `Print <span class="hot-green">rev = ${rev}</span>.`});
+  return {steps, finalRev: rev};
+}
+
+const SCENARIOS = [
+  {label: 'std', n: 1456, head: 'Standard — n = 1456', sub: 'Reverse 1456 to get 6541. Watch rev grow digit-by-digit.', headCls: '', insight: 'Standard case. Each iteration: scrape last digit of <code style="color:var(--accent)">copy</code>, append it to <code style="color:var(--green)">rev</code>, cut. Loop ends when <code style="color:var(--accent)">copy</code> reaches 0.', insightCls: ''},
+  {label: 'tz', n: 2400, head: '⚠ Trailing zeros — n = 2400', sub: 'Reverse of 2400 looks like 0042 — but integers can\'t store leading zeros.', headCls: 'warn', insight: '<strong style="color:var(--red);font-style:normal">The trailing zeros disappear.</strong> 2400 reversed *visually* is 0042, but the int type drops leading zeros: you get <code style="color:var(--red)">42</code>, not <code style="color:var(--red)">0042</code>. To preserve them, you\'d need to print digits one-by-one or use a string.', insightCls: 'red'},
+  {label: 'neg', n: -417, head: 'Negative — n = -417', sub: 'Strip the sign with abs(), reverse the digits, restore the sign at the end.', headCls: '', insight: 'For negatives, work on <code style="color:var(--accent)">abs(n)</code> and remember the original sign. The <code style="color:var(--accent)">copy % 10</code> trick assumes a non-negative number — abs() keeps the math clean.', insightCls: ''},
+];
+
+let scIdx = 0;
+let stepIdx = 0;
+let built = buildSteps(SCENARIOS[0].n);
+
+function renderCode() {
+  const cur = stepIdx > 0 ? built.steps[stepIdx - 1] : null;
+  const block = document.getElementById('codeBlock');
+  block.innerHTML = CODE.map(line => {
+    let cls = 'code-line';
+    if (cur && line.i === cur.line) cls += ' exec';
+    return `<span class="${cls}">${line.t}</span>`;
+  }).join('');
+}
+
+function renderDry() {
+  const cur = stepIdx > 0 ? built.steps[stepIdx - 1] : null;
+  const tbody = document.getElementById('dryTable');
+  if (!cur || cur.dry.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);font-family:Georgia,serif;font-style:italic;text-align:center;padding:14px">— rows fill in as the loop iterates —</td></tr>';
+    return;
+  }
+  tbody.innerHTML = cur.dry.map(r => {
+    const cls = r.state || '';
+    return `<tr class="${cls}"><td>${r.copy}</td><td>${r.gt}</td><td>${r.d}</td><td>${r.rev}</td><td>${r.nextCopy}</td></tr>`;
+  }).join('');
+}
+
+function renderState() {
+  const cur = stepIdx > 0 ? built.steps[stepIdx - 1] : null;
+  const row = document.getElementById('stateRow');
+  if (!cur) { row.innerHTML = ''; return; }
+  const v = cur.vars;
+  row.innerHTML = Object.entries(v).map(([k, val]) => {
+    let cls = 'pill';
+    if (k === 'n') cls += (val < 0 ? ' red-pill' : ' hot');
+    else if (k === 'copy') cls += ' hot';
+    else if (k === 'rev') cls += ' green-pill';
+    else if (k === 'd') cls += ' blue-pill';
+    return `<span class="${cls}"><span class="pill-key">${k}</span><span class="pill-val">${val}</span></span>`;
+  }).join('');
+}
+
+function renderOutput() {
+  const cur = stepIdx > 0 ? built.steps[stepIdx - 1] : null;
+  const out = document.getElementById('outputBlock');
+  if (!cur || cur.out === null || cur.out === undefined) {
+    out.innerHTML = '<div class="output-empty">— press Step ▸ —</div>';
+    return;
+  }
+  out.innerHTML = `<div class="output-line">${cur.out}</div>`;
+}
+
+function renderCommentary() {
+  const cur = stepIdx > 0 ? built.steps[stepIdx - 1] : null;
+  document.getElementById('commentary').innerHTML = cur ? cur.comment : 'Press <span class="hot">Step ▸</span> to begin.';
+}
+
+function renderHead() {
+  const sc = SCENARIOS[scIdx];
+  const h = document.getElementById('sceneHead');
+  h.textContent = sc.head;
+  h.className = 'scenario-head ' + sc.headCls;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  const ins = document.getElementById('insightBox');
+  ins.className = 'insight ' + sc.insightCls;
+  ins.innerHTML = sc.insight;
+}
+
+function render() {
+  renderCode();
+  renderDry();
+  renderState();
+  renderOutput();
+  renderCommentary();
+  renderHead();
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = built.steps.length;
+  document.getElementById('stepBtn').disabled = stepIdx >= built.steps.length;
+}
+
+function selectScenario(i) {
+  scIdx = i;
+  stepIdx = 0;
+  built = buildSteps(SCENARIOS[i].n);
+  document.querySelectorAll('.qb').forEach((b, k) => b.classList.toggle('active', k === i));
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < built.steps.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  stepIdx = 0;
+  render();
+});
+document.querySelectorAll('.qb').forEach((b, i) => {
+  b.addEventListener('click', () => selectScenario(i));
+});
+
+render();
+</script>
+</body>
+</html>

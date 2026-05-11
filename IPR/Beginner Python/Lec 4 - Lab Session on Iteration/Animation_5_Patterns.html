@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pattern printing — row by row</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 22px; margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .auto-btn { background: var(--green); color: #1a1d23; border: none; padding: 10px 18px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .auto-btn:hover { background: #b8e692; }
+  .auto-btn.playing { background: var(--red); color: #fff; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 6px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .code-col-label { font-size: 9.5px; color: var(--muted); letter-spacing: 0.13em; margin-bottom: 5px; }
+  .code-col-label .super { color: var(--green); font-style: italic; font-family: Georgia, serif; text-transform: none; letter-spacing: 0; font-size: 11px; }
+  .code { background: #0d1117; border-radius: 6px; padding: 12px 14px; font-size: 12px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec-outer { background: rgba(93,173,236,0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-inner { background: rgba(240,160,75,0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-print { background: rgba(163,217,119,0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  /* State pills */
+  .state-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 5px 13px; font-size: 12px; }
+  .pill-key { color: var(--muted); font-size: 10px; margin-right: 6px; letter-spacing: 0.08em; }
+  .pill-val { color: var(--ink); font-weight: 600; }
+  .pill.outer-pill { border-color: var(--blue); background: rgba(93,173,236,0.08); }
+  .pill.outer-pill .pill-val { color: var(--blue); }
+  .pill.inner-pill { border-color: var(--accent); background: rgba(240,160,75,0.08); }
+  .pill.inner-pill .pill-val { color: var(--accent); }
+
+  /* Pattern output */
+  .pattern-block { background: #0d1117; border-radius: 6px; padding: 18px 22px; font-family: 'JetBrains Mono', monospace; min-height: 220px; font-size: 18px; line-height: 1.45; }
+  .pat-row { display: flex; gap: 6px; min-height: 26px; }
+  .pat-row.current { background: rgba(240,160,75,0.07); margin: 0 -10px; padding: 0 10px; border-radius: 4px; }
+  .pat-cell { color: var(--ink); transition: all 0.15s; min-width: 14px; display: inline-block; text-align: center; }
+  .pat-cell.star { color: var(--green); font-weight: 600; }
+  .pat-cell.star.fresh { color: var(--accent); transform: scale(1.2); }
+  .pat-cell.space { color: var(--muted); opacity: 0.3; }
+  .pat-row.pending .pat-cell { opacity: 0.18; }
+  .pat-empty { color: var(--muted); font-family: Georgia, serif; font-style: italic; font-size: 13px; }
+
+  .anatomy { background: rgba(93,173,236,0.05); border: 1px dashed var(--blue); border-radius: 6px; padding: 12px 14px; margin-top: 14px; font-size: 12px; font-family: Georgia, serif; font-style: italic; color: var(--ink); line-height: 1.55; }
+  .anatomy .hot-blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .anatomy .hot { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; color: var(--ink); font-size: 13px; line-height: 1.55; min-height: 42px; padding: 10px 0; border-top: 1px solid var(--line); margin-top: 14px; }
+  .commentary .hot { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-green { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .scenario-row { display: flex; gap: 8px; margin-right: auto; flex-wrap: wrap; }
+  .iter-counter { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; font-size: 13px; margin: 0 4px; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pattern printing — row by row</h1>
+  <div class="sub">Outer loop picks the row, inner loop builds it. Watch each row fill with stars (and spaces) — and compare the nested-loop version against Python's <code style="color:var(--green)">"* " * n</code> shortcut.</div>
+
+  <div class="controls">
+    <div class="scenario-row">
+      <button class="qb active" data-sc="0">Square 5×5</button>
+      <button class="qb" data-sc="1">Staircase ↗</button>
+      <button class="qb" data-sc="2">Reverse staircase ↖</button>
+    </div>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="auto-btn" id="autoBtn">Auto ▶</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="scenario-head" id="sceneHead">Square 5×5</div>
+      <div class="scenario-sub" id="sceneSub">Same number of stars on every row.</div>
+
+      <div class="code-cols">
+        <div>
+          <div class="code-col-label">NESTED LOOP</div>
+          <div class="code" id="codeBlock1"></div>
+        </div>
+        <div>
+          <div class="code-col-label">PYTHON SUPERPOWER · <span class="super">string × int</span></div>
+          <div class="code" id="codeBlock2"></div>
+        </div>
+      </div>
+
+      <div class="anatomy" id="anatomyBox">
+        <strong style="font-style:normal;color:var(--ink)">Row anatomy:</strong>
+        for row <span class="hot-blue">i</span>, we print <span class="hot">N</span> stars on every row. Two ways to do it — explicit inner loop, or <code style="color:var(--green)">"* " * N</code>.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION</div>
+      <div class="state-row" id="stateRow"></div>
+
+      <div style="font-size:10px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px">OUTPUT</div>
+      <div class="pattern-block" id="patternBlock"><div class="pat-empty">— press Step ▸ —</div></div>
+
+      <div class="commentary" id="commentary">Press <span class="hot">Step ▸</span> to begin, or <span class="hot-green">Auto ▶</span> to watch.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Code templates ===
+const codeSquareNested = [
+  '<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">5</span>):',
+  '    <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(<span class="num">5</span>):',
+  '        <span class="fn">print</span>(<span class="str">"*"</span>, end<span class="op">=</span><span class="str">" "</span>)',
+  '    <span class="fn">print</span>()',
+];
+const codeSquareSuper = [
+  '<span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">5</span>):',
+  '    <span class="fn">print</span>(<span class="str">"* "</span> <span class="op">*</span> <span class="num">5</span>)',
+];
+const codeStairNested = [
+  '<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, n <span class="op">+</span> <span class="num">1</span>):',
+  '    <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(i):',
+  '        <span class="fn">print</span>(<span class="str">"*"</span>, end<span class="op">=</span><span class="str">" "</span>)',
+  '    <span class="fn">print</span>()',
+];
+const codeStairSuper = [
+  '<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, n <span class="op">+</span> <span class="num">1</span>):',
+  '    <span class="fn">print</span>(<span class="str">"* "</span> <span class="op">*</span> i)',
+];
+const codeRevStairNested = [
+  '<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, n <span class="op">+</span> <span class="num">1</span>):',
+  '    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(n <span class="op">-</span> i):',
+  '        <span class="fn">print</span>(<span class="str">" "</span>, end<span class="op">=</span><span class="str">""</span>)',
+  '    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(i):',
+  '        <span class="fn">print</span>(<span class="str">"*"</span>, end<span class="op">=</span><span class="str">" "</span>)',
+  '    <span class="fn">print</span>()',
+];
+const codeRevStairSuper = [
+  '<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, n <span class="op">+</span> <span class="num">1</span>):',
+  '    spaces <span class="op">=</span> <span class="str">"  "</span> <span class="op">*</span> (n <span class="op">-</span> i)',
+  '    stars <span class="op">=</span> <span class="str">"* "</span> <span class="op">*</span> i',
+  '    <span class="fn">print</span>(spaces <span class="op">+</span> stars)',
+];
+
+// === Step builders ===
+// Each step: { line1, line2, i, j, stars (2d array of {ch, fresh}), comment }
+// For each scenario we generate a step list.
+
+function buildSquare(n = 5) {
+  const steps = [];
+  const rows = Array.from({length: n}, () => Array(n).fill({ch: '*', filled: false}));
+  steps.push({line1: 0, line2: null, i: 0, j: null, rowsState: cloneEmpty(n, n, '*'), comment: `Outer loop starts. <span class="hot-blue">i = 0</span> (row 1).`});
+  for (let i = 0; i < n; i++) {
+    steps.push({line1: 0, line2: 0, i, j: null, rowsState: filledUpTo(i, n, n, '*'), comment: `<span class="hot-blue">i = ${i}</span>. Start row ${i + 1}.`});
+    for (let j = 0; j < n; j++) {
+      steps.push({line1: 1, line2: 1, i, j, rowsState: rowPartial(i, j, n, n, '*'), comment: `<span class="hot">j = ${j}</span>. Inner loop iteration.`});
+      steps.push({line1: 2, line2: 1, i, j, rowsState: rowPartial(i, j + 1, n, n, '*', true), comment: `Print "<span class="hot-green">*</span>" at position (row ${i + 1}, col ${j + 1}).`});
+    }
+    steps.push({line1: 3, line2: 1, i, j: null, rowsState: filledUpTo(i + 1, n, n, '*'), comment: `End of inner loop. <span class="hot-green">print()</span> ends the row.`});
+  }
+  steps.push({line1: null, line2: null, i: n, j: null, rowsState: filledUpTo(n, n, n, '*'), comment: `Done. <span class="hot-green">${n} × ${n} = ${n * n}</span> stars total.`});
+  return steps;
+}
+
+function buildStaircase(n = 5) {
+  const steps = [];
+  steps.push({line1: 0, line2: null, i: 0, j: null, rowsState: cloneEmptyVar(n, getStairWidths(n), '*'), comment: `Outer loop starts. <span class="hot-blue">i = 1</span> means 1 star.`});
+  for (let i = 1; i <= n; i++) {
+    steps.push({line1: 0, line2: 0, i, j: null, rowsState: stairPartial(i - 1, 0, n, '*'), comment: `<span class="hot-blue">i = ${i}</span>. Row ${i} will have ${i} stars.`});
+    for (let j = 0; j < i; j++) {
+      steps.push({line1: 1, line2: 1, i, j, rowsState: stairPartial(i - 1, j, n, '*'), comment: `<span class="hot">j = ${j}</span>. Inner loop runs i = ${i} times.`});
+      steps.push({line1: 2, line2: 1, i, j, rowsState: stairPartial(i - 1, j + 1, n, '*', true), comment: `Print a star. Row ${i} has ${j + 1} of ${i} stars now.`});
+    }
+    steps.push({line1: 3, line2: 1, i, j: null, rowsState: stairPartial(i, 0, n, '*'), comment: `End row ${i}. <span class="hot-green">print()</span>.`});
+  }
+  steps.push({line1: null, line2: null, i: n + 1, j: null, rowsState: stairPartial(n, 0, n, '*'), comment: `Done. Inner loop ran <span class="hot-green">1 + 2 + ... + ${n} = ${n * (n + 1) / 2}</span> times total.`});
+  return steps;
+}
+
+function buildRevStaircase(n = 5) {
+  const steps = [];
+  steps.push({line1: 0, line2: null, i: 0, j: null, rowsState: revStairPartial(0, 'spaces', 0, n), comment: `Outer loop starts.`});
+  for (let i = 1; i <= n; i++) {
+    steps.push({line1: 0, line2: 0, i, j: null, rowsState: revStairPartial(i - 1, 'spaces', 0, n), comment: `<span class="hot-blue">i = ${i}</span>. ${n - i} spaces, then ${i} stars.`});
+    // spaces loop
+    for (let s = 0; s < n - i; s++) {
+      steps.push({line1: 1, line2: 1, i, j: s, rowsState: revStairPartial(i - 1, 'spaces', s, n), comment: `<span class="hot">_ = ${s}</span>. Add a space.`});
+      steps.push({line1: 2, line2: 2, i, j: s, rowsState: revStairPartial(i - 1, 'spaces', s + 1, n), comment: `Space ${s + 1} of ${n - i} placed.`});
+    }
+    // stars loop
+    for (let st = 0; st < i; st++) {
+      steps.push({line1: 3, line2: 3, i, j: st, rowsState: revStairPartial(i - 1, 'stars', st, n), comment: `<span class="hot">_ = ${st}</span>. Place a star.`});
+      steps.push({line1: 4, line2: 3, i, j: st, rowsState: revStairPartial(i - 1, 'stars', st + 1, n, true), comment: `Star ${st + 1} of ${i} placed.`});
+    }
+    steps.push({line1: 5, line2: 3, i, j: null, rowsState: revStairPartial(i, 'spaces', 0, n), comment: `End row ${i}. <span class="hot-green">print()</span>.`});
+  }
+  steps.push({line1: null, line2: null, i: n + 1, j: null, rowsState: revStairPartial(n, 'spaces', 0, n), comment: `Done. Each row is <span class="hot-blue">(n-i) spaces + i stars</span>.`});
+  return steps;
+}
+
+// === State builders ===
+function cloneEmpty(rows, cols, ch) {
+  return Array.from({length: rows}, () => ({cells: Array(cols).fill({ch: '·', filled: false}), done: false}));
+}
+function cloneEmptyVar(rows, widths, ch) {
+  return Array.from({length: rows}, (_, r) => ({cells: Array(widths[r]).fill({ch: '·', filled: false}), done: false}));
+}
+function getStairWidths(n) {
+  return Array.from({length: n}, (_, i) => i + 1);
+}
+function filledUpTo(rowsDone, totalRows, cols, ch) {
+  return Array.from({length: totalRows}, (_, r) => ({
+    cells: r < rowsDone
+      ? Array.from({length: cols}, () => ({ch, filled: true, fresh: false}))
+      : Array.from({length: cols}, () => ({ch: '·', filled: false})),
+    done: r < rowsDone
+  }));
+}
+function rowPartial(i, fillCount, totalRows, cols, ch, freshLast = false) {
+  return Array.from({length: totalRows}, (_, r) => {
+    if (r < i) return {cells: Array.from({length: cols}, () => ({ch, filled: true, fresh: false})), done: true};
+    if (r > i) return {cells: Array.from({length: cols}, () => ({ch: '·', filled: false})), done: false};
+    return {
+      cells: Array.from({length: cols}, (_, c) => {
+        if (c < fillCount - 1) return {ch, filled: true, fresh: false};
+        if (c === fillCount - 1) return {ch, filled: true, fresh: freshLast};
+        return {ch: '·', filled: false};
+      }),
+      done: false,
+      active: true
+    };
+  });
+}
+function stairPartial(rowsDone, fillInCurrent, n, ch, freshLast = false) {
+  return Array.from({length: n}, (_, r) => {
+    const width = r + 1;
+    if (r < rowsDone) return {cells: Array.from({length: width}, () => ({ch, filled: true, fresh: false})), done: true};
+    if (r > rowsDone) return {cells: Array.from({length: width}, () => ({ch: '·', filled: false})), done: false};
+    return {
+      cells: Array.from({length: width}, (_, c) => {
+        if (c < fillInCurrent - 1) return {ch, filled: true, fresh: false};
+        if (c === fillInCurrent - 1) return {ch, filled: true, fresh: freshLast};
+        return {ch: '·', filled: false};
+      }),
+      active: true,
+      done: false
+    };
+  });
+}
+function revStairPartial(rowsDone, phase, count, n, freshLast = false) {
+  return Array.from({length: n}, (_, r) => {
+    const i = r + 1;
+    const sp = n - i;
+    const st = i;
+    const totalCols = n; // full width
+    if (r < rowsDone) {
+      // fully done
+      return {
+        cells: Array.from({length: totalCols}, (_, c) => {
+          if (c < sp) return {ch: ' ', filled: true, fresh: false, isSpace: true};
+          return {ch: '*', filled: true, fresh: false};
+        }),
+        done: true
+      };
+    }
+    if (r > rowsDone) {
+      return {cells: Array.from({length: totalCols}, () => ({ch: '·', filled: false})), done: false};
+    }
+    // active row
+    const cells = [];
+    for (let c = 0; c < totalCols; c++) {
+      if (c < sp) {
+        // space slot
+        if (phase === 'spaces' && c < count) cells.push({ch: ' ', filled: true, fresh: (c === count - 1 && freshLast === false ? false : false), isSpace: true});
+        else if (phase === 'stars') cells.push({ch: ' ', filled: true, fresh: false, isSpace: true});
+        else cells.push({ch: '·', filled: false});
+      } else {
+        // star slot
+        const starIdx = c - sp;
+        if (phase === 'stars' && starIdx < count) cells.push({ch: '*', filled: true, fresh: (starIdx === count - 1 && freshLast)});
+        else cells.push({ch: '·', filled: false});
+      }
+    }
+    return {cells, active: true, done: false};
+  });
+}
+
+const SCENARIOS = [
+  {
+    label: 'square', n: 5,
+    head: 'Square 5×5', sub: 'Every row gets the same number of stars.',
+    code1: codeSquareNested, code2: codeSquareSuper,
+    build: () => buildSquare(5),
+    anatomy: '<strong style="font-style:normal;color:var(--ink)">Row anatomy:</strong> for row <span class="hot-blue">i</span>, we print <span class="hot">5</span> stars on every row — outer loop runs 5 times, inner runs 5 each time. <span class="hot-blue">25</span> stars total.'
+  },
+  {
+    label: 'stair', n: 5,
+    head: 'Staircase ↗', sub: 'Row i has i stars.',
+    code1: codeStairNested, code2: codeStairSuper,
+    build: () => buildStaircase(5),
+    anatomy: '<strong style="font-style:normal;color:var(--ink)">Row anatomy:</strong> on row <span class="hot-blue">i</span>, we print <span class="hot">i</span> stars. Inner loop\'s upper bound depends on the outer variable — that\'s the whole trick.'
+  },
+  {
+    label: 'revstair', n: 5,
+    head: 'Reverse staircase ↖', sub: 'Each row is (n−i) spaces + i stars.',
+    code1: codeRevStairNested, code2: codeRevStairSuper,
+    build: () => buildRevStaircase(5),
+    anatomy: '<strong style="font-style:normal;color:var(--ink)">Row anatomy:</strong> row <span class="hot-blue">i</span> = <span class="hot">(n − i)</span> spaces + <span class="hot">i</span> stars. The pattern needs <strong style="color:var(--ink);font-style:normal">two</strong> inner loops (or one with two string multiplications).'
+  },
+];
+
+let scIdx = 0;
+let stepIdx = 0;
+let steps = SCENARIOS[0].build();
+let autoTimer = null;
+let isPlaying = false;
+
+function renderCode() {
+  const sc = SCENARIOS[scIdx];
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const b1 = document.getElementById('codeBlock1');
+  const b2 = document.getElementById('codeBlock2');
+  b1.innerHTML = sc.code1.map((line, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line1 === idx) {
+      if (idx === 0) cls += ' exec-outer';
+      else if (line.includes('print')) cls += ' exec-print';
+      else cls += ' exec-inner';
+    }
+    return `<span class="${cls}">${line}</span>`;
+  }).join('');
+  b2.innerHTML = sc.code2.map((line, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line2 === idx) {
+      if (idx === 0) cls += ' exec-outer';
+      else cls += ' exec-print';
+    }
+    return `<span class="${cls}">${line}</span>`;
+  }).join('');
+}
+
+function renderState() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const row = document.getElementById('stateRow');
+  if (!cur) { row.innerHTML = ''; return; }
+  let html = '';
+  if (cur.i !== undefined && cur.i !== null) {
+    html += `<span class="pill outer-pill"><span class="pill-key">i (row)</span><span class="pill-val">${cur.i}</span></span>`;
+  }
+  if (cur.j !== null && cur.j !== undefined) {
+    html += `<span class="pill inner-pill"><span class="pill-key">j (col)</span><span class="pill-val">${cur.j}</span></span>`;
+  }
+  row.innerHTML = html;
+}
+
+function renderPattern() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const block = document.getElementById('patternBlock');
+  if (!cur) {
+    block.innerHTML = '<div class="pat-empty">— press Step ▸ —</div>';
+    return;
+  }
+  block.innerHTML = cur.rowsState.map(row => {
+    const cls = row.done ? '' : (row.active ? 'pat-row current' : 'pat-row pending');
+    const cells = row.cells.map(c => {
+      let cellCls = 'pat-cell';
+      if (c.filled) {
+        if (c.isSpace) cellCls += ' space';
+        else cellCls += ' star';
+        if (c.fresh) cellCls += ' fresh';
+      } else {
+        cellCls += ' space';
+      }
+      const ch = c.filled ? (c.isSpace ? '·' : c.ch) : '·';
+      return `<span class="${cellCls}">${ch}</span>`;
+    }).join('');
+    return `<div class="pat-row ${cls}">${cells}</div>`;
+  }).join('');
+}
+
+function renderCommentary() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  document.getElementById('commentary').innerHTML = cur ? cur.comment : 'Press <span class="hot">Step ▸</span> to begin, or <span class="hot-green">Auto ▶</span> to watch.';
+}
+
+function renderHead() {
+  const sc = SCENARIOS[scIdx];
+  document.getElementById('sceneHead').textContent = sc.head;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('anatomyBox').innerHTML = sc.anatomy;
+}
+
+function render() {
+  renderCode();
+  renderState();
+  renderPattern();
+  renderCommentary();
+  renderHead();
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = steps.length;
+  document.getElementById('stepBtn').disabled = stepIdx >= steps.length;
+}
+
+function selectScenario(i) {
+  stopAuto();
+  scIdx = i;
+  stepIdx = 0;
+  steps = SCENARIOS[i].build();
+  document.querySelectorAll('.qb').forEach((b, k) => b.classList.toggle('active', k === i));
+  render();
+}
+
+function step() {
+  if (stepIdx < steps.length) {
+    stepIdx++;
+    render();
+    return true;
+  }
+  return false;
+}
+
+function startAuto() {
+  if (stepIdx >= steps.length) return;
+  isPlaying = true;
+  document.getElementById('autoBtn').classList.add('playing');
+  document.getElementById('autoBtn').textContent = '⏸ Pause';
+  autoTimer = setInterval(() => {
+    if (!step()) stopAuto();
+  }, 220);
+}
+function stopAuto() {
+  isPlaying = false;
+  document.getElementById('autoBtn').classList.remove('playing');
+  document.getElementById('autoBtn').textContent = 'Auto ▶';
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => { stopAuto(); step(); });
+document.getElementById('autoBtn').addEventListener('click', () => {
+  if (isPlaying) stopAuto();
+  else startAuto();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  stopAuto();
+  stepIdx = 0;
+  render();
+});
+document.querySelectorAll('.qb').forEach((b, i) => {
+  b.addEventListener('click', () => selectScenario(i));
+});
+
+render();
+</script>
+</body>
+</html>

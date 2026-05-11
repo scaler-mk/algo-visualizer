@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Prime check — flag vs while-else</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 22px; margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 6px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-break { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-else { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+  .bln { color: #5dadec; }
+
+  .state-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 5px 13px; font-size: 12px; }
+  .pill-key { color: var(--muted); font-size: 10px; margin-right: 6px; letter-spacing: 0.08em; }
+  .pill-val { color: var(--ink); font-weight: 600; }
+  .pill.hot { border-color: var(--accent); background: rgba(240, 160, 75, 0.08); }
+  .pill.hot .pill-val { color: var(--accent); }
+  .pill.true-pill { border-color: var(--red); background: rgba(229,115,115,0.1); }
+  .pill.true-pill .pill-val { color: var(--red); }
+  .pill.false-pill { border-color: var(--green); background: rgba(163,217,119,0.1); }
+  .pill.false-pill .pill-val { color: var(--green); }
+
+  .div-strip { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; min-height: 30px; }
+  .div-chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; font-size: 11px; color: var(--muted); }
+  .div-chip.checking { border-color: var(--accent); color: var(--accent); }
+  .div-chip.notdiv { color: var(--muted); opacity: 0.5; }
+  .div-chip.divides { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.1); font-weight: 600; }
+  .div-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+
+  .check-box { background: #0d1117; border-radius: 6px; padding: 11px 14px; margin-bottom: 14px; font-size: 12.5px; border-left: 3px solid var(--line); }
+  .check-box.true { border-left-color: var(--red); }
+  .check-box.false { border-left-color: var(--green); }
+  .check-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .check-expr { font-family: 'JetBrains Mono', monospace; }
+  .check-verdict { float: right; font-weight: 600; }
+  .check-verdict.t { color: var(--red); }
+  .check-verdict.f { color: var(--green); }
+
+  .output-block { background: #0d1117; border-radius: 6px; padding: 12px 14px; min-height: 50px; font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1.7; }
+  .output-line { color: var(--green); font-weight: 600; }
+  .output-line.notprime { color: var(--red); }
+  .output-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; color: var(--ink); font-size: 13px; line-height: 1.55; min-height: 50px; padding: 10px 0; border-top: 1px solid var(--line); margin-top: 14px; }
+  .commentary .hot { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-green { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .hot-red { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .scenario-row { display: flex; gap: 8px; margin-right: auto; flex-wrap: wrap; }
+  .iter-counter { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; font-size: 13px; margin: 0 4px; font-family: 'JetBrains Mono', monospace; }
+
+  .legend { display: flex; gap: 14px; font-size: 10.5px; color: var(--muted); margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .legend-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .legend-dot.accent { background: var(--accent); }
+  .legend-dot.green { background: var(--green); }
+  .legend-dot.red { background: var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prime check — flag vs while-else</h1>
+  <div class="sub">Step through the prime-checking algorithm. Watch how the <span style="color:var(--green)">while-else</span> construct replaces the boolean <span style="color:var(--accent)">flag</span> — and what happens with the <span style="color:var(--red)">n = 1</span> edge case.</div>
+
+  <div class="controls">
+    <div class="scenario-row">
+      <button class="qb active" data-sc="0">Solution 1 — flag (n=25)</button>
+      <button class="qb" data-sc="1">Solution 1 — flag (n=23 prime)</button>
+      <button class="qb" data-sc="2">Solution 2 — while-else (n=23)</button>
+      <button class="qb" data-sc="3">⚠ n=1 edge case</button>
+    </div>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="scenario-head" id="sceneHead">Solution 1 — boolean flag</div>
+      <div class="scenario-sub" id="sceneSub">Check if 25 is prime by trying divisors 2 .. n-1.</div>
+      <div class="code" id="codeBlock"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION STATE</div>
+      <div class="state-row" id="stateRow"></div>
+
+      <div class="div-label">DIVISORS TRIED</div>
+      <div class="div-strip" id="divStrip"></div>
+
+      <div class="check-box" id="checkBox">
+        <span class="check-label">CHECK</span>
+        <div><span class="check-expr" id="checkExpr">—</span></div>
+      </div>
+
+      <div class="div-label">OUTPUT</div>
+      <div class="output-block" id="outputBlock"><div class="output-empty">— nothing yet —</div></div>
+
+      <div class="commentary" id="commentary">Pick a scenario and press <span class="hot">Step ▸</span> to begin.</div>
+
+      <div class="legend">
+        <span><span class="legend-dot accent"></span>line executing</span>
+        <span><span class="legend-dot red"></span>divisor found / break</span>
+        <span><span class="legend-dot green"></span>while-else fires → prime</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Code templates ===
+const codeSol1 = [
+  {t: '<span class="kw">if</span> n <span class="op">&lt;=</span> <span class="num">1</span>:', i: 0},
+  {t: '    <span class="fn">print</span>(<span class="str">"Not Prime"</span>)', i: 1},
+  {t: '<span class="kw">else</span>:', i: 2},
+  {t: '    count <span class="op">=</span> <span class="num">2</span>', i: 3},
+  {t: '    flag <span class="op">=</span> <span class="bln">False</span>', i: 4},
+  {t: '    <span class="kw">while</span> count <span class="op">&lt;</span> n:', i: 5},
+  {t: '        <span class="kw">if</span> n <span class="op">%</span> count <span class="op">==</span> <span class="num">0</span>:', i: 6},
+  {t: '            flag <span class="op">=</span> <span class="bln">True</span>', i: 7},
+  {t: '            <span class="kw">break</span>', i: 8},
+  {t: '        count <span class="op">+=</span> <span class="num">1</span>', i: 9},
+  {t: '    <span class="kw">if</span> flag:', i: 10},
+  {t: '        <span class="fn">print</span>(<span class="str">"Not Prime"</span>)', i: 11},
+  {t: '    <span class="kw">else</span>:', i: 12},
+  {t: '        <span class="fn">print</span>(<span class="str">"Prime"</span>)', i: 13},
+];
+
+const codeSol2 = [
+  {t: '<span class="kw">if</span> n <span class="op">&lt;=</span> <span class="num">1</span>:', i: 0},
+  {t: '    <span class="fn">print</span>(<span class="str">"Not Prime"</span>)', i: 1},
+  {t: '<span class="kw">else</span>:', i: 2},
+  {t: '    i <span class="op">=</span> <span class="num">2</span>', i: 3},
+  {t: '    <span class="kw">while</span> i <span class="op">&lt;</span> n:', i: 4},
+  {t: '        <span class="kw">if</span> n <span class="op">%</span> i <span class="op">==</span> <span class="num">0</span>:', i: 5},
+  {t: '            <span class="fn">print</span>(<span class="str">"Not Prime"</span>)', i: 6},
+  {t: '            <span class="kw">break</span>', i: 7},
+  {t: '        i <span class="op">+=</span> <span class="num">1</span>', i: 8},
+  {t: '    <span class="kw">else</span>:                 <span class="cmt"># while-else</span>', i: 9},
+  {t: '        <span class="fn">print</span>(<span class="str">"Prime"</span>)', i: 10},
+];
+
+// === Step builders ===
+function buildSol1(n) {
+  const steps = [];
+  // Initial guard
+  steps.push({line: 0, vars: {n, count: '—', flag: '—'}, divs: [], check: `n &lt;= 1 → ${n <= 1}`, checkT: n <= 1 ? 't' : 'f', out: '', comment: `Guard: <span class="hot">n &lt;= 1</span> is ${n <= 1 ? `<span class="hot-red">True</span> — n=${n} can't be prime` : `<span class="hot-green">False</span> — continue to the actual check`}.`});
+  if (n <= 1) {
+    steps.push({line: 1, vars: {n, count: '—', flag: '—'}, divs: [], check: '', checkT: '', out: 'Not Prime', comment: `<span class="hot-red">Edge case caught.</span> Without this guard, the loop starts at <span class="hot">count = 2</span>, immediately checks <span class="hot">2 &lt; 1</span> = False, body never runs, flag stays False — and we'd wrongly print "Prime" for 1.`});
+    return steps;
+  }
+  steps.push({line: 3, vars: {n, count: 2, flag: 'False'}, divs: [], check: '', checkT: '', out: '', comment: `Start the search at <span class="hot">count = 2</span>.`});
+  steps.push({line: 4, vars: {n, count: 2, flag: 'False'}, divs: [], check: '', checkT: '', out: '', comment: `<span class="hot">flag = False</span> — meaning "no divisor found yet, looks prime".`});
+
+  let count = 2;
+  let flag = false;
+  const triedChips = [];
+  while (count < n) {
+    steps.push({line: 5, vars: {n, count, flag: flag ? 'True' : 'False'}, divs: [...triedChips], check: `count &lt; n → ${count} &lt; ${n} → True`, checkT: 'f', out: '', comment: `Loop condition holds. Try divisor <span class="hot">${count}</span>.`});
+    const divides = (n % count === 0);
+    steps.push({line: 6, vars: {n, count, flag: flag ? 'True' : 'False'}, divs: [...triedChips, {v: count, state: 'checking'}], check: `n % count → ${n} % ${count} → ${n % count}`, checkT: divides ? 't' : 'f', out: '', comment: divides ? `<span class="hot-red">${count} divides ${n}.</span> ${n} is composite.` : `<span class="hot-green">${count} doesn't divide ${n}.</span> Try the next number.`});
+    if (divides) {
+      steps.push({line: 7, vars: {n, count, flag: 'True'}, divs: [...triedChips, {v: count, state: 'divides'}], check: '', checkT: '', out: '', comment: `Set <span class="hot-red">flag = True</span> — we found a divisor.`});
+      steps.push({line: 8, vars: {n, count, flag: 'True'}, divs: [...triedChips, {v: count, state: 'divides'}], check: '', checkT: '', out: '', comment: `<span class="hot-red">break</span> out of the while. No point checking further.`});
+      flag = true;
+      triedChips.push({v: count, state: 'divides'});
+      break;
+    } else {
+      triedChips.push({v: count, state: 'notdiv'});
+      steps.push({line: 9, vars: {n, count: count + 1, flag: flag ? 'True' : 'False'}, divs: [...triedChips], check: '', checkT: '', out: '', comment: `<span class="hot">count += 1</span> → ${count + 1}. Back to the top.`});
+      count++;
+    }
+  }
+  if (!flag) {
+    // exited because count < n became false
+    steps.push({line: 5, vars: {n, count, flag: 'False'}, divs: [...triedChips], check: `count &lt; n → ${count} &lt; ${n} → False`, checkT: 't', out: '', comment: `Loop condition fails. Exit while normally — <span class="hot-green">no divisor was ever found</span>.`});
+  }
+  steps.push({line: 10, vars: {n, count, flag: flag ? 'True' : 'False'}, divs: [...triedChips], check: `flag → ${flag ? 'True' : 'False'}`, checkT: flag ? 't' : 'f', out: '', comment: `Check the flag. <span class="hot">flag = ${flag ? 'True' : 'False'}</span> → ${flag ? 'a divisor was found' : 'no divisor — must be prime'}.`});
+  if (flag) {
+    steps.push({line: 11, vars: {n, count, flag: 'True'}, divs: [...triedChips], check: '', checkT: '', out: 'Not Prime', comment: `Print <span class="hot-red">"Not Prime"</span>.`});
+  } else {
+    steps.push({line: 13, vars: {n, count, flag: 'False'}, divs: [...triedChips], check: '', checkT: '', out: 'Prime', comment: `Print <span class="hot-green">"Prime"</span>. ${n} is prime!`});
+  }
+  return steps;
+}
+
+function buildSol2(n) {
+  const steps = [];
+  steps.push({line: 0, vars: {n, i: '—'}, divs: [], check: `n &lt;= 1 → ${n <= 1}`, checkT: n <= 1 ? 't' : 'f', out: '', comment: `Guard: <span class="hot">n &lt;= 1</span> is <span class="hot-green">False</span>.`});
+  steps.push({line: 3, vars: {n, i: 2}, divs: [], check: '', checkT: '', out: '', comment: `<span class="hot">i = 2</span>. No flag this time — we'll use Python's <span class="hot-green">while-else</span> to detect "ran to completion".`});
+
+  let i = 2;
+  let broke = false;
+  const triedChips = [];
+  while (i < n) {
+    steps.push({line: 4, vars: {n, i}, divs: [...triedChips], check: `i &lt; n → ${i} &lt; ${n} → True`, checkT: 'f', out: '', comment: `Loop condition holds. Try divisor <span class="hot">${i}</span>.`});
+    const divides = (n % i === 0);
+    steps.push({line: 5, vars: {n, i}, divs: [...triedChips, {v: i, state: 'checking'}], check: `n % i → ${n} % ${i} → ${n % i}`, checkT: divides ? 't' : 'f', out: '', comment: divides ? `<span class="hot-red">${i} divides ${n}.</span> Composite.` : `<span class="hot-green">${i} doesn't divide ${n}.</span> Keep going.`});
+    if (divides) {
+      steps.push({line: 6, vars: {n, i}, divs: [...triedChips, {v: i, state: 'divides'}], check: '', checkT: '', out: 'Not Prime', comment: `Print <span class="hot-red">"Not Prime"</span> directly — no flag needed.`});
+      steps.push({line: 7, vars: {n, i}, divs: [...triedChips, {v: i, state: 'divides'}], check: '', checkT: '', out: 'Not Prime', comment: `<span class="hot-red">break</span>. Critically — because we broke, the <span class="hot-green">else</span> block will <span class="hot-red">NOT</span> run.`});
+      broke = true;
+      triedChips.push({v: i, state: 'divides'});
+      break;
+    } else {
+      triedChips.push({v: i, state: 'notdiv'});
+      steps.push({line: 8, vars: {n, i: i + 1}, divs: [...triedChips], check: '', checkT: '', out: '', comment: `<span class="hot">i += 1</span> → ${i + 1}.`});
+      i++;
+    }
+  }
+  if (!broke) {
+    steps.push({line: 4, vars: {n, i}, divs: [...triedChips], check: `i &lt; n → ${i} &lt; ${n} → False`, checkT: 't', out: '', comment: `Loop condition fails. Exit the while <span class="hot-green">naturally</span> — no break was hit.`});
+    steps.push({line: 9, vars: {n, i}, divs: [...triedChips], check: '', checkT: '', out: '', comment: `The <span class="hot-green">while-else</span> fires. This block runs <span class="hot-green">only</span> when the loop completes without a break.`});
+    steps.push({line: 10, vars: {n, i}, divs: [...triedChips], check: '', checkT: '', out: 'Prime', comment: `Print <span class="hot-green">"Prime"</span>. The while-else replaces the flag entirely.`});
+  }
+  return steps;
+}
+
+const SCENARIOS = [
+  {label: 'sol1-25', n: 25, code: codeSol1, head: 'Solution 1 — boolean flag', sub: 'Check if 25 is prime. We expect Not Prime (5 × 5 = 25).', build: buildSol1},
+  {label: 'sol1-23', n: 23, code: codeSol1, head: 'Solution 1 — boolean flag (prime)', sub: 'Check if 23 is prime. Try every divisor from 2 to 22.', build: buildSol1},
+  {label: 'sol2-23', n: 23, code: codeSol2, head: 'Solution 2 — while-else (Python\'s gem)', sub: 'Same problem, no flag. The else runs only if break never hits.', build: buildSol2},
+  {label: 'edge-1', n: 1, code: codeSol1, head: '⚠ Edge case — n = 1', sub: 'Without the if n <= 1 guard, this would print "Prime". 1 is NOT prime.', build: buildSol1},
+];
+
+let scIdx = 0;
+let stepIdx = 0;
+let steps = SCENARIOS[0].build(SCENARIOS[0].n);
+
+function renderCode() {
+  const sc = SCENARIOS[scIdx];
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const block = document.getElementById('codeBlock');
+  block.innerHTML = sc.code.map(line => {
+    let cls = 'code-line';
+    if (cur && line.i === cur.line) {
+      if (cur.comment && cur.comment.includes('break')) cls += ' exec-break';
+      else if (cur.comment && cur.comment.includes('while-else')) cls += ' exec-else';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${line.t}</span>`;
+  }).join('');
+}
+
+function renderState() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const row = document.getElementById('stateRow');
+  if (!cur) { row.innerHTML = '<span class="pill"><span class="pill-key">N</span><span class="pill-val">—</span></span>'; return; }
+  const v = cur.vars;
+  const items = Object.entries(v).map(([k, val]) => {
+    let cls = 'pill';
+    if (k === 'flag') {
+      if (val === 'True') cls += ' true-pill';
+      else if (val === 'False' && stepIdx > 2) cls += ' false-pill';
+    }
+    if (k === 'count' || k === 'i') cls += ' hot';
+    return `<span class="${cls}"><span class="pill-key">${k.toUpperCase()}</span><span class="pill-val">${val}</span></span>`;
+  });
+  row.innerHTML = items.join('');
+}
+
+function renderDivs() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const strip = document.getElementById('divStrip');
+  if (!cur || cur.divs.length === 0) {
+    strip.innerHTML = '<span style="font-size:11px;color:var(--muted);font-style:italic;font-family:Georgia,serif">— none yet —</span>';
+    return;
+  }
+  strip.innerHTML = cur.divs.map(d => `<span class="div-chip ${d.state}">${d.v}</span>`).join('');
+}
+
+function renderCheck() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const box = document.getElementById('checkBox');
+  const expr = document.getElementById('checkExpr');
+  box.className = 'check-box';
+  if (!cur || !cur.check) {
+    expr.innerHTML = '<span style="color:var(--muted);font-style:italic;font-family:Georgia,serif">—</span>';
+    return;
+  }
+  box.className = 'check-box ' + (cur.checkT === 't' ? 'true' : 'false');
+  expr.innerHTML = cur.check + (cur.checkT ? `<span class="check-verdict ${cur.checkT}">${cur.checkT === 't' ? '✓ TRUE' : '✗ FALSE'}</span>` : '');
+}
+
+function renderOut() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  const out = document.getElementById('outputBlock');
+  if (!cur || !cur.out) {
+    out.innerHTML = '<div class="output-empty">— nothing yet —</div>';
+    return;
+  }
+  const cls = cur.out === 'Prime' ? 'output-line' : 'output-line notprime';
+  out.innerHTML = `<div class="${cls}">${cur.out}</div>`;
+}
+
+function renderCommentary() {
+  const cur = stepIdx > 0 ? steps[stepIdx - 1] : null;
+  document.getElementById('commentary').innerHTML = cur ? cur.comment : 'Press <span class="hot">Step ▸</span> to begin.';
+}
+
+function render() {
+  renderCode();
+  renderState();
+  renderDivs();
+  renderCheck();
+  renderOut();
+  renderCommentary();
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = steps.length;
+  document.getElementById('stepBtn').disabled = stepIdx >= steps.length;
+  const sc = SCENARIOS[scIdx];
+  document.getElementById('sceneHead').textContent = sc.head;
+  document.getElementById('sceneSub').textContent = sc.sub;
+}
+
+function selectScenario(i) {
+  scIdx = i;
+  stepIdx = 0;
+  steps = SCENARIOS[i].build(SCENARIOS[i].n);
+  document.querySelectorAll('.qb').forEach((b, k) => b.classList.toggle('active', k === i));
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < steps.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  stepIdx = 0;
+  render();
+});
+document.querySelectorAll('.qb').forEach((b, i) => {
+  b.addEventListener('click', () => selectScenario(i));
+});
+
+render();
+</script>
+</body>
+</html>
