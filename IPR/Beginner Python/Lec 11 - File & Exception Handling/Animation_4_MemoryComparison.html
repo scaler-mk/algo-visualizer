@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Memory comparison — .read() vs .readlines() vs streaming</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .auto-btn { background: transparent; color: var(--blue); border: 1px solid var(--blue); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .auto-btn:hover { background: rgba(93, 173, 236, 0.1); }
+  .auto-btn.playing { background: var(--blue); color: #1a1d23; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .qb.ok.active { border-color: var(--green); color: var(--green); background: rgba(163,217,119,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.15fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 480px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* File on disk */
+  .disk-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .disk-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .disk-card .file-tag { font-family: 'JetBrains Mono', monospace; padding: 1px 7px; background: rgba(240,160,75,0.1); color: var(--accent); border-radius: 3px; font-size: 11px; }
+  .disk-card .size-tag { margin-left: auto; padding: 1px 9px; background: rgba(229,115,115,0.1); color: var(--red); border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
+  .disk-bar { height: 22px; background: rgba(0,0,0,0.4); border-radius: 4px; overflow: hidden; position: relative; border: 1px solid var(--line); }
+  .disk-bar .fill { height: 100%; background: repeating-linear-gradient(45deg, rgba(240,160,75,0.4), rgba(240,160,75,0.4) 6px, rgba(240,160,75,0.55) 6px, rgba(240,160,75,0.55) 12px); transition: width 0.4s; }
+  .disk-bar .pos { position: absolute; top: 0; bottom: 0; width: 2.5px; background: var(--green); box-shadow: 0 0 6px var(--green); transition: left 0.5s ease-out; }
+  .disk-bar .label-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; color: var(--ink); text-shadow: 0 1px 2px rgba(0,0,0,0.7); pointer-events: none; }
+
+  /* RAM card with bars */
+  .ram-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .ram-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .ram-card .ram-cap { margin-left: auto; padding: 1px 9px; background: rgba(93,173,236,0.1); color: var(--blue); border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
+  .ram-meter { display: grid; grid-template-columns: 80px 1fr 110px; gap: 10px; align-items: center; margin-bottom: 6px; }
+  .ram-meter .what { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+  .ram-meter .what.hi { color: var(--accent); }
+  .ram-bar { height: 28px; background: rgba(0,0,0,0.4); border-radius: 4px; overflow: hidden; position: relative; border: 1px solid var(--line); }
+  .ram-bar .ram-fill { height: 100%; transition: width 0.45s ease-out, background-color 0.3s; border-radius: 3px; }
+  .ram-bar .ram-fill.python { background: linear-gradient(90deg, rgba(93,173,236,0.5), rgba(93,173,236,0.85)); }
+  .ram-bar .ram-fill.data { background: linear-gradient(90deg, rgba(240,160,75,0.6), rgba(229,115,115,0.95)); }
+  .ram-bar .ram-fill.data.flat { background: linear-gradient(90deg, rgba(163,217,119,0.6), rgba(163,217,119,0.9)); }
+  .ram-bar .limit-marker { position: absolute; top: -4px; bottom: -4px; right: 0; width: 2px; background: var(--red); }
+  .ram-bar .limit-marker::after { content: '16 GB'; position: absolute; top: -16px; right: -16px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--red); }
+  .ram-meter .amt { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-align: right; padding: 3px 7px; border-radius: 3px; }
+  .ram-meter .amt.ok { background: rgba(163,217,119,0.15); color: var(--green); }
+  .ram-meter .amt.warn { background: rgba(240,160,75,0.15); color: var(--accent); }
+  .ram-meter .amt.bad { background: rgba(229,115,115,0.18); color: var(--red); }
+
+  /* Verdict pill */
+  .verdict-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px 14px; transition: all 0.3s; min-height: 50px; display: flex; align-items: center; gap: 12px; }
+  .verdict-card.pending { opacity: 0.4; }
+  .verdict-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .verdict-card .v { padding: 5px 14px; border-radius: 5px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; }
+  .verdict-card .v.ok { background: rgba(163,217,119,0.15); color: var(--green); border: 1.5px solid var(--green); }
+  .verdict-card .v.crashed { background: rgba(229,115,115,0.18); color: var(--red); border: 1.5px solid var(--red); animation: pulse 0.6s 2; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>50 GB file, 16 GB RAM — which approach survives?</h1>
+    <p class="sub">.read() and .readlines() load everything before you can touch it. Streaming reads one line at a time.</p>
+
+    <div class="controls">
+      <span class="ctl-label">APPROACHES:</span>
+      <button class="qb warn" data-i="0">.read() — load everything</button>
+      <button class="qb warn" data-i="1">.readlines() — list of all lines</button>
+      <button class="qb ok" data-i="2">for line in file — streaming</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="auto-btn" id="autoBtn">▶ Auto-play</button>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="disk-card">
+            <div class="lbl">FILE ON DISK <span class="file-tag">apache.log</span><span class="size-tag" id="fileSize">50 GB</span></div>
+            <div class="disk-bar">
+              <div class="fill" style="width: 100%;"></div>
+              <div class="pos" id="diskPos" style="left: 0%;"></div>
+              <div class="label-over" id="diskLabel">reading…</div>
+            </div>
+          </div>
+
+          <div class="ram-card">
+            <div class="lbl">MEMORY (RAM) <span class="ram-cap">limit: 16 GB</span></div>
+            <div class="ram-meter">
+              <span class="what">python:</span>
+              <div class="ram-bar"><div class="ram-fill python" id="pythonFill" style="width: 3%;"></div></div>
+              <span class="amt ok" id="pythonAmt">~50 MB</span>
+            </div>
+            <div class="ram-meter">
+              <span class="what hi" id="dataLabel">data:</span>
+              <div class="ram-bar"><div class="ram-fill data" id="dataFill" style="width: 0%;"></div><div class="limit-marker"></div></div>
+              <span class="amt ok" id="dataAmt">0 GB</span>
+            </div>
+          </div>
+
+          <div class="verdict-card pending" id="verdictCard">
+            <span class="lbl">OUTCOME:</span>
+            <span class="v" id="verdictV">— pending —</span>
+          </div>
+
+          <div class="commentary" id="commentary">Pick an approach, then click <strong>Step ▸</strong> or <strong>Auto-play</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|with|as|import|from)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(open|print|input|len|range|int|map|list|read|readlines|strip|process)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  let prev;
+  do { prev = h; h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; }); } while (h !== prev);
+  return h;
+}
+
+// Each plan step has: line, msg, diskPos% (cursor on disk), dataPct (RAM bar fill %), dataAmt (text), dataCls, verdict, dataLabel
+const SCENARIOS = [
+  {
+    name: ".read() — entire file as one string",
+    sub: "Tries to allocate 50 GB. RAM is 16 GB.",
+    code: [
+      "with open('apache.log', 'r') as file:",
+      "    content = file.read()",
+      "    # ↑ blocks until ALL 50 GB is in memory",
+      "",
+      "    # We never even get here…",
+      "    for line in content.split('\\n'):",
+      "        process(line)"
+    ],
+    insight: '<span class="accent">.read()</span> doesn\'t return until the entire file is loaded as a single string. On a 50 GB file with 16 GB RAM, Python asks the OS for memory it cannot give → <span class="bad">MemoryError</span>. The script dies before producing any output.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Open the file. Just a handle so far — no data loaded.', diskPos: 0, diskLabel: 'open', dataPct: 0, dataAmt: '0 GB', dataCls: 'ok', dataLabel: 'data:', verdict: null },
+      { kind: 'exec', line: 1, msg: '<span class="blue">.read()</span> begins consuming the file. Bytes pile up in RAM…', diskPos: 25, diskLabel: '25% read', dataPct: 25, dataAmt: '~12 GB', dataCls: 'warn', dataLabel: 'string content:', verdict: null },
+      { kind: 'exec', line: 1, msg: 'Still loading. RAM nearly full now.', diskPos: 32, diskLabel: '32% read', dataPct: 95, dataAmt: '~15.5 GB', dataCls: 'bad', dataLabel: 'string content:', verdict: null },
+      { kind: 'exec-fail', line: 1, msg: 'RAM hits the 16 GB limit before reading is even halfway done. <span class="bad">MemoryError</span> raised — script dies.', diskPos: 33, diskLabel: '33% — out of RAM', dataPct: 100, dataAmt: 'CRASH', dataCls: 'bad', dataLabel: 'string content:', verdict: 'MemoryError — CRASHED' }
+    ]
+  },
+  {
+    name: ".readlines() — file as a Python list",
+    sub: "Same problem as .read(), plus list overhead",
+    code: [
+      "with open('apache.log', 'r') as file:",
+      "    lines = file.readlines()",
+      "    # ↑ blocks while building a LIST of all lines",
+      "",
+      "    for line in lines:",
+      "        process(line)"
+    ],
+    insight: '<span class="accent">.readlines()</span> reads the whole file <em>and</em> builds a Python list. Each list element carries Python\'s string-object overhead, so the memory footprint is even larger than <span class="accent">.read()</span>. Still crashes.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Open the file. Handle only.', diskPos: 0, diskLabel: 'open', dataPct: 0, dataAmt: '0 GB', dataCls: 'ok', dataLabel: 'list of lines:', verdict: null },
+      { kind: 'exec', line: 1, msg: '<span class="blue">.readlines()</span> starts. Each line becomes a Python str object — list grows.', diskPos: 20, diskLabel: '20% read', dataPct: 30, dataAmt: '~12 GB', dataCls: 'warn', dataLabel: 'list of lines:', verdict: null },
+      { kind: 'exec', line: 1, msg: 'List overhead per element makes this worse than <span class="accent">.read()</span>. RAM approaches the limit faster.', diskPos: 26, diskLabel: '26% read', dataPct: 95, dataAmt: '~15.5 GB', dataCls: 'bad', dataLabel: 'list of lines:', verdict: null },
+      { kind: 'exec-fail', line: 1, msg: 'Out of memory. <span class="bad">MemoryError</span> — same fate, slightly earlier in the file.', diskPos: 28, diskLabel: '28% — out of RAM', dataPct: 100, dataAmt: 'CRASH', dataCls: 'bad', dataLabel: 'list of lines:', verdict: 'MemoryError — CRASHED' }
+    ]
+  },
+  {
+    name: "for line in file — streaming",
+    sub: "Reads one line at a time. RAM stays flat.",
+    code: [
+      "with open('apache.log', 'r') as file:",
+      "    for line in file:",
+      "        # one line in memory at a time",
+      "        process(line)",
+      "        # ↑ next iteration discards it"
+    ],
+    insight: 'A file object in Python is an <span class="accent">iterator</span>. The <span class="accent">for</span> loop fetches one line at a time and discards each before fetching the next. <span class="ok">RAM usage stays flat</span> — a few KB no matter the file size. This is the only safe way for large files.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Open the file. Same handle setup.', diskPos: 0, diskLabel: 'open', dataPct: 0, dataAmt: '0 GB', dataCls: 'ok', dataLabel: 'current line:', verdict: null },
+      { kind: 'exec', line: 1, msg: 'First iteration: fetch <em>one</em> line into memory.', diskPos: 2, diskLabel: 'reading line 1', dataPct: 1, dataAmt: '~200 B', dataCls: 'ok', dataLabel: 'current line:', verdict: null },
+      { kind: 'exec', line: 3, msg: 'Process line 1. Then loop continues — line 1 is discarded.', diskPos: 8, diskLabel: 'reading line 2', dataPct: 1, dataAmt: '~200 B', dataCls: 'ok', dataLabel: 'current line:', verdict: null },
+      { kind: 'exec', line: 3, msg: 'Many lines in… still only one in RAM at any moment.', diskPos: 40, diskLabel: '40% through', dataPct: 1, dataAmt: '~200 B', dataCls: 'ok', dataLabel: 'current line:', verdict: null },
+      { kind: 'exec', line: 3, msg: 'Past the halfway point. RAM flat as a pancake.', diskPos: 70, diskLabel: '70% through', dataPct: 1, dataAmt: '~200 B', dataCls: 'ok', dataLabel: 'current line:', verdict: null },
+      { kind: 'exec-return', line: 3, msg: 'Reached EOF. <span class="ok">All 50 GB processed</span> — and we never used more than a few KB.', diskPos: 100, diskLabel: 'EOF', dataPct: 1, dataAmt: '~200 B', dataCls: 'ok', dataLabel: 'current line:', verdict: 'SUCCESS — RAM stayed flat' }
+    ]
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+let autoTimer = null;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Disk bar
+  const diskPos = document.getElementById('diskPos');
+  const diskLabel = document.getElementById('diskLabel');
+  if (cur) {
+    diskPos.style.left = cur.diskPos + '%';
+    diskLabel.textContent = cur.diskLabel;
+  } else {
+    diskPos.style.left = '0%';
+    diskLabel.textContent = 'not started';
+  }
+
+  // RAM bars
+  const dataFill = document.getElementById('dataFill');
+  const dataAmt = document.getElementById('dataAmt');
+  const dataLabel = document.getElementById('dataLabel');
+  if (cur) {
+    dataFill.style.width = cur.dataPct + '%';
+    dataFill.className = 'ram-fill data' + (scenarioIdx === 2 ? ' flat' : '');
+    dataAmt.textContent = cur.dataAmt;
+    dataAmt.className = 'amt ' + cur.dataCls;
+    dataLabel.textContent = cur.dataLabel;
+  } else {
+    dataFill.style.width = '0%';
+    dataAmt.textContent = '0 GB';
+    dataAmt.className = 'amt ok';
+    dataLabel.textContent = 'data:';
+  }
+
+  // Verdict
+  const verdictCard = document.getElementById('verdictCard');
+  const verdictV = document.getElementById('verdictV');
+  if (cur && cur.verdict) {
+    verdictCard.classList.remove('pending');
+    if (cur.verdict.includes('SUCCESS')) {
+      verdictV.className = 'v ok';
+    } else {
+      verdictV.className = 'v crashed';
+    }
+    verdictV.textContent = cur.verdict;
+  } else {
+    verdictCard.classList.add('pending');
+    verdictV.className = 'v';
+    verdictV.textContent = '— pending —';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Pick an approach, then click <strong>Step ▸</strong>.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  stopAuto();
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+function stopAuto() {
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    document.getElementById('autoBtn').classList.remove('playing');
+    document.getElementById('autoBtn').textContent = '▶ Auto-play';
+  }
+}
+
+function startAuto() {
+  document.getElementById('autoBtn').classList.add('playing');
+  document.getElementById('autoBtn').textContent = '⏸ Pause';
+  autoTimer = setInterval(() => {
+    if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+      stepIdx++;
+      render();
+    } else {
+      stopAuto();
+    }
+  }, 1300);
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  stopAuto();
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.getElementById('autoBtn').addEventListener('click', () => {
+  if (autoTimer) stopAuto();
+  else startAuto();
+});
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

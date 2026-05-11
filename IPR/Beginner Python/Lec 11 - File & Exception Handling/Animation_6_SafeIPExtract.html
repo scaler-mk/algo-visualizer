@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Safe IP Extraction — .find() over .split()[0]</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 11.5px; line-height: 1.65; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-alt { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 500px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Input line display */
+  .line-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .line-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .line-display { background: rgba(0,0,0,0.4); border-radius: 5px; padding: 10px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink); line-height: 1.5; word-break: break-all; white-space: pre-wrap; min-height: 32px; }
+  .line-display .placeholder { color: var(--muted); font-style: italic; font-family: Georgia, serif; }
+  .line-display .hl-bracket { background: rgba(240,160,75,0.25); color: var(--accent); padding: 1px 3px; border-radius: 2px; font-weight: 700; }
+  .line-display .hl-ip-bracket { background: rgba(163,217,119,0.25); color: var(--green); padding: 1px 3px; border-radius: 2px; font-weight: 700; }
+  .line-display .hl-start { background: rgba(93,173,236,0.22); color: var(--blue); padding: 1px 3px; border-radius: 2px; font-weight: 700; }
+
+  /* Format tries display */
+  .formats-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .formats-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; }
+  .format-row { padding: 7px 10px; margin-bottom: 4px; background: rgba(0,0,0,0.25); border-radius: 4px; border: 1.5px solid transparent; transition: all 0.3s; display: grid; grid-template-columns: 80px 1fr 90px; gap: 10px; align-items: center; }
+  .format-row.active { border-color: var(--accent); background: rgba(240,160,75,0.10); }
+  .format-row.matched { border-color: var(--green); background: rgba(163,217,119,0.08); }
+  .format-row.failed { opacity: 0.45; }
+  .format-row.skipped { opacity: 0.4; }
+  .format-row .name { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: var(--muted); }
+  .format-row.active .name { color: var(--accent); }
+  .format-row.matched .name { color: var(--green); }
+  .format-row .desc { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); }
+  .format-row .verdict { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; padding: 3px 7px; border-radius: 3px; }
+  .format-row .verdict.none { background: rgba(0,0,0,0.3); color: var(--muted); border: 1px dashed var(--line); }
+  .format-row .verdict.checking { background: rgba(240,160,75,0.15); color: var(--accent); }
+  .format-row .verdict.ok { background: rgba(163,217,119,0.15); color: var(--green); }
+  .format-row .verdict.bad { background: rgba(229,115,115,0.15); color: var(--red); }
+  .format-row .verdict.skip { background: rgba(93,173,236,0.15); color: var(--blue); }
+
+  /* Find call display */
+  .find-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; transition: all 0.3s; min-height: 56px; display: flex; flex-direction: column; gap: 5px; }
+  .find-card.pending { opacity: 0.4; }
+  .find-line { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .find-line .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; min-width: 80px; }
+  .find-line .call { padding: 2px 7px; background: rgba(93,173,236,0.12); color: var(--blue); border-radius: 3px; font-weight: 700; }
+  .find-line .res { padding: 2px 8px; border-radius: 3px; font-weight: 700; }
+  .find-line .res.ok { background: rgba(163,217,119,0.15); color: var(--green); }
+  .find-line .res.bad { background: rgba(229,115,115,0.15); color: var(--red); }
+  .find-line .res.info { background: rgba(240,160,75,0.12); color: var(--accent); }
+
+  /* Return value */
+  .return-card { background: rgba(0,0,0,0.4); border-radius: 6px; padding: 11px 14px; display: flex; align-items: center; gap: 12px; }
+  .return-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .return-card .v { padding: 4px 12px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
+  .return-card .v.ok { background: rgba(163,217,119,0.15); color: var(--green); border: 1.5px solid var(--green); }
+  .return-card .v.none { background: rgba(192,132,232,0.12); color: var(--purple); border: 1.5px solid var(--purple); }
+  .return-card .v.pending { background: transparent; color: var(--muted); border: 1.5px dashed var(--line); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; line-height: 1.55; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .purple { color: var(--purple); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Safe IP Extraction — .find() never crashes</h1>
+    <p class="sub">Two formats to look for. Returns None if neither matches. Never raises on blank or malformed lines.</p>
+
+    <div class="controls">
+      <span class="ctl-label">INPUT LINE:</span>
+      <button class="qb" data-i="0">[client ...] — Format 1</button>
+      <button class="qb" data-i="1">IP at start — Format 2</button>
+      <button class="qb warn" data-i="2">blank line — None</button>
+      <button class="qb warn" data-i="3">no IP at all — None</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head">extract_ip_from_line(line)</div>
+        <div class="scenario-sub">Check Format 1 first (more specific), then Format 2, else None</div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="line-card">
+            <div class="lbl">LINE under analysis</div>
+            <div class="line-display" id="lineDisplay">— pick a scenario —</div>
+          </div>
+          <div class="formats-card">
+            <div class="lbl">FORMAT CHECKS</div>
+            <div class="format-row" id="fmt1">
+              <span class="name">Format 1</span>
+              <span class="desc">[client &lt;IP&gt;] inside brackets</span>
+              <span class="verdict none" id="fmt1Verdict">—</span>
+            </div>
+            <div class="format-row" id="fmt2">
+              <span class="name">Format 2</span>
+              <span class="desc">IP at start of line</span>
+              <span class="verdict none" id="fmt2Verdict">—</span>
+            </div>
+          </div>
+          <div class="find-card pending" id="findCard">
+            <div class="find-line"><span class="lbl">CALL:</span><span id="findCall">—</span></div>
+            <div class="find-line"><span class="lbl">CANDIDATE:</span><span id="findCandidate">—</span></div>
+            <div class="find-line"><span class="lbl">VALIDATION:</span><span id="findValid">—</span></div>
+          </div>
+          <div class="return-card">
+            <span class="lbl">RETURNS:</span>
+            <span class="v pending" id="returnV">— pending —</span>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|with|as|import|from|all)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(find|count|isdigit)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  let prev;
+  do { prev = h; h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; }); } while (h !== prev);
+  return h;
+}
+
+const CODE = [
+  "def extract_ip_from_line(line):",
+  "    # Format 1: [client <IP>]",
+  "    client_start = line.find('[client ')",
+  "    if client_start != -1:",
+  "        ip_start = client_start + 8",
+  "        ip_end = line.find(']', ip_start)",
+  "        if ip_end != -1:",
+  "            candidate = line[ip_start:ip_end]",
+  "            if candidate.count('.') == 3 and \\",
+  "                all(c.isdigit() or c=='.' for c in candidate):",
+  "                return candidate",
+  "    # Format 2: IP at start",
+  "    first_space = line.find(' ')",
+  "    if first_space != -1:",
+  "        candidate = line[:first_space]",
+  "        if candidate.count('.') == 3 and \\",
+  "            all(c.isdigit() or c=='.' for c in candidate):",
+  "            return candidate",
+  "    return None"
+];
+
+const SCENARIOS = [
+  {
+    name: "Format 1 — [client ...] in line",
+    sub: "Bracketed IP gets matched first (it's more specific)",
+    line: "[Thu Apr 23 05:36:37 2026] [warn] [client 172.16.0.89] Slow query",
+    insight: 'Format 1 is checked first because it\'s the <em>more specific</em> evidence — it explicitly says "this is the client IP." If a line has both formats, the bracketed one wins.',
+    highlightFn: function(text) {
+      const idx = text.indexOf('[client 172.16.0.89]');
+      const before = text.slice(0, idx);
+      return before + '<span class="hl-bracket">[client </span><span class="hl-ip-bracket">172.16.0.89</span><span class="hl-bracket">]</span>' + text.slice(idx + 20);
+    },
+    plan: [
+      { kind: 'exec', line: 2, msg: 'Search for <span class="accent">\'[client \'</span> in the line.', fmt1: 'checking', fmt2: 'none',
+        findCall: "line.find('[client ')", findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 3, msg: 'Found at index 34. <span class="accent">!= -1</span> → enter the if block.', fmt1: 'checking', fmt2: 'none',
+        findCall: "line.find('[client ')", findCallRes: '34', findCallResCls: 'ok', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 5, msg: 'Skip past the 8 chars of <span class="accent">\'[client \'</span> and look for the closing <span class="accent">\']\'</span>.', fmt1: 'checking', fmt2: 'none',
+        findCall: "line.find(']', 42)", findCallRes: '53', findCallResCls: 'ok', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 7, msg: 'Slice the line between the brackets → candidate.', fmt1: 'checking', fmt2: 'none',
+        findCall: "line[42:53]", findCallRes: null, findCandidate: "'172.16.0.89'", candidateCls: 'info', findValid: null, returnV: null },
+      { kind: 'exec', line: 8, msg: 'Validate: exactly <span class="ok">3 dots</span> AND only digits-or-dots?', fmt1: 'checking', fmt2: 'none',
+        findCall: "line[42:53]", findCandidate: "'172.16.0.89'", candidateCls: 'info', findValid: "count('.')==3 ✓  all digits/dots ✓", findValidCls: 'ok', returnV: null },
+      { kind: 'exec-return', line: 10, msg: '<span class="ok">Match!</span> Return the IP. Format 2 never gets checked.', fmt1: 'matched', fmt2: 'skipped',
+        findCall: "line[42:53]", findCandidate: "'172.16.0.89'", candidateCls: 'info', findValid: 'PASSED', findValidCls: 'ok', returnV: "'172.16.0.89'", returnCls: 'ok' }
+    ]
+  },
+  {
+    name: "Format 2 — IP at start of line",
+    sub: "No [client ...] but the line starts with an IP",
+    line: "192.168.1.10 - - [02:15:01] [error] Segfault at instruction",
+    insight: 'When Format 1 yields nothing, Format 2 takes over: slice from the start up to the first space. Same validation. Same safety.',
+    highlightFn: function(text) {
+      return '<span class="hl-start">192.168.1.10</span>' + text.slice(12);
+    },
+    plan: [
+      { kind: 'exec', line: 2, msg: 'Search for <span class="accent">\'[client \'</span>.', fmt1: 'checking', fmt2: 'none',
+        findCall: "line.find('[client ')", findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 3, msg: 'Returns <span class="bad">-1</span> — not in this line. Skip Format 1.', fmt1: 'failed', fmt2: 'none',
+        findCall: "line.find('[client ')", findCallRes: '-1', findCallResCls: 'bad', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 12, msg: 'Try Format 2: find the first space.', fmt1: 'failed', fmt2: 'checking',
+        findCall: "line.find(' ')", findCallRes: '12', findCallResCls: 'ok', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 14, msg: 'Slice everything before that space → candidate.', fmt1: 'failed', fmt2: 'checking',
+        findCall: "line[:12]", findCandidate: "'192.168.1.10'", candidateCls: 'info', findValid: null, returnV: null },
+      { kind: 'exec', line: 15, msg: 'Validate: <span class="ok">3 dots ✓</span> &amp; only digits-or-dots <span class="ok">✓</span>.', fmt1: 'failed', fmt2: 'checking',
+        findCall: "line[:12]", findCandidate: "'192.168.1.10'", candidateCls: 'info', findValid: "count('.')==3 ✓  all digits/dots ✓", findValidCls: 'ok', returnV: null },
+      { kind: 'exec-return', line: 17, msg: 'Return the IP. <span class="ok">Format 2 wins.</span>', fmt1: 'failed', fmt2: 'matched',
+        findCall: "line[:12]", findCandidate: "'192.168.1.10'", candidateCls: 'info', findValid: 'PASSED', findValidCls: 'ok', returnV: "'192.168.1.10'", returnCls: 'ok' }
+    ]
+  },
+  {
+    name: "Blank line — safe return None",
+    sub: "Where .split()[0] would crash, .find() handles it gracefully",
+    line: "",
+    insight: '<span class="bad">line.split()[0]</span> would raise <span class="bad">IndexError</span> on this empty string. <span class="accent">line.find(...)</span> just returns <span class="bad">-1</span> — no crash. We fall through to <span class="purple">return None</span>.',
+    highlightFn: function(text) { return '<span class="placeholder">— (empty string) —</span>'; },
+    plan: [
+      { kind: 'exec', line: 2, msg: 'Search for <span class="accent">\'[client \'</span> in an empty string.', fmt1: 'checking', fmt2: 'none',
+        findCall: "line.find('[client ')", findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 3, msg: '<span class="bad">-1</span>. Skip Format 1.', fmt1: 'failed', fmt2: 'none',
+        findCall: "line.find('[client ')", findCallRes: '-1', findCallResCls: 'bad', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 12, msg: 'Search for the first space in an empty string.', fmt1: 'failed', fmt2: 'checking',
+        findCall: "line.find(' ')", findCallRes: '-1', findCallResCls: 'bad', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 13, msg: 'Also <span class="bad">-1</span>. Skip Format 2 too. <span class="ok">No crash.</span>', fmt1: 'failed', fmt2: 'failed',
+        findCall: "line.find(' ')", findCallRes: '-1', findCallResCls: 'bad', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec-return', line: 18, msg: 'Fall through to the bottom. <span class="purple">return None</span> — caller can decide what to do.', fmt1: 'failed', fmt2: 'failed',
+        findCall: null, findCandidate: null, findValid: null, returnV: 'None', returnCls: 'none' }
+    ]
+  },
+  {
+    name: "Line has no valid IP",
+    sub: "Validation rejects the candidate — still returns None safely",
+    line: "Server restarting normally",
+    insight: 'Even when <span class="accent">.find()</span> finds something, the <span class="accent">validation step</span> can still reject it. "Server" is the first word — not an IP. Drop down to <span class="purple">return None</span>.',
+    highlightFn: function(text) { return text; },
+    plan: [
+      { kind: 'exec', line: 2, msg: 'Search for <span class="accent">\'[client \'</span>.', fmt1: 'checking', fmt2: 'none',
+        findCall: "line.find('[client ')", findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 3, msg: '<span class="bad">-1</span>. Skip Format 1.', fmt1: 'failed', fmt2: 'none',
+        findCall: "line.find('[client ')", findCallRes: '-1', findCallResCls: 'bad', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 12, msg: 'Find the first space.', fmt1: 'failed', fmt2: 'checking',
+        findCall: "line.find(' ')", findCallRes: '6', findCallResCls: 'ok', findCandidate: null, findValid: null, returnV: null },
+      { kind: 'exec', line: 14, msg: 'Slice → candidate.', fmt1: 'failed', fmt2: 'checking',
+        findCall: "line[:6]", findCandidate: "'Server'", candidateCls: 'info', findValid: null, returnV: null },
+      { kind: 'exec', line: 15, msg: 'Validate: <span class="bad">0 dots</span> ≠ 3, plus non-digit letters. <span class="bad">Validation FAILS.</span>', fmt1: 'failed', fmt2: 'failed',
+        findCall: "line[:6]", findCandidate: "'Server'", candidateCls: 'info', findValid: "count('.')==0 ✗  has letters ✗", findValidCls: 'bad', returnV: null },
+      { kind: 'exec-return', line: 18, msg: 'Both formats failed. <span class="purple">return None</span>.', fmt1: 'failed', fmt2: 'failed',
+        findCall: null, findCandidate: null, findValid: null, returnV: 'None', returnCls: 'none' }
+    ]
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.querySelector('.scenario-head').textContent = 'extract_ip_from_line(line)';
+  document.querySelector('.scenario-sub').textContent = sc.name;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = CODE.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-alt') cls += ' exec-alt';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Line display
+  const lineDisplay = document.getElementById('lineDisplay');
+  lineDisplay.innerHTML = sc.highlightFn(sc.line || '');
+
+  // Format rows
+  function setFmtRow(id, verdictId, state) {
+    const row = document.getElementById(id);
+    const verdict = document.getElementById(verdictId);
+    row.className = 'format-row';
+    verdict.className = 'verdict';
+    if (state === 'checking') { row.classList.add('active'); verdict.classList.add('checking'); verdict.textContent = 'CHECKING'; }
+    else if (state === 'matched') { row.classList.add('matched'); verdict.classList.add('ok'); verdict.textContent = 'MATCHED'; }
+    else if (state === 'failed') { row.classList.add('failed'); verdict.classList.add('bad'); verdict.textContent = 'NO MATCH'; }
+    else if (state === 'skipped') { row.classList.add('skipped'); verdict.classList.add('skip'); verdict.textContent = 'SKIPPED'; }
+    else { verdict.classList.add('none'); verdict.textContent = '—'; }
+  }
+  setFmtRow('fmt1', 'fmt1Verdict', cur ? cur.fmt1 : 'none');
+  setFmtRow('fmt2', 'fmt2Verdict', cur ? cur.fmt2 : 'none');
+
+  // Find card
+  const findCard = document.getElementById('findCard');
+  const findCallEl = document.getElementById('findCall');
+  const findCandEl = document.getElementById('findCandidate');
+  const findValidEl = document.getElementById('findValid');
+  if (cur && (cur.findCall || cur.findCandidate || cur.findValid)) {
+    findCard.classList.remove('pending');
+    if (cur.findCall) {
+      let html = `<span class="call">${cur.findCall}</span>`;
+      if (cur.findCallRes) html += ` → <span class="res ${cur.findCallResCls}">${cur.findCallRes}</span>`;
+      findCallEl.innerHTML = html;
+    } else {
+      findCallEl.textContent = '—';
+    }
+    if (cur.findCandidate) {
+      findCandEl.innerHTML = `<span class="res ${cur.candidateCls || 'info'}">${cur.findCandidate}</span>`;
+    } else {
+      findCandEl.textContent = '—';
+    }
+    if (cur.findValid) {
+      findValidEl.innerHTML = `<span class="res ${cur.findValidCls || 'info'}">${cur.findValid}</span>`;
+    } else {
+      findValidEl.textContent = '—';
+    }
+  } else {
+    findCard.classList.add('pending');
+    findCallEl.textContent = '—';
+    findCandEl.textContent = '—';
+    findValidEl.textContent = '—';
+  }
+
+  // Return value
+  const returnV = document.getElementById('returnV');
+  if (cur && cur.returnV) {
+    returnV.className = 'v ' + cur.returnCls;
+    returnV.textContent = cur.returnV;
+  } else {
+    returnV.className = 'v pending';
+    returnV.textContent = '— pending —';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Pick a scenario, then click <strong>Step ▸</strong>.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

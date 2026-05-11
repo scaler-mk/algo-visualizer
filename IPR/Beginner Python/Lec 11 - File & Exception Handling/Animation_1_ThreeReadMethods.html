@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Three Read Methods — .read / .readline / .readlines</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 480px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* The file display */
+  .file-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .file-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .file-card .file-name { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 11px; padding: 1px 6px; background: rgba(240,160,75,0.08); border-radius: 3px; }
+  .file-card .cursor-tag { margin-left: auto; font-family: 'JetBrains Mono', monospace; color: var(--blue); font-size: 10px; padding: 1px 6px; background: rgba(93,173,236,0.08); border-radius: 3px; }
+  .file-line { padding: 4px 8px; margin-bottom: 3px; background: rgba(0,0,0,0.25); border: 1.5px solid transparent; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all 0.3s; display: grid; grid-template-columns: 22px 1fr 18px; gap: 6px; align-items: center; }
+  .file-line.consumed { background: rgba(163, 217, 119, 0.06); color: var(--green); }
+  .file-line.cursor { border-color: var(--accent); background: rgba(240, 160, 75, 0.10); color: var(--ink); }
+  .file-line .ix { color: var(--muted); text-align: center; font-size: 9px; }
+  .file-line.consumed .ix { color: var(--green); }
+  .file-line.cursor .ix { color: var(--accent); font-weight: 700; }
+  .file-line .nl-mark { color: var(--red); font-size: 9px; font-weight: 700; opacity: 0.7; }
+
+  /* Result variable display */
+  .result-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 12px 14px; transition: all 0.3s; }
+  .result-card.pending { opacity: 0.4; }
+  .result-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .result-head .var-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); font-weight: 700; }
+  .result-head .var-type { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); padding: 1px 6px; background: rgba(0,0,0,0.3); border-radius: 3px; }
+  .result-content { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); background: rgba(0,0,0,0.4); border-radius: 4px; padding: 10px 12px; min-height: 36px; max-height: 160px; overflow-y: auto; line-height: 1.55; white-space: pre-wrap; }
+  .result-content .quote { color: #d4a574; }
+  .result-content .nl-token { color: var(--red); background: rgba(229, 115, 115, 0.12); padding: 0 3px; border-radius: 2px; font-weight: 700; }
+  .result-content .bracket { color: var(--accent); font-weight: 700; }
+  .result-content .new-bit { background: rgba(163, 217, 119, 0.15); }
+
+  .ram-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .ram-card .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; }
+  .ram-card .ram-tag { padding: 2px 9px; border-radius: 4px; font-weight: 700; }
+  .ram-card .ram-tag.low { background: rgba(163,217,119,0.15); color: var(--green); border: 1px solid var(--green); }
+  .ram-card .ram-tag.mid { background: rgba(240,160,75,0.18); color: var(--accent); border: 1px solid var(--accent); }
+  .ram-card .ram-tag.high { background: rgba(229,115,115,0.18); color: var(--red); border: 1px solid var(--red); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .purple { color: var(--purple); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Three Read Methods — what each returns</h1>
+    <p class="sub">Same 3-line file. Three different ways to consume it. Three different shapes in memory.</p>
+
+    <div class="controls">
+      <span class="ctl-label">METHOD:</span>
+      <button class="qb" data-i="0">.read()</button>
+      <button class="qb" data-i="1">.readline()</button>
+      <button class="qb" data-i="2">.readlines()</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="file-card">
+            <div class="lbl">FILE <span class="file-name">apache.log</span><span class="cursor-tag" id="cursorTag">position: 0</span></div>
+            <div id="fileRows"></div>
+          </div>
+          <div class="result-card pending" id="resultCard">
+            <div class="result-head">
+              <span class="var-name" id="resultVarName">—</span>
+              <span class="var-type" id="resultVarType">—</span>
+            </div>
+            <div class="result-content" id="resultContent">— pending —</div>
+          </div>
+          <div class="ram-card">
+            <span class="lbl">RAM held:</span>
+            <span class="ram-tag" id="ramTag">—</span>
+            <span style="margin-left:auto; color:var(--muted); font-size:10px;" id="ramHint"></span>
+          </div>
+          <div class="commentary" id="commentary">Pick a method, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|with|as|import|from)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(open|print|input|len|range|int|map|list|read|readline|readlines|strip)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  let prev;
+  do { prev = h; h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; }); } while (h !== prev);
+  return h;
+}
+
+const FILE_LINES = [
+  "172.16.0.89 - - [02:14:33] [error] File not found",
+  "192.168.1.10 - - [02:15:01] [error] Segfault",
+  "172.16.0.89 - - [02:15:22] [warn] Access denied"
+];
+
+function renderLineWithNL(text) {
+  const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<span class="quote">'</span>${esc(text)}<span class="nl-token">\\n</span><span class="quote">'</span>`;
+}
+
+const SCENARIOS = [
+  {
+    name: ".read() — entire file as one string",
+    sub: "Returns a single string containing everything",
+    code: [
+      "file = open('apache.log', 'r')",
+      "content = file.read()",
+      "print(content)",
+      "file.close()",
+      "",
+      "# content is one big string with \\n",
+      "# separators between lines"
+    ],
+    insight: '<span class="accent">.read()</span> hands you the entire file as one string. Convenient for tiny files. <span class="bad">Dangerous</span> as the file grows — RAM has to hold the whole thing.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Open the file in read mode. <span class="accent">file</span> is now a cursor positioned at byte 0.',
+        cursor: -1, consumed: [], result: null, resultVar: 'file', resultType: 'TextIOWrapper', resultContent: '&lt;_io.TextIOWrapper position=0&gt;', position: 0, ram: 'low', ramHint: 'just the file handle' },
+      { kind: 'exec', line: 1, msg: '<span class="blue">.read()</span> consumes the entire file from current position to end.',
+        cursor: 'all', consumed: [0,1,2], result: 'full', resultVar: 'content', resultType: 'str', position: 'end', ram: 'high', ramHint: 'entire file in one string' },
+      { kind: 'exec-return', line: 2, msg: 'All three lines are concatenated into a single string, with <span class="bad">\\n</span> still between them.',
+        cursor: 'all', consumed: [0,1,2], result: 'full', resultVar: 'content', resultType: 'str', position: 'end', ram: 'high', ramHint: 'entire file in one string', showResult: true }
+    ]
+  },
+  {
+    name: ".readline() — one line per call",
+    sub: "Cursor advances each time you call it",
+    code: [
+      "file = open('apache.log', 'r')",
+      "line1 = file.readline()",
+      "line2 = file.readline()",
+      "line3 = file.readline()",
+      "file.close()",
+      "",
+      "# Each call returns the next line",
+      "# ending with \\n"
+    ],
+    insight: '<span class="accent">.readline()</span> is the most conservative — only one line at a time. Useful when you want fine control over how much you consume.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Open the file. Cursor sits at byte 0.',
+        cursor: -1, consumed: [], result: null, resultVar: 'file', resultType: 'TextIOWrapper', resultContent: '&lt;_io.TextIOWrapper position=0&gt;', position: 0, ram: 'low', ramHint: 'just the file handle' },
+      { kind: 'exec', line: 1, msg: 'First call → reads line 0, advances cursor.',
+        cursor: 0, consumed: [0], result: 'line1', resultVar: 'line1', resultType: 'str', position: 1, ram: 'low', ramHint: 'one line in memory', showResult: true },
+      { kind: 'exec', line: 2, msg: 'Second call → reads line 1. Note that <span class="accent">line1</span> still holds the previous value.',
+        cursor: 1, consumed: [0,1], result: 'line2', resultVar: 'line2', resultType: 'str', position: 2, ram: 'low', ramHint: 'two lines in memory', showResult: true },
+      { kind: 'exec', line: 3, msg: 'Third call → reads line 2. Cursor at end of file.',
+        cursor: 2, consumed: [0,1,2], result: 'line3', resultVar: 'line3', resultType: 'str', position: 'end', ram: 'low', ramHint: 'three lines in memory', showResult: true }
+    ]
+  },
+  {
+    name: ".readlines() — entire file as a list",
+    sub: "Splits at newlines, returns list of strings",
+    code: [
+      "file = open('apache.log', 'r')",
+      "lines = file.readlines()",
+      "print(lines)",
+      "file.close()",
+      "",
+      "# lines is a Python list",
+      "# Each element is one line with \\n"
+    ],
+    insight: '<span class="accent">.readlines()</span> is convenient — but loads everything into a list. Same memory problem as <span class="accent">.read()</span>, plus extra overhead per list element.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Open the file. Cursor at byte 0.',
+        cursor: -1, consumed: [], result: null, resultVar: 'file', resultType: 'TextIOWrapper', resultContent: '&lt;_io.TextIOWrapper position=0&gt;', position: 0, ram: 'low', ramHint: 'just the file handle' },
+      { kind: 'exec', line: 1, msg: '<span class="blue">.readlines()</span> reads the entire file and splits at each newline.',
+        cursor: 'all', consumed: [0,1,2], result: 'list', resultVar: 'lines', resultType: 'list[str]', position: 'end', ram: 'high', ramHint: 'all lines, plus list overhead' },
+      { kind: 'exec-return', line: 2, msg: 'Result is a <span class="purple">list</span> — each element is one line with its <span class="bad">\\n</span> preserved.',
+        cursor: 'all', consumed: [0,1,2], result: 'list', resultVar: 'lines', resultType: 'list[str]', position: 'end', ram: 'high', ramHint: 'all lines, plus list overhead', showResult: true }
+    ]
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // File display
+  const fileRows = document.getElementById('fileRows');
+  fileRows.innerHTML = FILE_LINES.map((ln, i) => {
+    let cls = 'file-line';
+    if (cur && cur.cursor === i) cls += ' cursor';
+    else if (cur && (cur.cursor === 'all' || (Array.isArray(cur.consumed) && cur.consumed.includes(i) && cur.cursor !== i))) {
+      if (cur.consumed && cur.consumed.includes(i)) cls += ' consumed';
+    }
+    const esc = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="${cls}"><span class="ix">[${i}]</span><span>${esc(ln)}</span><span class="nl-mark">\\n</span></div>`;
+  }).join('');
+
+  // Cursor tag
+  const cursorTag = document.getElementById('cursorTag');
+  if (cur) {
+    if (cur.position === 0) cursorTag.textContent = 'position: 0 (start)';
+    else if (cur.position === 'end') cursorTag.textContent = 'position: EOF';
+    else cursorTag.textContent = `position: line ${cur.position}`;
+  } else {
+    cursorTag.textContent = 'position: 0';
+  }
+
+  // Result card
+  const resultCard = document.getElementById('resultCard');
+  const resultVarName = document.getElementById('resultVarName');
+  const resultVarType = document.getElementById('resultVarType');
+  const resultContent = document.getElementById('resultContent');
+  if (cur && cur.resultVar) {
+    resultCard.classList.remove('pending');
+    resultVarName.textContent = cur.resultVar + ':';
+    resultVarType.textContent = cur.resultType;
+    if (!cur.showResult && cur.result === null && cur.resultContent) {
+      resultContent.innerHTML = `<span style="color:var(--muted);font-style:italic;">${cur.resultContent}</span>`;
+    } else if (cur.result === 'full') {
+      resultContent.innerHTML = renderLineWithNL(FILE_LINES[0]) + '\n' + renderLineWithNL(FILE_LINES[1]) + '\n' + renderLineWithNL(FILE_LINES[2]);
+    } else if (cur.result === 'list') {
+      let inner = '<span class="bracket">[</span>\n  ';
+      inner += FILE_LINES.map(l => renderLineWithNL(l)).join(',\n  ');
+      inner += '\n<span class="bracket">]</span>';
+      resultContent.innerHTML = inner;
+    } else if (cur.result === 'line1') {
+      resultContent.innerHTML = '<span class="new-bit">' + renderLineWithNL(FILE_LINES[0]) + '</span>';
+    } else if (cur.result === 'line2') {
+      resultContent.innerHTML = renderLineWithNL(FILE_LINES[0]) + '<br>'
+        + '<span style="color:var(--muted);font-size:9px;">(line1, previous)</span><br><br>'
+        + '<span class="new-bit">' + renderLineWithNL(FILE_LINES[1]) + '</span><br>'
+        + '<span style="color:var(--muted);font-size:9px;">(line2, new)</span>';
+    } else if (cur.result === 'line3') {
+      resultContent.innerHTML = renderLineWithNL(FILE_LINES[0]) + '<br>'
+        + renderLineWithNL(FILE_LINES[1]) + '<br>'
+        + '<span style="color:var(--muted);font-size:9px;">(previous lines)</span><br><br>'
+        + '<span class="new-bit">' + renderLineWithNL(FILE_LINES[2]) + '</span><br>'
+        + '<span style="color:var(--muted);font-size:9px;">(line3, new)</span>';
+    } else if (cur.resultContent) {
+      resultContent.innerHTML = `<span style="color:var(--muted);font-style:italic;">${cur.resultContent}</span>`;
+    }
+  } else {
+    resultCard.classList.add('pending');
+    resultVarName.textContent = '—';
+    resultVarType.textContent = '—';
+    resultContent.innerHTML = '— pending —';
+  }
+
+  // RAM
+  const ramTag = document.getElementById('ramTag');
+  const ramHint = document.getElementById('ramHint');
+  if (cur) {
+    ramTag.className = 'ram-tag ' + cur.ram;
+    ramTag.textContent = cur.ram === 'low' ? 'LOW' : cur.ram === 'mid' ? 'MEDIUM' : 'HIGH';
+    ramHint.textContent = '(' + cur.ramHint + ')';
+  } else {
+    ramTag.className = 'ram-tag';
+    ramTag.textContent = '—';
+    ramHint.textContent = '';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Pick a method, then click <strong>Step ▸</strong>.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

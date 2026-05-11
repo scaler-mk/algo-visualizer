@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Counter and defaultdict — auto-init keys</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .qb.ok.active { border-color: var(--green); color: var(--green); background: rgba(163,217,119,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.05fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 480px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Dictionary display */
+  .dict-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .dict-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .dict-card .name { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 12px; padding: 1px 7px; background: rgba(240,160,75,0.08); border-radius: 3px; }
+  .dict-card .type-tag { font-family: 'JetBrains Mono', monospace; padding: 1px 7px; border-radius: 3px; font-size: 10px; }
+  .dict-card .type-tag.dict-t { color: var(--blue); background: rgba(93,173,236,0.1); }
+  .dict-card .type-tag.counter-t { color: var(--green); background: rgba(163,217,119,0.1); }
+  .dict-card .type-tag.defdict-t { color: var(--purple); background: rgba(192,132,232,0.1); }
+  .dict-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; text-align: center; padding: 6px; }
+  .pair-row { display: grid; grid-template-columns: 1fr 22px 1fr; gap: 6px; align-items: center; margin-bottom: 5px; padding: 4px 6px; border-radius: 4px; transition: all 0.3s; }
+  .pair-row.bumped { background: rgba(240,160,75,0.12); animation: pulse 0.45s; }
+  .pair-row.created { background: rgba(163,217,119,0.10); animation: slidein 0.4s; }
+  .pair-row.top { border-left: 3px solid var(--green); padding-left: 3px; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+  @keyframes slidein { from { transform: translateX(-6px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .pair-key { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); padding: 4px 9px; background: rgba(240,160,75,0.10); border: 1.5px solid var(--accent); border-radius: 4px; text-align: center; font-weight: 700; }
+  .pair-row.created .pair-key { color: var(--green); border-color: var(--green); background: rgba(163,217,119,0.12); }
+  .pair-arrow { text-align: center; color: var(--muted); font-size: 13px; }
+  .pair-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--blue); padding: 4px 10px; background: rgba(93,173,236,0.10); border: 1.5px solid var(--blue); border-radius: 4px; text-align: center; font-weight: 700; }
+  .pair-row.created .pair-val { color: var(--green); border-color: var(--green); background: rgba(163,217,119,0.12); }
+
+  /* Op display */
+  .op-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 11px 14px; min-height: 50px; display: flex; flex-direction: column; gap: 6px; transition: all 0.3s; }
+  .op-card.pending { opacity: 0.4; }
+  .op-line { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .op-line .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; min-width: 70px; }
+  .op-line .step-detail { padding: 2px 8px; border-radius: 3px; font-weight: 700; font-size: 11px; }
+  .op-line .step-detail.kw { background: rgba(192,132,232,0.12); color: var(--purple); }
+  .op-line .step-detail.ok { background: rgba(163,217,119,0.15); color: var(--green); }
+  .op-line .step-detail.bad { background: rgba(229,115,115,0.15); color: var(--red); }
+  .op-line .step-detail.info { background: rgba(93,173,236,0.12); color: var(--blue); }
+
+  /* Result of .most_common() */
+  .result-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; transition: all 0.3s; display: none; }
+  .result-card.shown { display: block; }
+  .result-card .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 5px; }
+  .result-card .v { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--green); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .purple { color: var(--purple); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Counter and defaultdict — no KeyError on first access</h1>
+    <p class="sub">Plain dict crashes when you touch an unknown key. Counter and defaultdict don't.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb warn" data-i="0">plain dict — the crash</button>
+      <button class="qb ok" data-i="1">Counter — safe counting</button>
+      <button class="qb ok" data-i="2">defaultdict(list) — auto-empty-list</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="dict-card">
+            <div class="lbl">VARIABLE <span class="name" id="varName">—</span><span class="type-tag" id="typeTag">—</span></div>
+            <div id="dictRows"></div>
+          </div>
+          <div class="op-card pending" id="opCard">
+            <div class="op-line"><span class="lbl">STEP:</span><span id="stepDetail">—</span></div>
+            <div class="op-line"><span class="lbl">RESULT:</span><span id="stepResult">—</span></div>
+          </div>
+          <div class="result-card" id="resultCard">
+            <div class="lbl">.most_common(3) →</div>
+            <div class="v" id="resultV">—</div>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|with|as|import|from)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(open|print|input|len|range|int|map|append|most_common)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  let prev;
+  do { prev = h; h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; }); } while (h !== prev);
+  return h;
+}
+
+const SCENARIOS = [
+  {
+    name: "Plain dict — KeyError on first access",
+    sub: "counts['x'] += 1 needs counts['x'] to exist first",
+    varName: 'counts',
+    typeTag: 'dict',
+    typeCls: 'dict-t',
+    code: [
+      "counts = {}",
+      "counts['172.16.0.89'] += 1",
+      "# ↑ KeyError — key doesn't exist yet"
+    ],
+    insight: 'A plain dict knows nothing about your intent. <span class="accent">counts[k] += 1</span> is shorthand for <span class="accent">counts[k] = counts[k] + 1</span> — and reading <span class="accent">counts[k]</span> when k is missing raises <span class="bad">KeyError</span>.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Create an empty dict.', pairs: [], step: 'counts = {}', stepCls: 'kw', result: '<span style="color:var(--muted);">empty</span>' },
+      { kind: 'exec', line: 1, msg: 'Try to <span class="accent">+= 1</span> on a key that doesn\'t exist. Python looks for the key first → not there.', pairs: [], step: "counts['172.16.0.89'] += 1", stepCls: 'kw', result: 'lookup → not found' },
+      { kind: 'exec-fail', line: 2, msg: '<span class="bad">KeyError: \'172.16.0.89\'</span>. Script dies on the very first IP.', pairs: [], step: "counts['172.16.0.89'] += 1", stepCls: 'kw', result: 'KeyError raised', resultCls: 'bad' }
+    ]
+  },
+  {
+    name: "Counter — missing keys default to 0",
+    sub: "Same += pattern, no crash",
+    varName: 'troublemaker_ips',
+    typeTag: 'Counter',
+    typeCls: 'counter-t',
+    code: [
+      "from collections import Counter",
+      "troublemaker_ips = Counter()",
+      "troublemaker_ips['172.16.0.89'] += 1",
+      "troublemaker_ips['172.16.0.89'] += 1",
+      "troublemaker_ips['192.168.1.10'] += 1",
+      "print(troublemaker_ips.most_common(3))"
+    ],
+    insight: '<span class="accent">Counter</span> is a dict subclass with a key feature: missing keys read as <span class="ok">0</span>. So <span class="accent">+= 1</span> works on the first access. Bonus: built-in <span class="accent">.most_common(n)</span> returns the top n by count — no manual sorting.',
+    plan: [
+      { kind: 'exec', line: 1, msg: 'Start with an empty <span class="ok">Counter</span>.', pairs: [], step: 'troublemaker_ips = Counter()', stepCls: 'ok' },
+      { kind: 'exec', line: 2, msg: 'Lookup of <span class="accent">\'172.16.0.89\'</span> → not present, but Counter returns <span class="ok">0</span> instead of crashing.', pairs: [{key:"'172.16.0.89'", val:'1', state:'created'}], step: "troublemaker_ips['172.16.0.89'] += 1", stepCls: 'ok', result: '0 + 1 = 1 → stored' },
+      { kind: 'exec', line: 3, msg: 'Same key again. Now it exists → bump to 2.', pairs: [{key:"'172.16.0.89'", val:'2', state:'bumped'}], step: "troublemaker_ips['172.16.0.89'] += 1", stepCls: 'ok', result: '1 + 1 = 2' },
+      { kind: 'exec', line: 4, msg: 'New IP — again, no crash on first touch.', pairs: [{key:"'172.16.0.89'", val:'2'}, {key:"'192.168.1.10'", val:'1', state:'created'}], step: "troublemaker_ips['192.168.1.10'] += 1", stepCls: 'ok', result: '0 + 1 = 1 → stored' },
+      { kind: 'exec-return', line: 5, msg: 'Built-in <span class="blue">.most_common(3)</span> returns a sorted list of (key, count) tuples — no manual sort needed.', pairs: [{key:"'172.16.0.89'", val:'2', state:'top'}, {key:"'192.168.1.10'", val:'1'}], step: 'troublemaker_ips.most_common(3)', stepCls: 'info', result: 'sorted descending', showResult: true, resultV: "[('172.16.0.89', 2), ('192.168.1.10', 1)]" }
+    ]
+  },
+  {
+    name: "defaultdict(list) — auto-empty-list",
+    sub: "ip_examples['k'].append(x) works on first touch",
+    varName: 'ip_examples',
+    typeTag: 'defaultdict(list)',
+    typeCls: 'defdict-t',
+    code: [
+      "from collections import defaultdict",
+      "ip_examples = defaultdict(list)",
+      "ip_examples['172.16.0.89'].append('Line 2: ...')",
+      "ip_examples['172.16.0.89'].append('Line 9: ...')",
+      "print(ip_examples['172.16.0.89'])"
+    ],
+    insight: 'Same idea as Counter, but for lists. The <span class="accent">defaultdict(list)</span> factory says "when a key is missing, create an empty <span class="purple">list</span> for it." So <span class="accent">.append()</span> just works on first access — no <span class="bad">if k not in d</span> checks.',
+    plan: [
+      { kind: 'exec', line: 1, msg: 'Create a <span class="purple">defaultdict</span> whose factory is <span class="purple">list</span>. New keys auto-spawn an empty list.', pairs: [], step: 'ip_examples = defaultdict(list)', stepCls: 'kw' },
+      { kind: 'exec', line: 2, msg: 'Access <span class="accent">\'172.16.0.89\'</span> for the first time → empty list created and stored, then we append to it.', pairs: [{key:"'172.16.0.89'", val:"['Line 2: ...']", state:'created'}], step: "ip_examples['172.16.0.89'].append(...)", stepCls: 'ok', result: 'auto-create [] then append' },
+      { kind: 'exec', line: 3, msg: 'Key already exists. Just append.', pairs: [{key:"'172.16.0.89'", val:"['Line 2: ...', 'Line 9: ...']", state:'bumped'}], step: "ip_examples['172.16.0.89'].append(...)", stepCls: 'ok', result: 'append to existing list' },
+      { kind: 'exec-return', line: 4, msg: 'Read back the list — both entries are there.', pairs: [{key:"'172.16.0.89'", val:"['Line 2: ...', 'Line 9: ...']", state:'top'}], step: "ip_examples['172.16.0.89']", stepCls: 'info', result: "['Line 2: ...', 'Line 9: ...']" }
+    ]
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('varName').textContent = sc.varName;
+  const typeTagEl = document.getElementById('typeTag');
+  typeTagEl.textContent = sc.typeTag;
+  typeTagEl.className = 'type-tag ' + sc.typeCls;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Dict rows
+  const dictRows = document.getElementById('dictRows');
+  const pairs = cur ? cur.pairs : [];
+  if (pairs.length === 0) {
+    dictRows.innerHTML = '<div class="dict-empty">— empty —</div>';
+  } else {
+    dictRows.innerHTML = pairs.map(p => {
+      let cls = 'pair-row';
+      if (p.state === 'bumped') cls += ' bumped';
+      else if (p.state === 'created') cls += ' created';
+      else if (p.state === 'top') cls += ' top';
+      return `<div class="${cls}"><div class="pair-key">${p.key}</div><div class="pair-arrow">→</div><div class="pair-val">${p.val}</div></div>`;
+    }).join('');
+  }
+
+  // Op
+  const opCard = document.getElementById('opCard');
+  const stepDetail = document.getElementById('stepDetail');
+  const stepResult = document.getElementById('stepResult');
+  if (cur) {
+    opCard.classList.remove('pending');
+    stepDetail.innerHTML = `<span class="step-detail ${cur.stepCls || 'info'}">${cur.step}</span>`;
+    if (cur.result) {
+      const rcls = cur.resultCls || 'info';
+      stepResult.innerHTML = `<span class="step-detail ${rcls}">${cur.result}</span>`;
+    } else {
+      stepResult.textContent = '—';
+    }
+  } else {
+    opCard.classList.add('pending');
+    stepDetail.textContent = '—';
+    stepResult.textContent = '—';
+  }
+
+  // Result card
+  const resultCard = document.getElementById('resultCard');
+  if (cur && cur.showResult) {
+    resultCard.classList.add('shown');
+    document.getElementById('resultV').textContent = cur.resultV;
+  } else {
+    resultCard.classList.remove('shown');
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Pick a scenario, then click <strong>Step ▸</strong>.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

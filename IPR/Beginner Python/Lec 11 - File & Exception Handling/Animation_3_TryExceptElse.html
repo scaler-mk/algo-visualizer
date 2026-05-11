@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>try / except / else — three flow paths</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .qb.ok.active { border-color: var(--green); color: var(--green); background: rgba(163,217,119,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .code-line.skipped { opacity: 0.35; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 480px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Flow diagram showing try / except / else */
+  .flow-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .flow-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 12px; }
+  .flow-blocks { display: flex; flex-direction: column; gap: 6px; }
+  .flow-block { padding: 9px 14px; border-radius: 6px; border: 1.5px solid var(--line); background: rgba(0,0,0,0.25); display: grid; grid-template-columns: 70px 1fr 110px; gap: 12px; align-items: center; transition: all 0.35s; }
+  .flow-block.active { border-color: var(--accent); background: rgba(240,160,75,0.10); transform: translateX(4px); }
+  .flow-block.success { border-color: var(--green); background: rgba(163,217,119,0.10); }
+  .flow-block.failed { border-color: var(--red); background: rgba(229,115,115,0.10); }
+  .flow-block.skipped { opacity: 0.35; }
+  .flow-block .tag { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; text-align: center; }
+  .flow-block .tag.try-tag { background: rgba(240,160,75,0.18); color: var(--accent); border: 1px solid var(--accent); }
+  .flow-block .tag.except-tag { background: rgba(229,115,115,0.18); color: var(--red); border: 1px solid var(--red); }
+  .flow-block .tag.else-tag { background: rgba(163,217,119,0.18); color: var(--green); border: 1px solid var(--green); }
+  .flow-block .desc { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink); }
+  .flow-block.skipped .desc { color: var(--muted); }
+  .flow-block .verdict { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; padding: 3px 7px; border-radius: 3px; }
+  .flow-block .verdict.running { background: rgba(240,160,75,0.15); color: var(--accent); }
+  .flow-block .verdict.passed { background: rgba(163,217,119,0.15); color: var(--green); }
+  .flow-block .verdict.caught { background: rgba(229,115,115,0.15); color: var(--red); }
+  .flow-block .verdict.skipped { background: rgba(0,0,0,0.3); color: var(--muted); }
+  .flow-block .verdict.none { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+
+  /* Exception bubble */
+  .ex-bubble { background: rgba(229,115,115,0.06); border: 1.5px solid var(--red); border-radius: 6px; padding: 10px 14px; transition: all 0.3s; display: none; }
+  .ex-bubble.shown { display: block; animation: shake 0.5s; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  .ex-bubble .lbl { font-size: 10px; color: var(--red); font-weight: 700; letter-spacing: 0.1em; margin-bottom: 5px; }
+  .ex-bubble .ex-class { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--red); font-weight: 700; }
+  .ex-bubble .ex-msg { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); margin-top: 4px; }
+
+  /* Console output */
+  .console-card { background: rgba(0,0,0,0.4); border-radius: 6px; padding: 10px 14px; min-height: 50px; display: flex; flex-direction: column; gap: 4px; }
+  .console-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .console-line { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 2px 0; animation: slidein 0.3s; }
+  @keyframes slidein { from { transform: translateX(-6px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .console-line.error { color: var(--red); }
+  .console-line.success { color: var(--green); }
+  .console-line.info { color: var(--ink); }
+  .console-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>try / except / else — the three flow paths</h1>
+    <p class="sub">try runs first. If it raises, the matching except handles it. If it doesn't raise, else runs.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb ok" data-i="0">Happy path — file reads cleanly</button>
+      <button class="qb warn" data-i="1">FileNotFoundError</button>
+      <button class="qb warn" data-i="2">PermissionError</button>
+      <button class="qb warn" data-i="3">Unexpected (UnicodeDecodeError)</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="flow-card">
+            <div class="lbl">EXECUTION FLOW</div>
+            <div class="flow-blocks" id="flowBlocks"></div>
+          </div>
+          <div class="ex-bubble" id="exBubble">
+            <div class="lbl">⚡ EXCEPTION RAISED</div>
+            <div class="ex-class" id="exClass">—</div>
+            <div class="ex-msg" id="exMsg">—</div>
+          </div>
+          <div class="console-card">
+            <div class="lbl">CONSOLE OUTPUT</div>
+            <div id="consoleLines"><div class="console-empty">— nothing yet —</div></div>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|with|as|import|from|try|except)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(open|print|input|len|range|int|map|list|read)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  let prev;
+  do { prev = h; h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; }); } while (h !== prev);
+  return h;
+}
+
+const CODE = [
+  "try:",
+  "    with open('apache.log', 'r') as f:",
+  "        content = f.read()",
+  "        print(content[:50])",
+  "except FileNotFoundError:",
+  "    print('File not found.')",
+  "except PermissionError:",
+  "    print('Permission denied.')",
+  "except Exception as e:",
+  "    print(f'Unexpected: {e}')",
+  "else:",
+  "    print('Read OK.')"
+];
+
+// Flow blocks state pattern. Each scenario produces a sequence.
+// Block IDs: 'try' (lines 1-3), 'fnf' (line 5), 'perm' (line 7), 'gen' (line 9), 'else' (line 11)
+
+const SCENARIOS = [
+  {
+    name: "Happy path — file reads cleanly",
+    sub: "No exception → try completes → else runs",
+    insight: 'When the try block finishes without raising, Python skips all <span class="accent">except</span> blocks and runs <span class="ok">else</span>. The else block is the "success path".',
+    plan: [
+      { kind: 'exec', line: 1, msg: 'Enter the <span class="accent">try</span> block. Try to open the file.', flow: { try: 'running' }, ex: null, output: [], skipped: [] },
+      { kind: 'exec', line: 2, msg: 'File opened. Read content.', flow: { try: 'running' }, ex: null, output: [], skipped: [] },
+      { kind: 'exec', line: 3, msg: 'Print the first 50 characters.', flow: { try: 'running' }, ex: null, output: [{cls:'info', txt:'172.16.0.89 - - [02:14:33] [error] File not...'}], skipped: [] },
+      { kind: 'exec-return', line: 3, msg: '<span class="ok">try block completed successfully.</span> No exception raised.', flow: { try: 'success' }, ex: null, output: [{cls:'info', txt:'172.16.0.89 - - [02:14:33] [error] File not...'}], skipped: [4,5,6,7,8,9] },
+      { kind: 'exec', line: 10, msg: 'All except blocks are skipped — Python jumps straight to <span class="ok">else</span>.', flow: { try: 'success', else: 'running' }, ex: null, output: [{cls:'info', txt:'172.16.0.89 - - [02:14:33] [error] File not...'}], skipped: [4,5,6,7,8,9] },
+      { kind: 'exec-return', line: 11, msg: '<span class="ok">else block ran.</span> The success path.', flow: { try: 'success', else: 'success' }, ex: null, output: [{cls:'info', txt:'172.16.0.89 - - [02:14:33] [error] File not...'}, {cls:'success', txt:'Read OK.'}], skipped: [4,5,6,7,8,9] }
+    ]
+  },
+  {
+    name: "FileNotFoundError — missing file",
+    sub: "open() raises → first matching except runs → else skipped",
+    insight: 'Python checks <span class="accent">except</span> blocks <em>top to bottom</em>. The first one whose class matches the exception wins. <span class="accent">else</span> never runs when an exception was caught.',
+    plan: [
+      { kind: 'exec', line: 1, msg: 'Enter try. Attempt to <span class="blue">open()</span>.', flow: { try: 'running' }, ex: null, output: [], skipped: [] },
+      { kind: 'exec-fail', line: 1, msg: '<span class="bad">open()</span> raises <span class="bad">FileNotFoundError</span> immediately — the file doesn\'t exist.', flow: { try: 'failed' },
+        ex: { cls: 'FileNotFoundError', msg: "[Errno 2] No such file or directory: 'apache.log'" }, output: [], skipped: [2,3] },
+      { kind: 'exec', line: 4, msg: 'Python looks for a matching <span class="accent">except</span>. Check FileNotFoundError → <span class="ok">match!</span>', flow: { try: 'failed', fnf: 'running' },
+        ex: { cls: 'FileNotFoundError', msg: "[Errno 2] No such file or directory: 'apache.log'" }, output: [], skipped: [2,3,6,7,8,9] },
+      { kind: 'exec-return', line: 5, msg: 'Run the handler for this exception.', flow: { try: 'failed', fnf: 'success' },
+        ex: { cls: 'FileNotFoundError', msg: "[Errno 2] No such file or directory: 'apache.log'" },
+        output: [{cls:'error', txt:'File not found.'}], skipped: [2,3,6,7,8,9,10,11] },
+      { kind: 'exec-return', line: 5, msg: 'Exception handled. <span class="bad">else block is skipped</span> — it only runs on the success path.', flow: { try: 'failed', fnf: 'success', else: 'skipped' },
+        ex: { cls: 'FileNotFoundError', msg: "[Errno 2] No such file or directory: 'apache.log'" },
+        output: [{cls:'error', txt:'File not found.'}], skipped: [2,3,6,7,8,9,10,11] }
+    ]
+  },
+  {
+    name: "PermissionError — no read access",
+    sub: "open() raises a different exception, second except wins",
+    insight: 'Each <span class="accent">except</span> matches exactly one exception class (or its subclasses). Order matters — Python takes the first match and ignores the rest.',
+    plan: [
+      { kind: 'exec', line: 1, msg: 'Enter try. Attempt to open the file.', flow: { try: 'running' }, ex: null, output: [], skipped: [] },
+      { kind: 'exec-fail', line: 1, msg: '<span class="bad">open()</span> raises <span class="bad">PermissionError</span> — you don\'t have read rights.', flow: { try: 'failed' },
+        ex: { cls: 'PermissionError', msg: "[Errno 13] Permission denied: 'apache.log'" }, output: [], skipped: [2,3] },
+      { kind: 'exec', line: 4, msg: 'Check first <span class="accent">except FileNotFoundError</span> → <span class="bad">no match.</span>', flow: { try: 'failed', fnf: 'skipped' },
+        ex: { cls: 'PermissionError', msg: "[Errno 13] Permission denied: 'apache.log'" }, output: [], skipped: [2,3,5] },
+      { kind: 'exec', line: 6, msg: 'Check next <span class="accent">except PermissionError</span> → <span class="ok">match!</span>', flow: { try: 'failed', fnf: 'skipped', perm: 'running' },
+        ex: { cls: 'PermissionError', msg: "[Errno 13] Permission denied: 'apache.log'" }, output: [], skipped: [2,3,5,8,9] },
+      { kind: 'exec-return', line: 7, msg: 'Run the permission handler.', flow: { try: 'failed', fnf: 'skipped', perm: 'success' },
+        ex: { cls: 'PermissionError', msg: "[Errno 13] Permission denied: 'apache.log'" },
+        output: [{cls:'error', txt:'Permission denied.'}], skipped: [2,3,5,8,9,10,11] },
+      { kind: 'exec-return', line: 7, msg: 'Exception handled. <span class="bad">else still skipped</span> — same rule.', flow: { try: 'failed', fnf: 'skipped', perm: 'success', else: 'skipped' },
+        ex: { cls: 'PermissionError', msg: "[Errno 13] Permission denied: 'apache.log'" },
+        output: [{cls:'error', txt:'Permission denied.'}], skipped: [2,3,5,8,9,10,11] }
+    ]
+  },
+  {
+    name: "Unexpected — UnicodeDecodeError",
+    sub: "Doesn't match the specific excepts → catch-all Exception wins",
+    insight: 'The catch-all <span class="accent">except Exception as e</span> is a safety net for everything else. It captures the exception object as <span class="accent">e</span>, so you can print details. Put it <em>last</em> — Python takes the first match, and Exception matches almost everything.',
+    plan: [
+      { kind: 'exec', line: 1, msg: 'Enter try. Open the file — succeeds.', flow: { try: 'running' }, ex: null, output: [], skipped: [] },
+      { kind: 'exec', line: 2, msg: 'Try to read. But a corrupt byte on line 847…', flow: { try: 'running' }, ex: null, output: [], skipped: [] },
+      { kind: 'exec-fail', line: 2, msg: '<span class="bad">UnicodeDecodeError</span> raised mid-read.', flow: { try: 'failed' },
+        ex: { cls: 'UnicodeDecodeError', msg: "'utf-8' codec can't decode byte 0xff in position 3" }, output: [], skipped: [3] },
+      { kind: 'exec', line: 4, msg: 'Check <span class="accent">FileNotFoundError</span> → <span class="bad">no match.</span>', flow: { try: 'failed', fnf: 'skipped' },
+        ex: { cls: 'UnicodeDecodeError', msg: "'utf-8' codec can't decode byte 0xff in position 3" }, output: [], skipped: [3,5] },
+      { kind: 'exec', line: 6, msg: 'Check <span class="accent">PermissionError</span> → <span class="bad">no match.</span>', flow: { try: 'failed', fnf: 'skipped', perm: 'skipped' },
+        ex: { cls: 'UnicodeDecodeError', msg: "'utf-8' codec can't decode byte 0xff in position 3" }, output: [], skipped: [3,5,7] },
+      { kind: 'exec', line: 8, msg: 'Check <span class="accent">except Exception as e</span> → <span class="ok">matches anything that\'s an Exception</span>.', flow: { try: 'failed', fnf: 'skipped', perm: 'skipped', gen: 'running' },
+        ex: { cls: 'UnicodeDecodeError', msg: "'utf-8' codec can't decode byte 0xff in position 3" }, output: [], skipped: [3,5,7] },
+      { kind: 'exec-return', line: 9, msg: 'Run the catch-all handler. The exception is captured as <span class="accent">e</span>.', flow: { try: 'failed', fnf: 'skipped', perm: 'skipped', gen: 'success' },
+        ex: { cls: 'UnicodeDecodeError', msg: "'utf-8' codec can't decode byte 0xff in position 3" },
+        output: [{cls:'error', txt:"Unexpected: 'utf-8' codec can't decode byte 0xff in position 3"}], skipped: [3,5,7,10,11] },
+      { kind: 'exec-return', line: 9, msg: 'Caught. <span class="bad">else skipped again</span> — exception was raised.', flow: { try: 'failed', fnf: 'skipped', perm: 'skipped', gen: 'success', else: 'skipped' },
+        ex: { cls: 'UnicodeDecodeError', msg: "'utf-8' codec can't decode byte 0xff in position 3" },
+        output: [{cls:'error', txt:"Unexpected: 'utf-8' codec can't decode byte 0xff in position 3"}], skipped: [3,5,7,10,11] }
+    ]
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function buildFlowBlocks(flow) {
+  // Static block list with state lookup
+  const blocks = [
+    { id: 'try',  tag: 'try',                desc: 'open + read file' },
+    { id: 'fnf',  tag: 'except FNF',         desc: 'handle missing file' },
+    { id: 'perm', tag: 'except Perm',        desc: 'handle permission denied' },
+    { id: 'gen',  tag: 'except Exc',         desc: 'catch-all for any other error' },
+    { id: 'else', tag: 'else',               desc: 'success path' }
+  ];
+  return blocks.map(b => {
+    const state = flow[b.id]; // undefined | running | success | failed | skipped
+    let cls = 'flow-block';
+    let verdictCls = 'none';
+    let verdictTxt = '—';
+    if (state === 'running') { cls += ' active'; verdictCls = 'running'; verdictTxt = 'RUNNING'; }
+    else if (state === 'success') { cls += ' success'; verdictCls = 'passed'; verdictTxt = b.id === 'try' ? 'COMPLETED' : 'RAN'; }
+    else if (state === 'failed') { cls += ' failed'; verdictCls = 'caught'; verdictTxt = 'RAISED'; }
+    else if (state === 'skipped') { cls += ' skipped'; verdictCls = 'skipped'; verdictTxt = 'SKIPPED'; }
+    let tagCls = 'tag try-tag';
+    if (b.id !== 'try' && b.id !== 'else') tagCls = 'tag except-tag';
+    if (b.id === 'else') tagCls = 'tag else-tag';
+    return `<div class="${cls}"><span class="${tagCls}">${b.tag}</span><span class="desc">${b.desc}</span><span class="verdict ${verdictCls}">${verdictTxt}</span></div>`;
+  }).join('');
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = CODE.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    } else if (cur && cur.skipped && cur.skipped.includes(i)) {
+      cls += ' skipped';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Flow blocks
+  document.getElementById('flowBlocks').innerHTML = buildFlowBlocks(cur ? cur.flow : {});
+
+  // Exception bubble
+  const exBubble = document.getElementById('exBubble');
+  if (cur && cur.ex) {
+    exBubble.classList.add('shown');
+    document.getElementById('exClass').textContent = cur.ex.cls;
+    document.getElementById('exMsg').textContent = cur.ex.msg;
+  } else {
+    exBubble.classList.remove('shown');
+  }
+
+  // Console output
+  const consoleLines = document.getElementById('consoleLines');
+  if (cur && cur.output && cur.output.length > 0) {
+    consoleLines.innerHTML = cur.output.map(o => `<div class="console-line ${o.cls}">${o.txt}</div>`).join('');
+  } else {
+    consoleLines.innerHTML = '<div class="console-empty">— nothing yet —</div>';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Pick a scenario, then click <strong>Step ▸</strong>.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

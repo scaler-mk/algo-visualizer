@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>with vs manual close — the file handle leak</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .qb.ok.active { border-color: var(--green); color: var(--green); background: rgba(163,217,119,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .code-line.skipped { opacity: 0.4; text-decoration: line-through; text-decoration-color: var(--red); }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 460px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* OS / file handle representation */
+  .os-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .os-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .os-card .lbl .badge { padding: 1px 7px; background: rgba(192, 132, 232, 0.1); color: var(--purple); border-radius: 3px; font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+  .handle-row { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: rgba(0,0,0,0.3); border: 2px solid var(--line); border-radius: 6px; transition: all 0.4s; }
+  .handle-row.open { border-color: var(--green); background: rgba(163, 217, 119, 0.06); }
+  .handle-row.leaked { border-color: var(--red); background: rgba(229, 115, 115, 0.08); animation: shake 0.5s; }
+  .handle-row.closed { border-color: var(--blue); background: rgba(93, 173, 236, 0.06); opacity: 0.8; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  .handle-icon { width: 40px; height: 50px; position: relative; flex-shrink: 0; }
+  .handle-icon .door { width: 100%; height: 100%; background: linear-gradient(180deg, #4a4035, #2d2520); border: 2px solid #6a5544; border-radius: 4px 4px 2px 2px; position: relative; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); transition: all 0.4s; }
+  .handle-row.open .handle-icon .door { transform: perspective(80px) rotateY(-35deg); transform-origin: left center; box-shadow: 6px 4px 12px rgba(0,0,0,0.4); }
+  .handle-row.closed .handle-icon .door { transform: perspective(80px) rotateY(0deg); }
+  .handle-icon .knob { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 5px; height: 5px; background: #f0c89a; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+  .handle-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .handle-info .name { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink); font-weight: 700; }
+  .handle-info .desc { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted); }
+  .handle-status { padding: 4px 12px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; }
+  .handle-status.open { background: rgba(163, 217, 119, 0.15); color: var(--green); border: 1.5px solid var(--green); }
+  .handle-status.closed { background: rgba(93, 173, 236, 0.15); color: var(--blue); border: 1.5px solid var(--blue); }
+  .handle-status.leaked { background: rgba(229, 115, 115, 0.15); color: var(--red); border: 1.5px solid var(--red); }
+  .handle-status.none { background: rgba(0,0,0,0.3); color: var(--muted); border: 1.5px dashed var(--line); }
+
+  /* Counter showing OS resource usage */
+  .resource-bar { background: rgba(0,0,0,0.25); border-radius: 5px; padding: 6px 10px; display: flex; align-items: center; gap: 10px; margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+  .resource-bar .lbl { color: var(--muted); font-size: 9px; letter-spacing: 0.08em; }
+  .resource-bar .ind { display: inline-block; padding: 2px 8px; border-radius: 3px; font-weight: 700; }
+  .resource-bar .ind.ok { background: rgba(163,217,119,0.15); color: var(--green); }
+  .resource-bar .ind.warn { background: rgba(229,115,115,0.15); color: var(--red); }
+
+  /* Crash card */
+  .crash-card { background: rgba(229, 115, 115, 0.06); border: 1.5px solid var(--red); border-radius: 6px; padding: 10px 14px; transition: all 0.3s; display: none; }
+  .crash-card.shown { display: block; animation: shake 0.5s; }
+  .crash-card .lbl { font-size: 10px; color: var(--red); letter-spacing: 0.1em; margin-bottom: 6px; font-weight: 700; }
+  .crash-card .msg { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--red); line-height: 1.5; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>with vs manual close() — why one always leaks</h1>
+    <p class="sub">If an exception fires between open() and close(), the file handle stays open forever.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">Manual close — happy path</button>
+      <button class="qb warn" data-i="1">Manual close — bug crashes mid-way</button>
+      <button class="qb ok" data-i="2">with statement — same bug, no leak</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="os-card">
+            <div class="lbl">OPERATING SYSTEM — file handle table <span class="badge">limited resource</span></div>
+            <div class="handle-row" id="handleRow">
+              <div class="handle-icon"><div class="door"><div class="knob"></div></div></div>
+              <div class="handle-info">
+                <div class="name" id="handleName">no handle</div>
+                <div class="desc" id="handleDesc">— waiting —</div>
+              </div>
+              <div class="handle-status none" id="handleStatus">NONE</div>
+            </div>
+            <div class="resource-bar">
+              <span class="lbl">FILE HANDLES IN USE:</span>
+              <span class="ind ok" id="resourceInd">0 / 1024</span>
+              <span style="margin-left:auto; color:var(--muted); font-size:9px;" id="resourceNote"></span>
+            </div>
+          </div>
+          <div class="crash-card" id="crashCard">
+            <div class="lbl">⚡ EXCEPTION RAISED</div>
+            <div class="msg" id="crashMsg">—</div>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|with|as|import|from)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(open|print|input|len|range|int|map|list|read|close)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  let prev;
+  do { prev = h; h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; }); } while (h !== prev);
+  return h;
+}
+
+const SCENARIOS = [
+  {
+    name: "Manual close — happy path",
+    sub: "Everything runs in order, file closes correctly",
+    code: [
+      "file = open('apache.log', 'r')",
+      "content = file.read()",
+      "print(content)",
+      "file.close()    # runs cleanly"
+    ],
+    insight: 'When nothing goes wrong, manual <span class="accent">.close()</span> works fine. The trouble is: real code has bugs, and bugs raise exceptions.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Ask the OS for a file handle. <span class="ok">Handle opened.</span>',
+        handleState: 'open', handleName: "file ('apache.log')", handleDesc: 'handle #3 — open',
+        status: 'OPEN', statusCls: 'open', resource: 1, crash: null },
+      { kind: 'exec', line: 1, msg: '<span class="blue">.read()</span> consumes the file content.',
+        handleState: 'open', handleName: "file ('apache.log')", handleDesc: 'handle #3 — open',
+        status: 'OPEN', statusCls: 'open', resource: 1, crash: null },
+      { kind: 'exec', line: 2, msg: 'Print the content.',
+        handleState: 'open', handleName: "file ('apache.log')", handleDesc: 'handle #3 — open',
+        status: 'OPEN', statusCls: 'open', resource: 1, crash: null },
+      { kind: 'exec-return', line: 3, msg: '<span class="ok">.close()</span> runs → handle returned to OS. Clean.',
+        handleState: 'closed', handleName: "file ('apache.log')", handleDesc: 'handle #3 — released',
+        status: 'CLOSED', statusCls: 'closed', resource: 0, crash: null }
+    ]
+  },
+  {
+    name: "Manual close — exception fires mid-block",
+    sub: "ValueError between open() and close() — close() never runs",
+    code: [
+      "file = open('apache.log', 'r')",
+      "content = file.read()",
+      "result = int('not a number')  # ValueError!",
+      "file.close()   # NEVER reached"
+    ],
+    insight: 'The instant <span class="bad">int(\'not a number\')</span> raises, Python aborts the function. <span class="bad">.close() is never called.</span> The handle stays open in the OS table until the process eventually exits — that\'s a <span class="bad">resource leak.</span>',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Open the file — handle granted by OS.',
+        handleState: 'open', handleName: "file ('apache.log')", handleDesc: 'handle #3 — open',
+        status: 'OPEN', statusCls: 'open', resource: 1, crash: null },
+      { kind: 'exec', line: 1, msg: 'Read the content. So far so good.',
+        handleState: 'open', handleName: "file ('apache.log')", handleDesc: 'handle #3 — open',
+        status: 'OPEN', statusCls: 'open', resource: 1, crash: null },
+      { kind: 'exec-fail', line: 2, msg: '<span class="bad">int(\'not a number\')</span> raises <span class="bad">ValueError</span>! Python jumps out of this function.',
+        handleState: 'leaked', handleName: "file ('apache.log')", handleDesc: 'handle #3 — STILL OPEN',
+        status: 'LEAKED', statusCls: 'leaked', resource: 1, resourceWarn: true,
+        crash: "ValueError: invalid literal for int() with base 10: 'not a number'", skipped: [3] },
+      { kind: 'exec-fail', line: 3, msg: 'The <span class="bad">.close()</span> line is below the crash — it never runs. Handle is leaked.',
+        handleState: 'leaked', handleName: "file ('apache.log')", handleDesc: 'handle #3 — LEAKED (never released)',
+        status: 'LEAKED', statusCls: 'leaked', resource: 1, resourceWarn: true,
+        crash: "ValueError: invalid literal for int() with base 10: 'not a number'", skipped: [3] }
+    ]
+  },
+  {
+    name: "with statement — same bug, but no leak",
+    sub: "Same exception, but with handles cleanup before re-raising",
+    code: [
+      "with open('apache.log', 'r') as file:",
+      "    content = file.read()",
+      "    result = int('not a number')  # ValueError!",
+      "# Python runs file.close() AUTOMATICALLY,",
+      "# THEN re-raises the exception."
+    ],
+    insight: 'The <span class="accent">with</span> block protects you from yourself. Even on a crash, Python calls <span class="accent">.close()</span> before propagating the exception. <span class="ok">No leak.</span> The exception still escapes to whoever called this code, but the handle is safe.',
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Open the file — same as before. Handle granted.',
+        handleState: 'open', handleName: "file ('apache.log')", handleDesc: 'handle #3 — open',
+        status: 'OPEN', statusCls: 'open', resource: 1, crash: null },
+      { kind: 'exec', line: 1, msg: 'Read content. Same.',
+        handleState: 'open', handleName: "file ('apache.log')", handleDesc: 'handle #3 — open',
+        status: 'OPEN', statusCls: 'open', resource: 1, crash: null },
+      { kind: 'exec-fail', line: 2, msg: 'Same crash → <span class="bad">ValueError</span>. But this time we\'re inside a <span class="accent">with</span> block…',
+        handleState: 'open', handleName: "file ('apache.log')", handleDesc: 'handle #3 — open',
+        status: 'OPEN', statusCls: 'open', resource: 1,
+        crash: "ValueError: invalid literal for int() with base 10: 'not a number'" },
+      { kind: 'exec-return', line: 3, msg: 'Python intercepts the unwinding: <span class="ok">automatically calls .close()</span> before letting the exception continue.',
+        handleState: 'closed', handleName: "file ('apache.log')", handleDesc: 'handle #3 — released by with',
+        status: 'CLOSED', statusCls: 'closed', resource: 0,
+        crash: "ValueError still being raised (but file is safely closed)" },
+      { kind: 'exec-return', line: 4, msg: 'Exception now propagates to caller. Resource is released — <span class="ok">no leak.</span>',
+        handleState: 'closed', handleName: "file ('apache.log')", handleDesc: 'handle #3 — released, propagating',
+        status: 'CLOSED', statusCls: 'closed', resource: 0,
+        crash: "ValueError still being raised (but file is safely closed)" }
+    ]
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    } else if (cur && cur.skipped && cur.skipped.includes(i)) {
+      cls += ' skipped';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Handle
+  const handleRow = document.getElementById('handleRow');
+  handleRow.className = 'handle-row';
+  if (cur) handleRow.classList.add(cur.handleState);
+  document.getElementById('handleName').textContent = cur ? cur.handleName : 'no handle';
+  document.getElementById('handleDesc').textContent = cur ? cur.handleDesc : '— waiting —';
+  const status = document.getElementById('handleStatus');
+  status.className = 'handle-status ' + (cur ? cur.statusCls : 'none');
+  status.textContent = cur ? cur.status : 'NONE';
+
+  // Resource bar
+  const ri = document.getElementById('resourceInd');
+  const rn = document.getElementById('resourceNote');
+  if (cur) {
+    ri.className = 'ind ' + (cur.resourceWarn ? 'warn' : 'ok');
+    ri.textContent = `${cur.resource} / 1024`;
+    if (cur.resourceWarn) rn.textContent = '(handle leaked — counts against the OS limit)';
+    else if (cur.resource > 0) rn.textContent = '(within budget)';
+    else rn.textContent = '(all clean)';
+  } else {
+    ri.className = 'ind ok';
+    ri.textContent = '0 / 1024';
+    rn.textContent = '';
+  }
+
+  // Crash card
+  const crashCard = document.getElementById('crashCard');
+  const crashMsg = document.getElementById('crashMsg');
+  if (cur && cur.crash) {
+    crashCard.classList.add('shown');
+    crashMsg.textContent = cur.crash;
+  } else {
+    crashCard.classList.remove('shown');
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Pick a scenario, then click <strong>Step ▸</strong>.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>
