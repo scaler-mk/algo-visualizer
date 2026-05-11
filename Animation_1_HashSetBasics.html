@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HashSet — basic operations</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.rejected { background: rgba(229, 115, 115, 0.12); opacity: 1; color: var(--red); border-left: 2px solid var(--red); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+
+  .hashset-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px 18px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 150px;
+  }
+  .hs-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .hs-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .hs-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .bag {
+    border: 2.5px dashed var(--purple);
+    border-radius: 60px / 30px;
+    padding: 24px 30px;
+    background: rgba(192, 132, 232, 0.05);
+    min-height: 90px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s;
+  }
+  .bag::before {
+    content: 'HashSet (no order, unique only)';
+    position: absolute;
+    top: -10px; left: 22px;
+    background: #0d1117;
+    padding: 0 8px;
+    font-size: 10px;
+    color: var(--purple);
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .bag-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 13px;
+  }
+  .hs-cell {
+    width: 56px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+  }
+  .hs-cell.added {
+    background: rgba(163, 217, 119, 0.2);
+    border-color: var(--green);
+    color: var(--green);
+    animation: pop-in 0.4s ease-out;
+  }
+  .hs-cell.fresh {
+    background: rgba(240, 160, 75, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+    animation: pop-in 0.4s ease-out;
+  }
+  .hs-cell.contains-hit {
+    background: rgba(93, 173, 236, 0.25);
+    border-color: var(--blue);
+    color: var(--blue);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px rgba(93, 173, 236, 0.3);
+  }
+  .hs-cell.removing {
+    background: rgba(229, 115, 115, 0.2);
+    border-color: var(--red);
+    color: var(--red);
+    animation: shake-out 0.5s ease-out;
+  }
+  .hs-cell.iterating {
+    background: rgba(192, 132, 232, 0.25);
+    border-color: var(--purple);
+    color: var(--purple);
+    transform: translateY(-6px);
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.18); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes shake-out {
+    0% { transform: translateX(0); opacity: 1; }
+    50% { transform: translateX(8px); opacity: 0.5; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+
+  .reject-flash {
+    position: absolute;
+    color: var(--red);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 14px;
+    font-weight: 600;
+    background: rgba(229, 115, 115, 0.1);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 2px solid var(--red);
+    pointer-events: none;
+    animation: bounce-off 1s ease-out forwards;
+  }
+  @keyframes bounce-off {
+    0% { opacity: 0; transform: translateY(0) scale(0.6); }
+    20% { opacity: 1; transform: translateY(-30px) scale(1.05); }
+    80% { opacity: 1; transform: translateY(-50px) scale(1); }
+    100% { opacity: 0; transform: translateY(-70px) scale(0.9); }
+  }
+
+  .console-output {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 110px;
+    max-height: 220px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .console-output .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .console-line {
+    display: block;
+    color: var(--green);
+    line-height: 1.7;
+  }
+  .console-line.fresh {
+    background: rgba(163, 217, 119, 0.08);
+    margin-left: -8px; padding-left: 8px;
+    border-left: 2px solid var(--green);
+  }
+  .console-line .prompt { color: var(--muted); margin-right: 6px; }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 13px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.18); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>HashSet — basic operations, live</h1>
+  <div class="sub">Add the same thing twice — second one is silently rejected. That's not a bug, that's the entire feature. Watch <span style="color:var(--green)">add</span>, <span style="color:var(--blue)">contains</span>, <span style="color:var(--purple)">size</span>, <span style="color:var(--red)">remove</span>, and the unordered for-each iteration.</div>
+
+  <div class="controls">
+    <div style="display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE — runs top to bottom</div>
+      <div class="codebox" id="codebox">
+<div class="cl" id="c1">HashSet&lt;Integer&gt; hs = <span class="kw">new</span> HashSet&lt;&gt;();</div>
+<div class="cl" id="c2">System.out.println(hs);</div>
+<div class="cl" id="c3">hs.<span class="meth">add</span>(<span class="num">3</span>);</div>
+<div class="cl" id="c4">hs.<span class="meth">add</span>(-<span class="num">2</span>);</div>
+<div class="cl" id="c5">hs.<span class="meth">add</span>(<span class="num">10</span>);</div>
+<div class="cl" id="c6">hs.<span class="meth">add</span>(<span class="num">3</span>); <span class="com">// duplicate!</span></div>
+<div class="cl" id="c7">hs.<span class="meth">add</span>(<span class="num">10</span>); <span class="com">// duplicate!</span></div>
+<div class="cl" id="c8">hs.<span class="meth">add</span>(<span class="num">0</span>);</div>
+<div class="cl" id="c9">System.out.println(hs);</div>
+<div class="cl" id="c10">System.out.println(hs.<span class="meth">contains</span>(<span class="num">3</span>));</div>
+<div class="cl" id="c11">System.out.println(hs.<span class="meth">contains</span>(-<span class="num">1</span>));</div>
+<div class="cl" id="c12">System.out.println(hs.<span class="meth">size</span>());</div>
+<div class="cl" id="c13">hs.<span class="meth">remove</span>(<span class="num">3</span>);</div>
+<div class="cl" id="c14"><span class="kw">for</span> (Integer i : hs) print(i);</div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">HASHSET STATE</div>
+      <div class="hashset-display">
+        <div class="hs-header">
+          <span class="hs-name">hs</span>
+          <span class="hs-size-pill" id="sizePill">size = 0</span>
+        </div>
+        <div class="bag" id="bag"></div>
+      </div>
+
+      <div class="console-output" id="console">
+        <span class="lbl">CONSOLE OUTPUT</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // HashSet display order: matches Java output [0, -2, 3, 10] which is hash-bucket order
+  // We'll render in insertion order but allow Java's odd output
+  const steps = [
+    { line: 1, action: 'init', trace: 'create new empty <span class="formula-piece fp orange">HashSet&lt;Integer&gt;</span>', desc: 'declare empty HashSet' },
+    { line: 2, action: 'print', output: '[]', trace: 'print empty set → <span class="formula-piece fp green">[]</span>', desc: 'print empty' },
+    { line: 3, action: 'add', value: 3, trace: '<span class="formula-piece fp purple">add(3)</span> — new value, accepted. size = 1', desc: 'add 3' },
+    { line: 4, action: 'add', value: -2, trace: '<span class="formula-piece fp purple">add(-2)</span> — new value, accepted. size = 2', desc: 'add -2' },
+    { line: 5, action: 'add', value: 10, trace: '<span class="formula-piece fp purple">add(10)</span> — new value, accepted. size = 3', desc: 'add 10' },
+    { line: 6, action: 'add-dup', value: 3, trace: '<span class="formula-piece fp red">add(3) — already exists, rejected.</span> size unchanged', desc: 'add 3 → REJECTED' },
+    { line: 7, action: 'add-dup', value: 10, trace: '<span class="formula-piece fp red">add(10) — already exists, rejected.</span> size unchanged', desc: 'add 10 → REJECTED' },
+    { line: 8, action: 'add', value: 0, trace: '<span class="formula-piece fp purple">add(0)</span> — new value, accepted. size = 4', desc: 'add 0' },
+    { line: 9, action: 'print', output: '[0, -2, 3, 10]', trace: 'print set → <span class="formula-piece fp green">[0, -2, 3, 10]</span> — note: <em>order is not insertion order</em>', desc: 'print set' },
+    { line: 10, action: 'contains', value: 3, result: true, output: 'true', trace: '<span class="formula-piece fp blue">contains(3)</span> → 3 is in the set → <span class="formula-piece fp green">true</span>', desc: 'contains(3) → true' },
+    { line: 11, action: 'contains', value: -1, result: false, output: 'false', trace: '<span class="formula-piece fp blue">contains(-1)</span> → -1 not in set → <span class="formula-piece fp red">false</span>', desc: 'contains(-1) → false' },
+    { line: 12, action: 'size', output: 'Size is: 4', trace: '<span class="formula-piece fp purple">size()</span> → returns count → <span class="formula-piece fp orange">4</span>', desc: 'size() → 4' },
+    { line: 13, action: 'remove', value: 3, trace: '<span class="formula-piece fp red">remove(3)</span> — removed from set. size = 3', desc: 'remove 3' },
+    { line: 14, action: 'iterate', trace: 'for-each loop visits each element <span class="formula-piece fp purple">in hash order</span>, not insertion order', desc: 'iterate over hs' }
+  ];
+
+  let stepIdx = -1;
+  let hs = [];
+  let highlight = {};
+  let consoleLines = [];
+  let timer = null;
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    stepIdx = -1;
+    hs = [];
+    highlight = {};
+    consoleLines = [];
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('stepLbl').textContent = `${steps.length} operations to walk through`;
+    for (let i = 1; i <= 14; i++) {
+      const el = document.getElementById('c' + i);
+      if (el) el.className = 'cl';
+    }
+    document.getElementById('stepBtn').disabled = false;
+    renderHs();
+    renderConsole();
+  }
+
+  function renderHs() {
+    const b = document.getElementById('bag');
+    document.getElementById('sizePill').textContent = `size = ${hs.length}`;
+    if (hs.length === 0) {
+      b.innerHTML = '<span class="bag-empty">— empty set —</span>';
+      return;
+    }
+    let h = '';
+    for (let k = 0; k < hs.length; k++) {
+      const v = hs[k];
+      const cls = highlight[v] ? 'hs-cell ' + highlight[v] : 'hs-cell added';
+      h += `<div class="${cls}">${v}</div>`;
+    }
+    b.innerHTML = h;
+  }
+
+  function renderConsole() {
+    const c = document.getElementById('console');
+    let h = '<span class="lbl">CONSOLE OUTPUT</span>';
+    if (consoleLines.length === 0) {
+      h += '<span style="color: var(--muted); font-style: italic; font-family: Georgia, serif;">— nothing printed yet —</span>';
+    } else {
+      consoleLines.forEach((l, i) => {
+        const fresh = i === consoleLines.length - 1 ? ' fresh' : '';
+        h += `<span class="console-line${fresh}"><span class="prompt">›</span>${l}</span>`;
+      });
+    }
+    c.innerHTML = h;
+    c.scrollTop = c.scrollHeight;
+  }
+
+  function showRejectFlash(value) {
+    const bag = document.getElementById('bag');
+    const flash = document.createElement('div');
+    flash.className = 'reject-flash';
+    flash.textContent = `${value} already there — rejected`;
+    flash.style.top = '-10px';
+    flash.style.left = '50%';
+    flash.style.transform = 'translateX(-50%)';
+    bag.appendChild(flash);
+    setTimeout(() => flash.remove(), 1000);
+  }
+
+  function setLineHighlight(line, cls) {
+    for (let i = 1; i <= 14; i++) {
+      const el = document.getElementById('c' + i);
+      if (el) el.className = 'cl';
+    }
+    const el = document.getElementById('c' + line);
+    if (el) el.className = 'cl ' + cls;
+  }
+
+  function step() {
+    if (stepIdx >= steps.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      return;
+    }
+    stepIdx++;
+    const s = steps[stepIdx];
+    highlight = {};
+
+    if (s.action === 'init') {
+      hs = [];
+      setLineHighlight(s.line, 'taken');
+    } else if (s.action === 'add') {
+      hs.push(s.value);
+      highlight[s.value] = 'fresh';
+      setLineHighlight(s.line, 'taken');
+    } else if (s.action === 'add-dup') {
+      setLineHighlight(s.line, 'rejected');
+      showRejectFlash(s.value);
+      // Briefly highlight the existing element
+      highlight[s.value] = 'contains-hit';
+    } else if (s.action === 'print') {
+      consoleLines.push(s.output);
+      setLineHighlight(s.line, 'taken');
+    } else if (s.action === 'contains') {
+      setLineHighlight(s.line, 'taken');
+      consoleLines.push(s.output);
+      if (s.result) highlight[s.value] = 'contains-hit';
+    } else if (s.action === 'size') {
+      consoleLines.push(s.output);
+      setLineHighlight(s.line, 'taken');
+      hs.forEach(v => highlight[v] = 'contains-hit');
+    } else if (s.action === 'remove') {
+      setLineHighlight(s.line, 'taken');
+      highlight[s.value] = 'removing';
+      renderHs();
+      setTimeout(() => {
+        hs = hs.filter(v => v !== s.value);
+        highlight = {};
+        renderHs();
+      }, 400);
+    } else if (s.action === 'iterate') {
+      setLineHighlight(s.line, 'taken');
+      // Iterate one at a time with delays
+      hs.forEach((v, i) => {
+        setTimeout(() => {
+          highlight = {};
+          highlight[v] = 'iterating';
+          renderHs();
+          consoleLines.push(String(v));
+          renderConsole();
+        }, i * 500);
+      });
+      setTimeout(() => {
+        highlight = {};
+        renderHs();
+      }, hs.length * 500 + 400);
+    }
+
+    document.getElementById('traceText').innerHTML = s.trace;
+    document.getElementById('stepLbl').textContent = `step ${stepIdx + 1} of ${steps.length} — ${s.desc}`;
+    renderHs();
+    renderConsole();
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (stepIdx >= steps.length - 1) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1300);
+  }
+
+  reset();
+</script>
+</body>
+</html>
