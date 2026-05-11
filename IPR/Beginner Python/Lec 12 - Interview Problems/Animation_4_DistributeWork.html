@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Distribute Work — base load + remainder</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .auto-btn { background: transparent; color: var(--blue); border: 1px solid var(--blue); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .auto-btn:hover { background: rgba(93, 173, 236, 0.1); }
+  .auto-btn.playing { background: var(--blue); color: #1a1d23; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-alt { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 500px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Inputs panel */
+  .inputs-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .input-pill { display: flex; flex-direction: column; gap: 4px; }
+  .input-pill .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; }
+  .input-pill .v { font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 700; padding: 5px 14px; border: 2px solid; border-radius: 5px; }
+  .input-pill .v.req { color: var(--accent); border-color: var(--accent); background: rgba(240,160,75,0.1); }
+  .input-pill .v.comp { color: var(--blue); border-color: var(--blue); background: rgba(93,173,236,0.1); }
+
+  /* Arithmetic card */
+  .arith-card { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; transition: all 0.3s; }
+  .arith-card.pending { opacity: 0.4; }
+  .arith-row { display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 13px; flex-wrap: wrap; }
+  .arith-row .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; min-width: 90px; }
+  .arith-row .expr { color: var(--ink); }
+  .arith-row .result-pill { padding: 3px 10px; border-radius: 4px; font-weight: 700; font-size: 14px; }
+  .arith-row .result-pill.base { background: rgba(163, 217, 119, 0.15); border: 1.5px solid var(--green); color: var(--green); }
+  .arith-row .result-pill.rem { background: rgba(229, 115, 115, 0.15); border: 1.5px solid var(--red); color: var(--red); }
+
+  /* Pool of remaining tasks */
+  .pool-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; transition: all 0.3s; }
+  .pool-card.pending { opacity: 0.4; }
+  .pool-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .pool-card .count-tag { color: var(--red); font-family: 'JetBrains Mono', monospace; padding: 1px 7px; background: rgba(229, 115, 115, 0.1); border-radius: 3px; font-size: 10px; }
+  .pool-tokens { display: flex; gap: 6px; flex-wrap: wrap; min-height: 32px; align-items: center; }
+  .pool-tokens .placeholder { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+  .token { width: 28px; height: 28px; border-radius: 6px; background: rgba(229, 115, 115, 0.18); border: 2px solid var(--red); color: var(--red); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; transition: all 0.3s; }
+  .token.assigned { opacity: 0.3; transform: scale(0.85); }
+
+  /* Computers (bins) */
+  .computers-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .computers-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 12px; }
+  .computers-grid { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .computer { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 76px; }
+  .computer-body { width: 80px; min-height: 100px; background: linear-gradient(180deg, #1e2129 0%, #16181d 100%); border: 2px solid var(--line); border-radius: 8px 8px 4px 4px; padding: 10px 6px 6px 6px; display: flex; flex-direction: column; align-items: center; gap: 3px; position: relative; transition: all 0.3s; }
+  .computer.receiving-base { border-color: var(--green); box-shadow: 0 0 12px rgba(163,217,119,0.25); }
+  .computer.receiving-extra { border-color: var(--accent); box-shadow: 0 0 12px rgba(240,160,75,0.3); animation: bump 0.4s; }
+  @keyframes bump { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  .computer-screen { position: absolute; top: 6px; left: 8px; right: 8px; height: 18px; background: rgba(163, 217, 119, 0.1); border: 1px solid rgba(163, 217, 119, 0.3); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--green); letter-spacing: 0.05em; }
+  .computer.empty .computer-screen { background: rgba(0,0,0,0.3); color: var(--muted); border-color: var(--line); }
+  .task-stack { display: flex; flex-direction: column; gap: 2px; margin-top: 28px; align-items: center; width: 100%; }
+  .task-chip { width: 56px; height: 14px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; transition: all 0.3s; }
+  .task-chip.base-chip { background: rgba(163, 217, 119, 0.18); border: 1px solid var(--green); color: var(--green); }
+  .task-chip.extra-chip { background: rgba(240, 160, 75, 0.22); border: 1px solid var(--accent); color: var(--accent); animation: pop 0.4s; }
+  @keyframes pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .computer-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+  .computer-total { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); font-weight: 700; padding: 2px 7px; background: rgba(0,0,0,0.4); border-radius: 3px; }
+  .computer.receiving-base .computer-total, .computer.receiving-extra .computer-total { color: var(--accent); }
+
+  /* Output list display */
+  .output-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 38px; transition: all 0.3s; }
+  .output-card.pending { opacity: 0.4; }
+  .output-card .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; }
+  .output-list { padding: 4px 10px; background: rgba(163, 217, 119, 0.12); border: 1.5px solid var(--green); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--green); font-weight: 700; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.5; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Distribute Work Among Computers — fair division</h1>
+    <p class="sub">Floor-divide for the base load. Use the remainder to bump the first few computers by one.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">10 requests, 3 computers</button>
+      <button class="qb" data-i="1">14 requests, 5 computers</button>
+      <button class="qb" data-i="2">12 requests, 4 (perfect)</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="auto-btn" id="autoBtn">▶ Auto-play</button>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="inputs-card">
+            <div class="input-pill"><span class="lbl">REQUESTS</span><span class="v req" id="reqV">—</span></div>
+            <div class="input-pill"><span class="lbl">COMPUTERS</span><span class="v comp" id="compV">—</span></div>
+          </div>
+          <div class="arith-card pending" id="arithCard">
+            <div class="arith-row"><span class="lbl">BASE LOAD:</span><span class="expr" id="baseExpr">—</span><span style="margin-left:auto"></span></div>
+            <div class="arith-row"><span class="lbl">REMAINDER:</span><span class="expr" id="remExpr">—</span><span style="margin-left:auto"></span></div>
+          </div>
+          <div class="pool-card pending" id="poolCard">
+            <div class="lbl">EXTRA TASKS POOL <span class="count-tag" id="poolCountTag">0</span></div>
+            <div class="pool-tokens" id="poolTokens"><span class="placeholder">— not yet —</span></div>
+          </div>
+          <div class="computers-card">
+            <div class="lbl">COMPUTERS</div>
+            <div class="computers-grid" id="computersGrid"></div>
+          </div>
+          <div class="output-card pending" id="outputCard">
+            <span class="lbl">DISTRIBUTION:</span>
+            <span class="output-list" id="outputList">—</span>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|with|as|import|from)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(open|print|input|len|range|int|map|list)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  // Loop restoration since inserted spans may contain further sentinels
+  let prev;
+  do { prev = h; h = h.replace(/Z([A-Z]+)Z/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; }); } while (h !== prev);
+  return h;
+}
+
+function buildPlan(requests, computers) {
+  const base = Math.floor(requests / computers);
+  const rem = requests % computers;
+  const plan = [];
+  plan.push({
+    kind: 'exec', line: 1, msg: `Inputs: <span class="accent">requests = ${requests}</span>, <span class="blue">computers = ${computers}</span>.`,
+    bins: Array(computers).fill(0), poolRemaining: null, poolAssigned: 0,
+    baseShown: false, remShown: false
+  });
+  plan.push({
+    kind: 'exec', line: 2, msg: `Step 1: <span class="ok">base_load = ${requests} // ${computers} = ${base}</span>. Each computer gets this many to start.`,
+    bins: Array(computers).fill(0), poolRemaining: null, poolAssigned: 0,
+    baseShown: true, remShown: false, base, rem
+  });
+  plan.push({
+    kind: 'exec', line: 3, msg: `Step 2: <span class="bad">remainder = ${requests} % ${computers} = ${rem}</span>. ${rem === 0 ? 'No leftovers — done after base.' : 'These extras will go to the first few.'}`,
+    bins: Array(computers).fill(0), poolRemaining: rem, poolAssigned: 0,
+    baseShown: true, remShown: true, base, rem
+  });
+  plan.push({
+    kind: 'exec', line: 4, msg: `Fill every computer with <span class="ok">${base}</span> tasks each.`,
+    bins: Array(computers).fill(base), poolRemaining: rem, poolAssigned: 0,
+    baseShown: true, remShown: true, base, rem, hlAll: true
+  });
+  // Bump first `rem` computers
+  for (let i = 0; i < rem; i++) {
+    const bins = Array(computers).fill(base);
+    for (let j = 0; j <= i; j++) bins[j] = base + 1;
+    plan.push({
+      kind: 'exec-alt', line: 7, msg: `Loop i = ${i}: bump <span class="accent">distribution[${i}]</span> by 1 → now <span class="accent">${base+1}</span>.`,
+      bins, poolRemaining: rem - i - 1, poolAssigned: i + 1,
+      baseShown: true, remShown: true, base, rem, bumping: i
+    });
+  }
+  const finalBins = Array(computers).fill(base);
+  for (let i = 0; i < rem; i++) finalBins[i] = base + 1;
+  plan.push({
+    kind: 'exec-return', line: 8, msg: `Done. Return <span class="ok">[${finalBins.join(', ')}]</span>. Total = ${finalBins.reduce((a,b)=>a+b,0)}, matches ${requests} ✓.`,
+    bins: finalBins, poolRemaining: 0, poolAssigned: rem,
+    baseShown: true, remShown: true, base, rem, finished: true
+  });
+  return plan;
+}
+
+const SCENARIOS = [
+  { name: "10 requests across 3 computers", sub: "Uneven divide: 10 // 3 = 3, remainder 1", requests: 10, computers: 3,
+    insight: '<span class="accent">10 // 3 = 3</span> sets the floor, <span class="accent">10 % 3 = 1</span> is the leftover. The first computer gets one extra, others stay at the base. <span class="ok">[4, 3, 3]</span>.' },
+  { name: "14 requests across 5 computers", sub: "Uneven: 14 // 5 = 2, remainder 4", requests: 14, computers: 5,
+    insight: 'Bigger remainder → more computers get the bump. First <span class="accent">4</span> computers go up to 3 each; the last stays at 2. <span class="ok">[3, 3, 3, 3, 2]</span>.' },
+  { name: "12 requests across 4 computers", sub: "Perfect divide: 12 // 4 = 3, remainder 0", requests: 12, computers: 4,
+    insight: 'When the remainder is 0, the bump loop runs zero times. Every computer gets exactly the base load. <span class="ok">[3, 3, 3, 3]</span>.' }
+];
+SCENARIOS.forEach(s => { s.plan = buildPlan(s.requests, s.computers); });
+
+const CODE = [
+  "def distribute_load(",
+  "        requests: int, computers: int) -> List[int]:",
+  "    base_load = requests // computers",
+  "    remainder = requests % computers",
+  "    distribution = [base_load] * computers",
+  "",
+  "    for i in range(remainder):",
+  "        distribution[i] += 1",
+  "    return distribution"
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+let autoTimer = null;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  document.getElementById('reqV').textContent = sc.requests;
+  document.getElementById('compV').textContent = sc.computers;
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = CODE.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-alt') cls += ' exec-alt';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Arithmetic card
+  const arithCard = document.getElementById('arithCard');
+  const baseExpr = document.getElementById('baseExpr');
+  const remExpr = document.getElementById('remExpr');
+  if (cur && (cur.baseShown || cur.remShown)) {
+    arithCard.classList.remove('pending');
+    if (cur.baseShown) {
+      baseExpr.innerHTML = `${sc.requests} <span style="color:var(--muted)">//</span> ${sc.computers} = <span class="result-pill base">${cur.base}</span>`;
+    } else baseExpr.textContent = '—';
+    if (cur.remShown) {
+      remExpr.innerHTML = `${sc.requests} <span style="color:var(--muted)">%</span> ${sc.computers} = <span class="result-pill rem">${cur.rem}</span>`;
+    } else remExpr.textContent = '—';
+  } else {
+    arithCard.classList.add('pending');
+    baseExpr.textContent = '—';
+    remExpr.textContent = '—';
+  }
+
+  // Pool
+  const poolCard = document.getElementById('poolCard');
+  const poolTokens = document.getElementById('poolTokens');
+  const poolCountTag = document.getElementById('poolCountTag');
+  if (cur && cur.poolRemaining !== null) {
+    poolCard.classList.remove('pending');
+    poolCountTag.textContent = `${cur.poolRemaining} left`;
+    const total = cur.poolRemaining + cur.poolAssigned;
+    if (total === 0) {
+      poolTokens.innerHTML = '<span class="placeholder">— no extras —</span>';
+    } else {
+      let html = '';
+      for (let i = 0; i < total; i++) {
+        const assigned = i < cur.poolAssigned;
+        html += `<div class="token ${assigned ? 'assigned' : ''}">+1</div>`;
+      }
+      poolTokens.innerHTML = html;
+    }
+  } else {
+    poolCard.classList.add('pending');
+    poolTokens.innerHTML = '<span class="placeholder">— not yet —</span>';
+    poolCountTag.textContent = '0';
+  }
+
+  // Computers
+  const computersGrid = document.getElementById('computersGrid');
+  const bins = cur ? cur.bins : Array(sc.computers).fill(0);
+  computersGrid.innerHTML = bins.map((cnt, i) => {
+    let bodyCls = 'computer-body';
+    if (cnt === 0) bodyCls += ' empty';
+    if (cur && cur.hlAll) bodyCls += ' receiving-base';
+    if (cur && cur.bumping === i) bodyCls += ' receiving-extra';
+    // Render task chips: base first (green), then extras (orange)
+    const baseN = (cur && cur.base !== undefined) ? cur.base : 0;
+    let chips = '';
+    for (let k = 0; k < Math.min(cnt, baseN); k++) {
+      chips += `<div class="task-chip base-chip">task</div>`;
+    }
+    if (cnt > baseN) {
+      chips += `<div class="task-chip extra-chip">+1</div>`;
+    }
+    return `<div class="computer">
+      <div class="${bodyCls}">
+        <div class="computer-screen">${cnt > 0 ? '◉ READY' : '○ idle'}</div>
+        <div class="task-stack">${chips}</div>
+      </div>
+      <div class="computer-label">c[${i}]</div>
+      <div class="computer-total">${cnt}</div>
+    </div>`;
+  }).join('');
+
+  // Output
+  const outputCard = document.getElementById('outputCard');
+  const outputList = document.getElementById('outputList');
+  if (cur && cur.finished) {
+    outputCard.classList.remove('pending');
+    outputList.textContent = '[' + bins.join(', ') + ']';
+  } else {
+    outputCard.classList.add('pending');
+    outputList.textContent = '—';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Pick a scenario, then click <strong>Step ▸</strong>.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  stopAuto();
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+function stopAuto() {
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    document.getElementById('autoBtn').classList.remove('playing');
+    document.getElementById('autoBtn').textContent = '▶ Auto-play';
+  }
+}
+
+function startAuto() {
+  document.getElementById('autoBtn').classList.add('playing');
+  document.getElementById('autoBtn').textContent = '⏸ Pause';
+  autoTimer = setInterval(() => {
+    if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+      stepIdx++;
+      render();
+    } else {
+      stopAuto();
+    }
+  }, 1100);
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  stopAuto();
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.getElementById('autoBtn').addEventListener('click', () => {
+  if (autoTimer) stopAuto();
+  else startAuto();
+});
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

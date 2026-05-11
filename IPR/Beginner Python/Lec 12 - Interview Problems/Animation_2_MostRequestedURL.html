@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Most Requested URL — regex + counter + tie-break</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .auto-btn { background: transparent; color: var(--blue); border: 1px solid var(--blue); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .auto-btn:hover { background: rgba(93, 173, 236, 0.1); }
+  .auto-btn.playing { background: var(--blue); color: #1a1d23; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.15fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-alt { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 16px; min-height: 500px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Log lines list */
+  .log-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .log-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; }
+  .log-line { padding: 6px 8px; margin-bottom: 4px; background: rgba(0,0,0,0.25); border: 1.5px solid transparent; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all 0.3s; display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: center; }
+  .log-line.cursor { border-color: var(--accent); background: rgba(240, 160, 75, 0.08); color: var(--ink); }
+  .log-line.processed { opacity: 0.55; }
+  .log-line .ix { color: var(--muted); text-align: center; font-size: 10px; }
+  .log-line.cursor .ix { color: var(--accent); font-weight: 700; }
+  .log-line .url-hl { background: rgba(163, 217, 119, 0.22); color: var(--green); padding: 1px 4px; border-radius: 2px; font-weight: 700; }
+  .log-line.cursor .url-hl { background: rgba(240, 160, 75, 0.28); color: var(--accent); }
+
+  /* Regex extraction card */
+  .regex-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; transition: all 0.3s; }
+  .regex-card.pending { opacity: 0.4; }
+  .regex-line { display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; flex-wrap: wrap; }
+  .regex-line .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; min-width: 90px; }
+  .regex-line .pattern { color: var(--purple); padding: 2px 6px; background: rgba(192, 132, 232, 0.1); border-radius: 3px; font-size: 11px; }
+  .regex-line .url-pill { padding: 3px 10px; background: rgba(163, 217, 119, 0.15); border: 1.5px solid var(--green); color: var(--green); border-radius: 4px; font-weight: 700; }
+
+  /* Counter dict display */
+  .counter-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .counter-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .counter-rows { display: flex; flex-direction: column; gap: 4px; }
+  .counter-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; text-align: center; padding: 6px; }
+  .counter-row { display: grid; grid-template-columns: 1fr 50px; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 4px; transition: all 0.3s; }
+  .counter-row.bumped { background: rgba(240, 160, 75, 0.12); animation: pulse 0.5s; }
+  .counter-row.leader { background: rgba(163, 217, 119, 0.08); border-left: 3px solid var(--green); padding-left: 3px; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+  .counter-row .key-cell { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); padding: 3px 7px; background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; text-overflow: ellipsis; }
+  .counter-row.bumped .key-cell { color: var(--accent); }
+  .counter-row.leader .key-cell { color: var(--green); font-weight: 700; }
+  .counter-row .count-cell { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--blue); text-align: center; padding: 3px; }
+  .counter-row.bumped .count-cell { color: var(--accent); }
+  .counter-row.leader .count-cell { color: var(--green); }
+
+  /* Best tracker */
+  .best-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .best-card .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; }
+  .best-card .best-url { padding: 4px 10px; background: rgba(163, 217, 119, 0.15); border: 1.5px solid var(--green); border-radius: 4px; color: var(--green); font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; }
+  .best-card .best-url.empty { background: transparent; border-color: var(--line); color: var(--muted); }
+  .best-card .best-count { padding: 3px 8px; background: rgba(240, 160, 75, 0.12); border: 1.5px solid var(--accent); border-radius: 3px; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 700; }
+  .best-card .verdict { padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; font-family: 'JetBrains Mono', monospace; }
+  .best-card .verdict.tie { background: rgba(93,173,236,0.18); color: var(--blue); }
+  .best-card .verdict.new-leader { background: rgba(163,217,119,0.2); color: var(--green); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; line-height: 1.5; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .purple { color: var(--purple); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Most Requested URL — regex + counter dict + tie-break</h1>
+    <p class="sub">Extract URL via regex; count occurrences; on ties, keep the URL that hit the count <em>first</em>.</p>
+
+    <div class="controls">
+      <span class="ctl-label">LOG:</span>
+      <button class="qb active">five access entries</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="auto-btn" id="autoBtn">▶ Auto-play</button>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head">Regex-based URL counter</div>
+        <div class="scenario-sub">Strictly-greater update preserves the "first hit wins" tiebreak</div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="log-card">
+            <div class="lbl">ACCESS LOG</div>
+            <div id="logRows"></div>
+          </div>
+          <div class="regex-card pending" id="regexCard">
+            <div class="regex-line"><span class="lbl">REGEX:</span><span class="pattern">r'"([A-Z]+)\s+(\S+)\s+HTTP/\d+(?:\.\d+)?"'</span></div>
+            <div class="regex-line"><span class="lbl">EXTRACTED URL:</span><span id="extractedUrl">—</span></div>
+          </div>
+          <div class="counter-card">
+            <div class="lbl">counts (dict)</div>
+            <div class="counter-rows" id="counterRows"><div class="counter-empty">— empty —</div></div>
+          </div>
+          <div class="best-card" id="bestCard">
+            <span class="lbl">BEST:</span>
+            <span class="best-url empty" id="bestUrl">""</span>
+            <span class="best-count" id="bestCount">count = 0</span>
+            <span id="verdictPill"></span>
+          </div>
+          <div class="commentary" id="commentary">Click <strong>Step ▸</strong> or <strong>Auto-play</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|with|as|import|continue|not)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(open|print|input|len|range|int|map|list|get|search|compile)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  // Loop restoration since inserted spans may contain further sentinels
+  let prev;
+  do { prev = h; h = h.replace(/Z([A-Z]+)Z/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; }); } while (h !== prev);
+  return h;
+}
+
+// Each log line: { raw, url }
+const LOG = [
+  { raw: '192.168.1.11 - - [10:00:02] "GET /search?q=logs HTTP/1.1" 200 2048 "-" "Mozilla/5.0"', url: '/search?q=logs' },
+  { raw: '192.168.1.10 - - [10:00:01] "GET /home HTTP/1.1" 200 1024 "-" "curl/8.0"', url: '/home' },
+  { raw: '192.168.1.13 - - [10:00:04] "GET /products?id=7 HTTP/1.1" 200 512 "-" "Mozilla/5.0"', url: '/products?id=7' },
+  { raw: '192.168.1.12 - - [10:00:03] "GET /home HTTP/1.1" 304 0 "-" "Mozilla/5.0"', url: '/home' },
+  { raw: '192.168.1.14 - - [10:00:05] "GET /search?q=logs HTTP/1.1" 200 2048 "-" "Mozilla/5.0"', url: '/search?q=logs' }
+];
+
+// Highlight the URL portion inside the raw line
+function renderLogLine(raw, url) {
+  const idx = raw.indexOf(url);
+  if (idx < 0) return raw;
+  const before = raw.slice(0, idx);
+  const after = raw.slice(idx + url.length);
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  return esc(before) + `<span class="url-hl">${esc(url)}</span>` + esc(after);
+}
+
+function buildPlan() {
+  const plan = [];
+  plan.push({ kind: 'exec', line: 4, msg: 'Initialize empty <span class="accent">counts</span> dict, <span class="ok">best_url=""</span>, <span class="ok">best_count=0</span>.',
+    cursor: null, extracted: null, counts: {}, bestUrl: '', bestCount: 0, processed: [] });
+  const counts = {};
+  let bestUrl = '';
+  let bestCount = 0;
+  for (let i = 0; i < LOG.length; i++) {
+    const entry = LOG[i];
+    plan.push({ kind: 'exec', line: 8, msg: `Read line <span class="accent">[${i}]</span> — apply regex to find the quoted request.`,
+      cursor: i, extracted: null, counts: {...counts}, bestUrl, bestCount, processed: Array.from({length: i}, (_,k)=>k), regexScan: true });
+    plan.push({ kind: 'exec', line: 10, msg: `Regex matches → extract URL = <span class="ok">${entry.url}</span>`,
+      cursor: i, extracted: entry.url, counts: {...counts}, bestUrl, bestCount, processed: Array.from({length: i}, (_,k)=>k) });
+    const newCount = (counts[entry.url] || 0) + 1;
+    counts[entry.url] = newCount;
+    plan.push({ kind: 'exec', line: 12, msg: `Bump <span class="accent">counts[${entry.url}]</span> to <span class="ok">${newCount}</span>.`,
+      cursor: i, extracted: entry.url, counts: {...counts}, bestUrl, bestCount, processed: Array.from({length: i}, (_,k)=>k), bumped: entry.url });
+    const won = newCount > bestCount;
+    const tied = newCount === bestCount && entry.url !== bestUrl;
+    let verdict;
+    if (won) {
+      const prevBest = bestCount;
+      bestUrl = entry.url;
+      bestCount = newCount;
+      verdict = 'new-leader';
+      plan.push({ kind: 'exec', line: 16, msg: `<span class="ok">${newCount}</span> &gt; previous best (<span class="accent">${prevBest}</span>) → <span class="ok">new leader: ${entry.url}</span>.`,
+        cursor: i, extracted: entry.url, counts: {...counts}, bestUrl, bestCount, processed: Array.from({length: i}, (_,k)=>k), verdict });
+    } else if (tied) {
+      verdict = 'tie';
+      plan.push({ kind: 'exec-alt', line: 15, msg: `Count tied at <span class="blue">${newCount}</span> with current leader. <span class="accent">Tie-break rule:</span> earlier leader stays. <span class="bad">${entry.url}</span> doesn\'t take over.`,
+        cursor: i, extracted: entry.url, counts: {...counts}, bestUrl, bestCount, processed: Array.from({length: i}, (_,k)=>k), verdict });
+    } else {
+      verdict = 'tie';
+      plan.push({ kind: 'exec-alt', line: 15, msg: `Count ${newCount} ≤ best ${bestCount} → current best stays.`,
+        cursor: i, extracted: entry.url, counts: {...counts}, bestUrl, bestCount, processed: Array.from({length: i}, (_,k)=>k), verdict });
+    }
+  }
+  plan.push({ kind: 'exec-return', line: 20, msg: `Loop done. Return <span class="ok">${bestUrl}</span> as the most requested URL.`,
+    cursor: null, extracted: null, counts: {...counts}, bestUrl, bestCount, processed: Array.from({length: LOG.length}, (_,k)=>k), finished: true });
+  return plan;
+}
+
+const SCENARIO = {
+  code: [
+    "import re",
+    "",
+    "REQUEST_RE = re.compile(",
+    "    r'\"([A-Z]+)\\s+(\\S+)\\s+HTTP/\\d+(?:\\.\\d+)?\"')",
+    "counts = {}",
+    "best_url = \"\"",
+    "best_count = 0",
+    "",
+    "for line in f:",
+    "    m = REQUEST_RE.search(line)",
+    "    if not m: continue",
+    "    url = m.group(2)",
+    "    new_count = counts.get(url, 0) + 1",
+    "    counts[url] = new_count",
+    "",
+    "    # Strict > preserves first-hit-wins on ties",
+    "    if new_count > best_count:",
+    "        best_count = new_count",
+    "        best_url = url",
+    "",
+    "return best_url"
+  ],
+  insight: 'Two tools together: <span class="accent">regex</span> rips the URL out of each line; the <span class="accent">counts</span> dict tallies them. The <span class="accent">strict &gt;</span> check is what implements the "first to reach this count wins" tie-break — switch to <span class="accent">≥</span> and you\'d get "last to tie wins" instead.',
+  plan: buildPlan()
+};
+
+let stepIdx = 0;
+let autoTimer = null;
+
+function render() {
+  const sc = SCENARIO;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-alt') cls += ' exec-alt';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Log rows
+  const logRows = document.getElementById('logRows');
+  logRows.innerHTML = LOG.map((entry, i) => {
+    let cls = 'log-line';
+    if (cur && cur.cursor === i) cls += ' cursor';
+    else if (cur && cur.processed && cur.processed.includes(i)) cls += ' processed';
+    return `<div class="${cls}"><span class="ix">[${i}]</span><span>${renderLogLine(entry.raw, entry.url)}</span></div>`;
+  }).join('');
+
+  // Regex card
+  const regexCard = document.getElementById('regexCard');
+  const extractedEl = document.getElementById('extractedUrl');
+  if (cur && cur.extracted) {
+    regexCard.classList.remove('pending');
+    extractedEl.innerHTML = `<span class="url-pill">${cur.extracted}</span>`;
+  } else if (cur && cur.regexScan) {
+    regexCard.classList.remove('pending');
+    extractedEl.innerHTML = '<span style="color:var(--muted);font-style:italic;font-family:Georgia,serif;font-size:11px;">scanning…</span>';
+  } else {
+    regexCard.classList.add('pending');
+    extractedEl.textContent = '—';
+  }
+
+  // Counter dict
+  const counterRows = document.getElementById('counterRows');
+  const counts = cur ? cur.counts : {};
+  const counterKeys = Object.keys(counts);
+  if (counterKeys.length === 0) {
+    counterRows.innerHTML = '<div class="counter-empty">— empty —</div>';
+  } else {
+    counterRows.innerHTML = counterKeys.map(k => {
+      let cls = 'counter-row';
+      if (cur && cur.bumped === k) cls += ' bumped';
+      if (cur && cur.bestUrl === k) cls += ' leader';
+      return `<div class="${cls}"><span class="key-cell">${k}</span><span class="count-cell">${counts[k]}</span></div>`;
+    }).join('');
+  }
+
+  // Best tracker
+  const bestUrlEl = document.getElementById('bestUrl');
+  const bestCountEl = document.getElementById('bestCount');
+  const verdictPill = document.getElementById('verdictPill');
+  if (cur) {
+    if (cur.bestUrl === '') {
+      bestUrlEl.textContent = '""';
+      bestUrlEl.classList.add('empty');
+    } else {
+      bestUrlEl.textContent = cur.bestUrl;
+      bestUrlEl.classList.remove('empty');
+    }
+    bestCountEl.textContent = `count = ${cur.bestCount}`;
+    if (cur.verdict === 'new-leader') {
+      verdictPill.innerHTML = '<span class="verdict new-leader">NEW LEADER</span>';
+    } else if (cur.verdict === 'tie') {
+      verdictPill.innerHTML = '<span class="verdict tie">TIE — KEEP CURRENT</span>';
+    } else {
+      verdictPill.innerHTML = '';
+    }
+  } else {
+    bestUrlEl.textContent = '""';
+    bestUrlEl.classList.add('empty');
+    bestCountEl.textContent = 'count = 0';
+    verdictPill.innerHTML = '';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> or <strong>Auto-play</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset() {
+  stopAuto();
+  stepIdx = 0;
+  render();
+}
+
+function stopAuto() {
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    document.getElementById('autoBtn').classList.remove('playing');
+    document.getElementById('autoBtn').textContent = '▶ Auto-play';
+  }
+}
+
+function startAuto() {
+  document.getElementById('autoBtn').classList.add('playing');
+  document.getElementById('autoBtn').textContent = '⏸ Pause';
+  autoTimer = setInterval(() => {
+    if (stepIdx < SCENARIO.plan.length) {
+      stepIdx++;
+      render();
+    } else {
+      stopAuto();
+    }
+  }, 1300);
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  stopAuto();
+  if (stepIdx < SCENARIO.plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('autoBtn').addEventListener('click', () => {
+  if (autoTimer) stopAuto();
+  else startAuto();
+});
+
+reset();
+</script>
+</body>
+</html>
