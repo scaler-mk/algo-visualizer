@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fizz-Buzz: Why Order Matters</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fcf3e3;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 800px;
+  }
+
+  /* Top controls */
+  .controls-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+  }
+  @media (max-width: 700px) { .controls-bar { grid-template-columns: 1fr; } }
+
+  .impl-picker {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 6px;
+  }
+  .impl-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 9px 14px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .impl-btn:hover { background: #fff8d6; }
+  .impl-btn.active { background: #1a1a1a; color: #ffd95c; }
+  .impl-tag {
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  .impl-tag.wrong { background: #ffd0d0; color: #c41e3a; }
+  .impl-tag.correct { background: #cfe8d3; color: #2d6e3e; }
+  .impl-btn.active .impl-tag.wrong { background: #ff6b6b; color: #fff; }
+  .impl-btn.active .impl-tag.correct { background: #56d364; color: #1a1a1a; }
+
+  .n-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .n-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .n-presets {
+    display: flex;
+    gap: 5px;
+  }
+  .n-preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 12px;
+    background: #fff8d6;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .n-preset:hover { background: #ffe9b3; }
+  .n-preset.active { background: #1a1a1a; color: #ffd95c; }
+
+  /* Stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  .code-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    color: #e6edf3;
+    min-height: 380px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .impl-status {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .impl-status.wrong { background: rgba(255, 107, 107, 0.15); color: #ff9999; }
+  .impl-status.correct { background: rgba(86, 211, 100, 0.15); color: #7ee08e; }
+
+  .code-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 8px 14px;
+    margin: 3px -14px;
+    border-left: 3px solid transparent;
+    transition: all 0.3s;
+    border-radius: 3px;
+  }
+  .code-line.active {
+    background: rgba(255, 217, 92, 0.1);
+    border-left-color: #ffd95c;
+  }
+  .code-line.true-cond {
+    background: rgba(86, 211, 100, 0.12);
+    border-left-color: #56d364;
+  }
+  .code-line.false-cond {
+    background: rgba(255, 107, 107, 0.08);
+    border-left-color: #555;
+    opacity: 0.7;
+  }
+  .code-line.dead {
+    opacity: 0.35;
+  }
+  .code-line .kw { color: #ff7b72; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .num { color: #ffa657; }
+  .code-line .str { color: #a5d6ff; }
+  .code-line .op { color: #ffd95c; }
+  .code-line .method { color: #ffd95c; }
+  .code-line .indent { display: inline-block; width: 1.6em; }
+  .code-line .comment { color: #6e7681; font-style: italic; }
+  .code-line .branch-result {
+    margin-left: 12px;
+    font-size: 11px;
+    color: #ffd95c;
+    font-style: italic;
+  }
+
+  /* Right panel */
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .input-display {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+    text-align: center;
+  }
+  .input-display .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  .input-display .n-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 42px;
+    font-weight: 900;
+    color: #1a1a1a;
+    line-height: 1;
+  }
+  .input-display .checks {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .check-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 100px;
+    background: #f5efe2;
+    border: 1.5px solid #1a1a1a;
+    font-weight: 700;
+  }
+  .check-pill.true { background: #cfe8d3; color: #2d6e3e; }
+  .check-pill.false { background: #ffd0d0; color: #c41e3a; }
+
+  .output-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+    flex: 1;
+  }
+  .output-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    color: #e6edf3;
+    padding: 4px 0;
+  }
+  .output-line.fresh {
+    color: #ffd95c;
+    font-weight: 700;
+    animation: highlight 0.6s;
+  }
+  @keyframes highlight {
+    0% { background: rgba(255, 217, 92, 0.25); padding-left: 12px; }
+    100% { background: transparent; padding-left: 0; }
+  }
+  .output-empty {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: #555;
+    font-size: 14px;
+    padding: 4px 0;
+  }
+
+  .verdict-card {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 16px 20px;
+    transition: all 0.3s;
+    opacity: 0;
+  }
+  .verdict-card.show { opacity: 1; }
+  .verdict-card.correct { border-color: #2d6e3e; box-shadow: 6px 6px 0 #2d6e3e; }
+  .verdict-card.wrong { border-color: #c41e3a; box-shadow: 6px 6px 0 #c41e3a; }
+  .verdict-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 8px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 8px;
+  }
+  .verdict-card.correct .verdict-tag { background: #2d6e3e; color: #fff; }
+  .verdict-card.wrong .verdict-tag { background: #c41e3a; color: #fff; }
+  .verdict-text {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .verdict-text code {
+    background: #f5efe2;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .verdict-text strong { font-weight: 700; }
+
+  /* Action buttons */
+  .actions {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Comparison grid at bottom */
+  .compare {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+  }
+  .compare h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+    color: #888;
+  }
+  .compare-grid {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 4px;
+  }
+  .compare-grid th, .compare-grid td {
+    text-align: center;
+    padding: 9px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    border-radius: 4px;
+  }
+  .compare-grid th {
+    background: #1a1a1a;
+    color: #ffd95c;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .compare-grid td {
+    background: #f5efe2;
+    color: #1a1a1a;
+  }
+  .compare-grid td.expected {
+    background: #fff8d6;
+    font-weight: 700;
+  }
+  .compare-grid td.correct {
+    background: #cfe8d3;
+    color: #2d6e3e;
+    font-weight: 700;
+  }
+  .compare-grid td.wrong {
+    background: #ffd0d0;
+    color: #c41e3a;
+    font-weight: 700;
+  }
+  .compare-grid td.muted {
+    color: #888;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+  <h1>Fizz-Buzz: <span class="accent">why order matters</span></h1>
+  <p class="subtitle">Three implementations of the same problem. Two give wrong answers. Walk through each one against the test inputs and see exactly where they fail.</p>
+
+  <div class="controls-bar">
+    <div class="impl-picker" id="implPicker"></div>
+    <div class="n-input-group">
+      <span class="n-label">n =</span>
+      <div class="n-presets" id="nPresets"></div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="code-panel">
+      <div class="panel-title">
+        <span id="implName">Implementation</span>
+        <span class="impl-status" id="implStatus">—</span>
+      </div>
+      <div id="codeLines"></div>
+    </div>
+
+    <div class="right-panel">
+      <div class="input-display">
+        <div class="lbl">Input</div>
+        <div class="n-val" id="nVal">15</div>
+        <div class="checks" id="nChecks"></div>
+      </div>
+      <div class="output-panel">
+        <div class="panel-title">stdout</div>
+        <div id="outputContent">
+          <div class="output-empty">No output yet…</div>
+        </div>
+      </div>
+      <div class="verdict-card" id="verdict">
+        <span class="verdict-tag" id="verdictTag">Verdict</span>
+        <div class="verdict-text" id="verdictText">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+  <div class="compare">
+    <h4>Side-by-side: all 3 implementations on all 4 test inputs</h4>
+    <table class="compare-grid">
+      <thead>
+        <tr>
+          <th>n</th>
+          <th>Expected</th>
+          <th>Wrong #1 (Fizz-Buzz in else)</th>
+          <th>Wrong #2 (combined check last)</th>
+          <th>Correct (combined check first)</th>
+        </tr>
+      </thead>
+      <tbody id="compareBody"></tbody>
+    </table>
+  </div>
+
+<script>
+  const TEST_INPUTS = [
+    { n: 39, expected: 'Fizz', note: 'divisible by 3 only' },
+    { n: 25, expected: 'Buzz', note: 'divisible by 5 only' },
+    { n: 15, expected: 'Fizz-Buzz', note: 'divisible by both' },
+    { n: 13, expected: '(no output)', note: 'not divisible by either' },
+    { n: 11, expected: '(no output)', note: 'not divisible — exposes Wrong #1' }
+  ];
+
+  // Three implementations encoded as functions that produce a step-by-step trace
+  // Each impl has: id, name, status (wrong/correct), explanation, code (array of html), trace fn
+
+  const IMPLEMENTATIONS = {
+    wrong1: {
+      id: 'wrong1',
+      name: 'Wrong #1: Fizz-Buzz in the else',
+      shortName: 'Wrong #1',
+      status: 'wrong',
+      code: [
+        '<span class="kw">if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">3</span> == <span class="num">0</span>) {                       ',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Fizz"</span>);',
+        '}',
+        '<span class="kw">else if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">5</span> == <span class="num">0</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Buzz"</span>);',
+        '}',
+        '<span class="kw">else</span> {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Fizz-Buzz"</span>);',
+        '}'
+      ],
+      trace: function(n) {
+        const steps = [];
+        const div3 = n % 3 === 0;
+        const div5 = n % 5 === 0;
+
+        steps.push({
+          line: 0, narrate: `Check first branch: <code>n % 3 == 0</code> → <code>${n} % 3</code> = ${n % 3} → ${div3 ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+          lineClass: div3 ? 'true-cond' : 'false-cond'
+        });
+
+        if (div3) {
+          steps.push({ line: 1, narrate: `Print <code>"Fizz"</code> and exit the chain.`, print: 'Fizz', deadFrom: 3 });
+        } else {
+          steps.push({
+            line: 3, narrate: `Check second branch: <code>n % 5 == 0</code> → <code>${n} % 5</code> = ${n % 5} → ${div5 ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+            lineClass: div5 ? 'true-cond' : 'false-cond'
+          });
+          if (div5) {
+            steps.push({ line: 4, narrate: `Print <code>"Buzz"</code> and exit.`, print: 'Buzz', deadFrom: 6 });
+          } else {
+            steps.push({
+              line: 6, narrate: `Both branches false. Fall into <code>else</code>.`,
+              lineClass: 'true-cond'
+            });
+            steps.push({ line: 7, narrate: `Print <code>"Fizz-Buzz"</code> — even though n isn't divisible by anything!`, print: 'Fizz-Buzz' });
+          }
+        }
+        return steps;
+      },
+      run: function(n) {
+        if (n % 3 === 0) return 'Fizz';
+        if (n % 5 === 0) return 'Buzz';
+        return 'Fizz-Buzz';
+      },
+      verdict: function(n) {
+        const out = this.run(n);
+        const expected = TEST_INPUTS.find(t => t.n === n)?.expected || '?';
+        const correct = out === expected;
+        if (correct) {
+          return {
+            ok: true,
+            text: `Output matches expected for n=${n}. But this implementation is still broken — try <strong>n=11</strong> to see it print "Fizz-Buzz" for a number that's divisible by neither 3 nor 5.`
+          };
+        }
+        return {
+          ok: false,
+          text: `Output is <code>${out}</code> but expected <code>${expected}</code>. The else-branch prints "Fizz-Buzz" for ANY number that isn't divisible by 3 or 5, which is exactly wrong.`
+        };
+      }
+    },
+    wrong2: {
+      id: 'wrong2',
+      name: 'Wrong #2: combined check at the end',
+      shortName: 'Wrong #2',
+      status: 'wrong',
+      code: [
+        '<span class="kw">if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">3</span> == <span class="num">0</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Fizz"</span>);',
+        '}',
+        '<span class="kw">else if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">5</span> == <span class="num">0</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Buzz"</span>);',
+        '}',
+        '<span class="kw">else if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">3</span> == <span class="num">0</span> <span class="op">&amp;&amp;</span> <span class="var">n</span> <span class="op">%</span> <span class="num">5</span> == <span class="num">0</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Fizz-Buzz"</span>);',
+        '}'
+      ],
+      trace: function(n) {
+        const steps = [];
+        const div3 = n % 3 === 0;
+        const div5 = n % 5 === 0;
+
+        steps.push({
+          line: 0, narrate: `Check first branch: <code>n % 3 == 0</code> → <code>${n} % 3</code> = ${n % 3} → ${div3 ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+          lineClass: div3 ? 'true-cond' : 'false-cond'
+        });
+
+        if (div3) {
+          steps.push({ line: 1, narrate: `Print <code>"Fizz"</code> and exit.${div3 && div5 ? ' <strong>The combined check below is never reached!</strong>' : ''}`, print: 'Fizz', deadFrom: 3 });
+        } else {
+          steps.push({
+            line: 3, narrate: `Check: <code>n % 5 == 0</code> → ${div5 ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+            lineClass: div5 ? 'true-cond' : 'false-cond'
+          });
+          if (div5) {
+            steps.push({ line: 4, narrate: `Print <code>"Buzz"</code> and exit.`, print: 'Buzz', deadFrom: 6 });
+          } else {
+            steps.push({
+              line: 6, narrate: `Check combined: <code>n % 3 == 0 && n % 5 == 0</code> — but we already know <code>n % 3 != 0</code>! This branch is <strong>unreachable</strong>. → false`,
+              lineClass: 'false-cond'
+            });
+            steps.push({ line: 6, narrate: `Nothing printed — fell through. (No else branch.)`, tag: 'no output' });
+          }
+        }
+        return steps;
+      },
+      run: function(n) {
+        if (n % 3 === 0) return 'Fizz';
+        if (n % 5 === 0) return 'Buzz';
+        // unreachable: n%3==0 && n%5==0 — already filtered
+        return '(no output)';
+      },
+      verdict: function(n) {
+        const out = this.run(n);
+        const expected = TEST_INPUTS.find(t => t.n === n)?.expected || '?';
+        const correct = out === expected;
+        if (correct) {
+          return {
+            ok: true,
+            text: `For n=${n} the output matches, but the bug is hiding. Try <strong>n=15</strong> — it should print "Fizz-Buzz" but prints "Fizz". The combined check at the end is dead code: when n is divisible by both 3 and 5, the first branch (<code>n % 3 == 0</code>) fires first.`
+          };
+        }
+        return {
+          ok: false,
+          text: `Output is <code>${out}</code> but expected <code>${expected}</code>. The combined check is placed too late — by the time we reach it, the <code>n % 3 == 0</code> branch has already claimed multiples of 15.`
+        };
+      }
+    },
+    correct: {
+      id: 'correct',
+      name: 'Correct: combined check FIRST',
+      shortName: 'Correct',
+      status: 'correct',
+      code: [
+        '<span class="kw">if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">3</span> == <span class="num">0</span> <span class="op">&amp;&amp;</span> <span class="var">n</span> <span class="op">%</span> <span class="num">5</span> == <span class="num">0</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Fizz-Buzz"</span>);',
+        '}',
+        '<span class="kw">else if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">3</span> == <span class="num">0</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Fizz"</span>);',
+        '}',
+        '<span class="kw">else if</span> (<span class="var">n</span> <span class="op">%</span> <span class="num">5</span> == <span class="num">0</span>) {',
+        '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Buzz"</span>);',
+        '}'
+      ],
+      trace: function(n) {
+        const steps = [];
+        const div3 = n % 3 === 0;
+        const div5 = n % 5 === 0;
+        const div15 = div3 && div5;
+
+        steps.push({
+          line: 0, narrate: `Check most-specific branch first: <code>n % 3 == 0 && n % 5 == 0</code> → ${div15 ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+          lineClass: div15 ? 'true-cond' : 'false-cond'
+        });
+
+        if (div15) {
+          steps.push({ line: 1, narrate: `Print <code>"Fizz-Buzz"</code> and exit.`, print: 'Fizz-Buzz', deadFrom: 3 });
+        } else {
+          steps.push({
+            line: 3, narrate: `Check <code>n % 3 == 0</code> → ${div3 ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+            lineClass: div3 ? 'true-cond' : 'false-cond'
+          });
+          if (div3) {
+            steps.push({ line: 4, narrate: `Print <code>"Fizz"</code> and exit.`, print: 'Fizz', deadFrom: 6 });
+          } else {
+            steps.push({
+              line: 6, narrate: `Check <code>n % 5 == 0</code> → ${div5 ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+              lineClass: div5 ? 'true-cond' : 'false-cond'
+            });
+            if (div5) {
+              steps.push({ line: 7, narrate: `Print <code>"Buzz"</code>.`, print: 'Buzz' });
+            } else {
+              steps.push({ line: 8, narrate: `All branches false. Nothing is printed.`, tag: 'no output' });
+            }
+          }
+        }
+        return steps;
+      },
+      run: function(n) {
+        if (n % 3 === 0 && n % 5 === 0) return 'Fizz-Buzz';
+        if (n % 3 === 0) return 'Fizz';
+        if (n % 5 === 0) return 'Buzz';
+        return '(no output)';
+      },
+      verdict: function(n) {
+        return {
+          ok: true,
+          text: `Correct output for n=${n}. <strong>The trick:</strong> when conditions overlap (multiples of 15 are also multiples of 3), check the most specific condition first. Then the less specific ones can be checked safely.`
+        };
+      }
+    }
+  };
+
+  let currentImpl = 'wrong1';
+  let currentN = 15;
+  let currentStep = -1;
+  let trace = [];
+  let output = [];
+
+  function renderImplPicker() {
+    const wrap = document.getElementById('implPicker');
+    let html = '<span class="picker-label">Impl:</span>';
+    Object.values(IMPLEMENTATIONS).forEach(impl => {
+      html += `<span class="impl-btn ${impl.id === currentImpl ? 'active' : ''}" data-id="${impl.id}">
+        ${impl.shortName}
+        <span class="impl-tag ${impl.status}">${impl.status}</span>
+      </span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.impl-btn').forEach(el => {
+      el.addEventListener('click', () => {
+        currentImpl = el.dataset.id;
+        loadScenario();
+      });
+    });
+  }
+
+  function renderNPresets() {
+    const wrap = document.getElementById('nPresets');
+    let html = '';
+    TEST_INPUTS.forEach(t => {
+      html += `<span class="n-preset ${t.n === currentN ? 'active' : ''}" data-n="${t.n}" title="${t.note}">${t.n}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.n-preset').forEach(el => {
+      el.addEventListener('click', () => {
+        currentN = parseInt(el.dataset.n, 10);
+        loadScenario();
+      });
+    });
+  }
+
+  function renderInputDisplay() {
+    document.getElementById('nVal').textContent = currentN;
+    const wrap = document.getElementById('nChecks');
+    const div3 = currentN % 3 === 0;
+    const div5 = currentN % 5 === 0;
+    wrap.innerHTML = `
+      <span class="check-pill ${div3 ? 'true' : 'false'}">n % 3 = ${currentN % 3}</span>
+      <span class="check-pill ${div5 ? 'true' : 'false'}">n % 5 = ${currentN % 5}</span>
+    `;
+  }
+
+  function renderCode() {
+    const impl = IMPLEMENTATIONS[currentImpl];
+    const wrap = document.getElementById('codeLines');
+    wrap.innerHTML = impl.code.map((c, i) =>
+      `<div class="code-line" data-i="${i}">${c}</div>`
+    ).join('');
+    document.getElementById('implName').textContent = impl.name;
+    const status = document.getElementById('implStatus');
+    status.textContent = impl.status === 'correct' ? '✓ CORRECT' : '✗ HAS BUG';
+    status.className = `impl-status ${impl.status}`;
+  }
+
+  function renderOutput() {
+    const wrap = document.getElementById('outputContent');
+    if (output.length === 0) {
+      wrap.innerHTML = '<div class="output-empty">No output yet…</div>';
+      return;
+    }
+    wrap.innerHTML = output.map((line, i) => {
+      const isFresh = i === output.length - 1 && line._fresh;
+      return `<div class="output-line ${isFresh ? 'fresh' : ''}">${line.text}</div>`;
+    }).join('');
+    output.forEach(o => delete o._fresh);
+  }
+
+  function clearCodeStyles() {
+    document.querySelectorAll('.code-line').forEach(el => {
+      el.classList.remove('active', 'true-cond', 'false-cond', 'dead');
+    });
+  }
+
+  function applyDead(fromIdx) {
+    document.querySelectorAll('.code-line').forEach((el, i) => {
+      if (i >= fromIdx) el.classList.add('dead');
+    });
+  }
+
+  function loadScenario() {
+    currentStep = -1;
+    output = [];
+    const impl = IMPLEMENTATIONS[currentImpl];
+    trace = impl.trace(currentN);
+
+    renderImplPicker();
+    renderNPresets();
+    renderInputDisplay();
+    renderCode();
+    renderOutput();
+
+    document.getElementById('verdict').classList.remove('show', 'correct', 'wrong');
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('stepInfo').textContent = `step 0 / ${trace.length}`;
+
+    renderCompare();
+  }
+
+  function nextStep() {
+    currentStep++;
+    if (currentStep >= trace.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      showVerdict();
+      return;
+    }
+    const step = trace[currentStep];
+
+    clearCodeStyles();
+    if (step.line !== undefined) {
+      const el = document.querySelector(`.code-line[data-i="${step.line}"]`);
+      if (el) el.classList.add(step.lineClass || 'active');
+    }
+    if (step.deadFrom !== undefined) applyDead(step.deadFrom);
+
+    if (step.print !== undefined) {
+      output.push({ text: step.print, _fresh: true });
+      renderOutput();
+    }
+
+    document.getElementById('stepInfo').textContent = `step ${currentStep + 1} / ${trace.length}`;
+
+    if (currentStep === trace.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      showVerdict();
+    }
+  }
+
+  function showVerdict() {
+    const impl = IMPLEMENTATIONS[currentImpl];
+    const out = impl.run(currentN);
+    const expected = TEST_INPUTS.find(t => t.n === currentN)?.expected || '?';
+    const matches = out === expected;
+    const isCorrectImpl = impl.status === 'correct';
+    const v = impl.verdict(currentN);
+
+    const card = document.getElementById('verdict');
+    card.classList.add('show');
+    if (v.ok && isCorrectImpl) {
+      card.classList.add('correct');
+      card.classList.remove('wrong');
+    } else if (!v.ok) {
+      card.classList.add('wrong');
+      card.classList.remove('correct');
+    } else {
+      // wrong impl but happened to give right answer for this n
+      card.classList.add('wrong');
+      card.classList.remove('correct');
+    }
+
+    let tag;
+    if (isCorrectImpl) {
+      tag = '✓ Correct output';
+    } else if (matches) {
+      tag = '~ Looks fine, but has bug';
+    } else {
+      tag = '✗ Wrong output';
+    }
+    document.getElementById('verdictTag').textContent = tag;
+    document.getElementById('verdictText').innerHTML = v.text;
+  }
+
+  function renderCompare() {
+    const wrap = document.getElementById('compareBody');
+    let html = '';
+    TEST_INPUTS.forEach(t => {
+      const isCurrent = t.n === currentN;
+      const w1 = IMPLEMENTATIONS.wrong1.run(t.n);
+      const w2 = IMPLEMENTATIONS.wrong2.run(t.n);
+      const c = IMPLEMENTATIONS.correct.run(t.n);
+
+      const cellCls = (out) => out === t.expected ? 'correct' : 'wrong';
+
+      html += `<tr ${isCurrent ? 'style="outline:2px solid #ffd95c;"' : ''}>
+        <td><strong>${t.n}</strong></td>
+        <td class="expected">${t.expected}</td>
+        <td class="${cellCls(w1)}">${w1}</td>
+        <td class="${cellCls(w2)}">${w2}</td>
+        <td class="${cellCls(c)}">${c}</td>
+      </tr>`;
+    });
+    wrap.innerHTML = html;
+  }
+
+  // Init
+  renderImplPicker();
+  renderNPresets();
+  loadScenario();
+
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+</script>
+</body>
+</html>
