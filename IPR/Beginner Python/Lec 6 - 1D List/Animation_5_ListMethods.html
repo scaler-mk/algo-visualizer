@@ -214,7 +214,7 @@ function paint(text) {
   h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
   h = h.replace(/(#[^<\n]*)/g, '<span class="cmt">$1</span>');
   h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
-  h = h.replace(/\b(print|len|range|int|str|insert|pop|remove|sort|append|extend|copy)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/\b(print|len|range|int|insert|pop|remove|sort|append|extend|copy)\b/g, '<span class="fn">$1</span>');
   h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
   return h;
 }
