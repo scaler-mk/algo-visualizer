@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dictionary Access — [] vs .get()</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.05fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 400px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Dict display showing all pairs */
+  .dict-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .dict-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; }
+  .pair-row { display: grid; grid-template-columns: 1fr 24px 1fr; gap: 6px; align-items: center; margin-bottom: 5px; transition: all 0.3s; padding: 2px 4px; border-radius: 4px; }
+  .pair-row.lookup { background: rgba(240, 160, 75, 0.1); }
+  .pair-row.found { background: rgba(163, 217, 119, 0.12); }
+  .pair-key { background: rgba(240,160,75,0.12); border: 2px solid var(--accent); border-radius: 5px; padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--accent); font-weight: 700; text-align: center; transition: all 0.3s; }
+  .pair-row.found .pair-key { background: rgba(163, 217, 119, 0.18); border-color: var(--green); color: var(--green); }
+  .pair-arrow { text-align: center; color: var(--muted); font-size: 13px; }
+  .pair-val { background: rgba(93,173,236,0.12); border: 2px solid var(--blue); border-radius: 5px; padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--blue); font-weight: 700; text-align: center; transition: all 0.3s; }
+  .pair-row.found .pair-val { background: rgba(163, 217, 119, 0.18); border-color: var(--green); color: var(--green); }
+
+  /* Lookup display */
+  .lookup-card { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .lookup-call { font-family: 'JetBrains Mono', monospace; font-size: 15px; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .lookup-call .name { color: var(--accent); font-weight: 700; }
+  .lookup-call .bracket { color: var(--muted); }
+  .lookup-call .qkey { color: #d4a574; padding: 2px 6px; background: rgba(212, 165, 116, 0.1); border-radius: 3px; }
+  .lookup-call .default-val { color: #c084e8; padding: 2px 6px; background: rgba(192, 132, 232, 0.1); border-radius: 3px; }
+  .lookup-call .arrow { color: var(--accent); font-size: 18px; margin: 0 4px; }
+  .result-display { padding: 10px 14px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; transition: all 0.3s; }
+  .result-display.pending { background: rgba(255,255,255,0.04); border: 1px dashed var(--line); color: var(--muted); }
+  .result-display.ok { background: rgba(163, 217, 119, 0.15); border: 1.5px solid var(--green); color: var(--green); }
+  .result-display.bad { background: rgba(229, 115, 115, 0.15); border: 1.5px solid var(--red); color: var(--red); font-size: 12.5px; line-height: 1.4; }
+  .result-display.none-val { background: rgba(192, 132, 232, 0.12); border: 1.5px solid var(--purple); color: var(--purple); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 60px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .purple { color: var(--purple); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Dictionary Access — d[key] vs d.get(key)</h1>
+    <p class="sub">The square brackets raise KeyError. get() returns None (or a default) instead.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">d['Madhuri'] — exists</button>
+      <button class="qb warn" data-i="1">d['Manish'] — missing</button>
+      <button class="qb warn" data-i="2">d[0] — Quiz 2 trap</button>
+      <button class="qb" data-i="3">.get('Vicky') — no error</button>
+      <button class="qb" data-i="4">.get('Manish', 'Oye') — default</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="dict-card">
+            <div class="lbl">nicknames</div>
+            <div id="dictRows"></div>
+          </div>
+          <div class="lookup-card">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:0.1em;">LOOKUP</div>
+            <div class="lookup-call" id="lookupCall">—</div>
+            <div class="result-display pending" id="resultDisplay">— pending —</div>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|dict|tuple|get)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+// Shared dictionary content for all scenarios
+const NICKNAMES = [
+  { key: "'Madhuri'", val: "'Sweety'" },
+  { key: "'Vinoth'",  val: "'Appu'" },
+  { key: "'Shubham'", val: "'Zoo Zoo'" },
+  { key: "'Kusum'",   val: "'ku ku'" },
+  { key: "'Aakar'",   val: "'Golu'" }
+];
+
+const SCENARIOS = [
+  {
+    name: "d['Madhuri'] — key exists",
+    sub: "Standard subscript access",
+    code: [
+      "print(nicknames['Madhuri'])",
+      "# Output: Sweety"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Look up the key <span class="accent">\'Madhuri\'</span> in the dict.', lookupKey: "'Madhuri'", method: 'bracket', highlight: 0 },
+      { kind: 'exec-return', line: 1, msg: 'Found at the first entry — return its value <span class="ok">\'Sweety\'</span>.', lookupKey: "'Madhuri'", method: 'bracket', found: 0, result: "'Sweety'", resultKind: 'ok' }
+    ],
+    insight: 'When the key exists, <span class="accent">d[key]</span> simply returns its value — no surprises.'
+  },
+  {
+    name: "d['Manish'] — KeyError",
+    sub: "Subscript on a missing key raises",
+    code: [
+      "print(nicknames['Manish'])",
+      "# KeyError: 'Manish'"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Look up <span class="bad">\'Manish\'</span> — not in the dict.', lookupKey: "'Manish'", method: 'bracket' },
+      { kind: 'exec-fail', line: 1, msg: '<span class="bad">KeyError raised.</span> [] gives no second chances if the key is missing.', lookupKey: "'Manish'", method: 'bracket', result: "KeyError: 'Manish'", resultKind: 'bad' }
+    ],
+    insight: 'Use <span class="accent">[]</span> when you\'re <em>sure</em> the key exists. Otherwise you\'ll get a runtime crash.'
+  },
+  {
+    name: "d[0] — the Quiz 2 trap",
+    sub: "0 is treated as a KEY, not an index",
+    code: [
+      "d = {'a': 1, 'b': 2, 'c': 3}",
+      "print(d[1])",
+      "# KeyError: 1"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'A dictionary with string keys and integer values.', dict: [{key:"'a'",val:'1'},{key:"'b'",val:'2'},{key:"'c'",val:'3'}], method: null },
+      { kind: 'exec', line: 1, msg: 'Now <span class="accent">d[1]</span>. <strong>1 is a KEY</strong>, not an index. Python doesn\'t care that <span class="bad">1</span> looks like a position.', dict: [{key:"'a'",val:'1'},{key:"'b'",val:'2'},{key:"'c'",val:'3'}], lookupKey: '1', method: 'bracket' },
+      { kind: 'exec-fail', line: 2, msg: '<span class="bad">KeyError: 1</span> — no key named 1 in this dict. Insertion order ≠ integer indexing.', dict: [{key:"'a'",val:'1'},{key:"'b'",val:'2'},{key:"'c'",val:'3'}], lookupKey: '1', method: 'bracket', result: 'KeyError: 1', resultKind: 'bad' }
+    ],
+    insight: 'Dictionaries preserve insertion order but are <span class="accent">NOT subscriptable by integer position</span>. <span class="accent">d[1]</span> always means "look up key 1," never "give me the 2nd item."'
+  },
+  {
+    name: ".get('Vicky') — no error",
+    sub: "get returns None for a missing key",
+    code: [
+      "print(nicknames.get('Vicky'))",
+      "# Output: None"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Use <span class="blue">.get()</span> to look up <span class="bad">\'Vicky\'</span>.', lookupKey: "'Vicky'", method: 'get' },
+      { kind: 'exec-return', line: 1, msg: 'Not found — but no error. <span class="purple">.get()</span> returns <span class="purple">None</span> silently.', lookupKey: "'Vicky'", method: 'get', result: 'None', resultKind: 'none' }
+    ],
+    insight: '<span class="accent">.get(key)</span> is the safe lookup. Returns <span class="accent">None</span> if the key is missing, never raises.'
+  },
+  {
+    name: ".get('Manish', 'Oye') — custom default",
+    sub: "Pass a fallback value as the 2nd argument",
+    code: [
+      "print(nicknames.get('Manish', 'Oye'))",
+      "# Output: Oye",
+      "",
+      "print(nicknames.get('Madhuri', 'Oye'))",
+      "# Output: Sweety  (default ignored)"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Look up <span class="bad">\'Manish\'</span> with a default of <span class="purple">\'Oye\'</span>.', lookupKey: "'Manish'", defaultVal: "'Oye'", method: 'get' },
+      { kind: 'exec-return', line: 1, msg: 'Not found → return the default <span class="purple">\'Oye\'</span>.', lookupKey: "'Manish'", defaultVal: "'Oye'", method: 'get', result: "'Oye'", resultKind: 'none' },
+      { kind: 'exec', line: 3, msg: 'Now look up <span class="accent">\'Madhuri\'</span> with the same default.', lookupKey: "'Madhuri'", defaultVal: "'Oye'", method: 'get', highlight: 0 },
+      { kind: 'exec-return', line: 4, msg: 'Found! Default is ignored, real value <span class="ok">\'Sweety\'</span> returned.', lookupKey: "'Madhuri'", defaultVal: "'Oye'", method: 'get', found: 0, result: "'Sweety'", resultKind: 'ok' }
+    ],
+    insight: '<span class="accent">.get(key, default)</span> — most flexible. Real value if found, your default if not.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Dict rows — use cur.dict if provided, else NICKNAMES
+  const dict = (cur && cur.dict) ? cur.dict : NICKNAMES;
+  const dictRows = document.getElementById('dictRows');
+  dictRows.innerHTML = dict.map((p, i) => {
+    let cls = 'pair-row';
+    if (cur && cur.highlight === i) cls += ' lookup';
+    if (cur && cur.found === i) cls += ' found';
+    return `<div class="${cls}"><div class="pair-key">${p.key}</div><div class="pair-arrow">→</div><div class="pair-val">${p.val}</div></div>`;
+  }).join('');
+
+  // Lookup call
+  const lookupCall = document.getElementById('lookupCall');
+  if (cur && cur.method) {
+    if (cur.method === 'bracket') {
+      lookupCall.innerHTML = `<span class="name">nicknames</span><span class="bracket">[</span><span class="qkey">${cur.lookupKey}</span><span class="bracket">]</span>`;
+    } else if (cur.method === 'get') {
+      let inner = `<span class="qkey">${cur.lookupKey}</span>`;
+      if (cur.defaultVal) inner += `<span class="bracket">, </span><span class="default-val">${cur.defaultVal}</span>`;
+      lookupCall.innerHTML = `<span class="name">nicknames</span>.get<span class="bracket">(</span>${inner}<span class="bracket">)</span>`;
+    }
+  } else {
+    lookupCall.textContent = '—';
+  }
+
+  // Result
+  const resultDisp = document.getElementById('resultDisplay');
+  resultDisp.classList.remove('pending', 'ok', 'bad', 'none-val');
+  if (cur && cur.result) {
+    if (cur.resultKind === 'ok') resultDisp.classList.add('ok');
+    else if (cur.resultKind === 'bad') resultDisp.classList.add('bad');
+    else if (cur.resultKind === 'none') resultDisp.classList.add('none-val');
+    resultDisp.textContent = cur.result;
+  } else {
+    resultDisp.classList.add('pending');
+    resultDisp.textContent = '— pending —';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

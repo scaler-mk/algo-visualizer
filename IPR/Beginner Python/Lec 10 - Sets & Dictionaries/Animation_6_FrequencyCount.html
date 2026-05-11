@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Count Frequency of Characters — single pass</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .auto-btn { background: transparent; color: var(--blue); border: 1px solid var(--blue); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .auto-btn:hover { background: rgba(93, 173, 236, 0.1); }
+  .auto-btn.playing { background: var(--blue); color: #1a1d23; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-alt { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 440px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* String input with cursor */
+  .input-card { background: rgba(0,0,0,0.25); border-radius: 8px; padding: 12px 14px; }
+  .input-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .char-row { display: flex; gap: 3px; flex-wrap: wrap; align-items: center; padding-top: 18px; position: relative; }
+  .char-cell { position: relative; padding: 6px 8px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: var(--ink); background: rgba(255,255,255,0.04); border: 1.5px solid transparent; transition: all 0.3s; min-width: 24px; text-align: center; }
+  .char-cell.space-cell { color: var(--muted); }
+  .char-cell.processed { background: rgba(163, 217, 119, 0.08); border-color: rgba(163, 217, 119, 0.25); color: rgba(163, 217, 119, 0.7); }
+  .char-cell.cursor { background: rgba(240, 160, 75, 0.22); border-color: var(--accent); color: var(--accent); transform: scale(1.1); box-shadow: 0 0 0 3px rgba(240,160,75,0.15); }
+  .char-cell .ix { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--muted); font-weight: 400; }
+
+  /* Dict display */
+  .dict-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .dict-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+  .dict-card .count-tag { color: var(--accent); font-family: 'JetBrains Mono', monospace; padding: 1px 7px; background: rgba(240,160,75,0.1); border-radius: 3px; font-size: 10px; }
+  .dict-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; text-align: center; padding: 8px; }
+  .freq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; }
+  .freq-cell { background: rgba(93,173,236,0.08); border: 1.5px solid var(--blue); border-radius: 5px; padding: 6px 8px; text-align: center; transition: all 0.3s; }
+  .freq-cell.new { background: rgba(163, 217, 119, 0.15); border-color: var(--green); animation: pop 0.4s; }
+  .freq-cell.updated { background: rgba(240, 160, 75, 0.18); border-color: var(--accent); animation: pulse 0.5s; }
+  @keyframes pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+  .freq-cell .key { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 700; }
+  .freq-cell.new .key, .freq-cell.updated .key { color: var(--green); }
+  .freq-cell.updated .key { color: var(--accent); }
+  .freq-cell .colon { color: var(--muted); }
+  .freq-cell .count { font-family: 'JetBrains Mono', monospace; font-size: 16px; color: var(--blue); font-weight: 700; transition: all 0.3s; }
+  .freq-cell.new .count, .freq-cell.updated .count { color: var(--green); }
+  .freq-cell.updated .count { color: var(--accent); }
+
+  /* Action display */
+  .action-card { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; display: flex; align-items: center; gap: 10px; min-height: 38px; flex-wrap: wrap; }
+  .action-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .action-card.pending { opacity: 0.4; }
+  .action-card .verdict { padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
+  .action-card .verdict.new { background: rgba(163, 217, 119, 0.2); color: var(--green); }
+  .action-card .verdict.inc { background: rgba(240, 160, 75, 0.2); color: var(--accent); }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Count Frequency of Characters — dict as a tally</h1>
+    <p class="sub">Walk the string once; bump the count for each character.</p>
+
+    <div class="controls">
+      <span class="ctl-label">INPUT:</span>
+      <button class="qb active">'Aakar Sharma'</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="auto-btn" id="autoBtn">▶ Auto-play</button>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="input-card">
+            <div class="lbl">STRING (s)</div>
+            <div class="char-row" id="charRow"></div>
+          </div>
+          <div class="dict-card">
+            <div class="lbl">freq <span class="count-tag" id="countTag">len = 0</span></div>
+            <div id="freqGrid"><div class="dict-empty">— empty —</div></div>
+          </div>
+          <div class="action-card pending" id="actionCard">
+            <span class="lbl">ACTION:</span>
+            <span id="actionTxt">—</span>
+          </div>
+          <div class="commentary" id="commentary">Click <strong>Step ▸</strong> or <strong>Auto-play</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|get)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+const STR = "Aakar Sharma";
+
+function buildPlan() {
+  const plan = [];
+  plan.push({ kind: 'exec', line: 1, msg: 'Start with an empty dictionary <span class="accent">freq</span>.', cursor: null, freq: {}, action: null });
+  const freq = {};
+  for (let i = 0; i < STR.length; i++) {
+    const c = STR[i];
+    const display = c === ' ' ? "' '" : `'${c}'`;
+    plan.push({ kind: 'exec', line: 2, msg: `Visit index <span class="accent">${i}</span> — char ${display}.`, cursor: i, freq: {...freq}, action: { label: `read ${display}` } });
+    if (c in freq) {
+      freq[c] += 1;
+      plan.push({ kind: 'exec-alt', line: 3, msg: `${display} already in freq (count was ${freq[c]-1}). <span class="accent">Increment</span> → ${freq[c]}.`, cursor: i, freq: {...freq}, action: { label: `freq[${display}] += 1`, verdict: 'EXISTING', verdictKind: 'inc' }, hlKey: c });
+    } else {
+      freq[c] = 1;
+      plan.push({ kind: 'exec', line: 5, msg: `${display} is new — <span class="ok">create entry</span> with count 1.`, cursor: i, freq: {...freq}, action: { label: `freq[${display}] = 1`, verdict: 'NEW KEY', verdictKind: 'new' }, hlKey: c, newKey: true });
+    }
+  }
+  plan.push({ kind: 'exec-return', line: 7, msg: `Loop done. <span class="ok">8 unique characters</span> tallied. Final dict printed.`, cursor: null, freq: {...freq}, action: { label: 'print(freq)', verdict: 'DONE', verdictKind: 'new' }, finished: true });
+  return plan;
+}
+
+const SCENARIO = {
+  name: "Tally each character of 'Aakar Sharma'",
+  sub: "Use freq as a counter dict; new char → 1, seen char → +1",
+  code: [
+    "s = 'Aakar Sharma'",
+    "freq = {}",
+    "for char in s:",
+    "    if char in freq:",
+    "        freq[char] += 1",
+    "    else:",
+    "        freq[char] = 1",
+    "print(freq)"
+  ],
+  plan: buildPlan(),
+  insight: 'Classic <span class="accent">counter dict</span> pattern. The keys are the unique items, the values are how many times each appeared. Same idea works for words, IPs, anything hashable.'
+};
+
+let stepIdx = 0;
+let autoTimer = null;
+let lastFreq = {};
+
+function render() {
+  const sc = SCENARIO;
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-alt') cls += ' exec-alt';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Char row
+  const charRow = document.getElementById('charRow');
+  charRow.innerHTML = STR.split('').map((c, i) => {
+    let cls = 'char-cell';
+    if (c === ' ') cls += ' space-cell';
+    if (cur && cur.cursor === i) cls += ' cursor';
+    else if (cur && cur.cursor !== null && i < cur.cursor) cls += ' processed';
+    else if (cur && cur.cursor === null && cur.finished) cls += ' processed';
+    const disp = c === ' ' ? '·' : c;
+    return `<div class="${cls}"><span class="ix">${i}</span>${disp}</div>`;
+  }).join('');
+
+  // Freq grid
+  const freqGrid = document.getElementById('freqGrid');
+  const freq = cur ? cur.freq : {};
+  const keys = Object.keys(freq);
+  if (keys.length === 0) {
+    freqGrid.innerHTML = '<div class="dict-empty">— empty —</div>';
+  } else {
+    freqGrid.innerHTML = keys.map(k => {
+      const disp = k === ' ' ? "' '" : `'${k}'`;
+      let cls = 'freq-cell';
+      if (cur && cur.hlKey === k) {
+        if (cur.newKey) cls += ' new';
+        else cls += ' updated';
+      }
+      return `<div class="${cls}"><div class="key">${disp}<span class="colon">:</span></div><div class="count">${freq[k]}</div></div>`;
+    }).join('');
+  }
+  document.getElementById('countTag').textContent = `len = ${keys.length}`;
+
+  // Action
+  const actionCard = document.getElementById('actionCard');
+  const actionTxt = document.getElementById('actionTxt');
+  if (cur && cur.action) {
+    actionCard.classList.remove('pending');
+    let html = cur.action.label;
+    if (cur.action.verdict) {
+      html += ` <span class="verdict ${cur.action.verdictKind || ''}">${cur.action.verdict}</span>`;
+    }
+    actionTxt.innerHTML = html;
+  } else {
+    actionCard.classList.add('pending');
+    actionTxt.textContent = '—';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> or <strong>Auto-play</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset() {
+  stopAuto();
+  stepIdx = 0;
+  render();
+}
+
+function stopAuto() {
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    document.getElementById('autoBtn').classList.remove('playing');
+    document.getElementById('autoBtn').textContent = '▶ Auto-play';
+  }
+}
+
+function startAuto() {
+  document.getElementById('autoBtn').classList.add('playing');
+  document.getElementById('autoBtn').textContent = '⏸ Pause';
+  autoTimer = setInterval(() => {
+    if (stepIdx < SCENARIO.plan.length) {
+      stepIdx++;
+      render();
+    } else {
+      stopAuto();
+    }
+  }, 900);
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  stopAuto();
+  if (stepIdx < SCENARIO.plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('autoBtn').addEventListener('click', () => {
+  if (autoTimer) stopAuto();
+  else startAuto();
+});
+
+reset();
+</script>
+</body>
+</html>

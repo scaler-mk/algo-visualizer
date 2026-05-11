@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sets — dedup, type gotcha, and basic ops</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 400px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Set visualization — circular cloud of unique elements */
+  .set-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .set-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+  .set-card .lbl .name { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 12px; }
+  .set-card .lbl .count-tag { color: var(--accent); font-family: 'JetBrains Mono', monospace; padding: 1px 7px; background: rgba(240,160,75,0.1); border-radius: 3px; font-size: 10px; }
+  .set-blob { background: radial-gradient(ellipse at center, rgba(240,160,75,0.08) 0%, rgba(240,160,75,0.02) 70%); border: 2px dashed var(--accent); border-radius: 50px; padding: 22px 16px; min-height: 110px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; transition: all 0.4s; }
+  .set-blob.empty-msg { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 13px; border-color: var(--line); background: transparent; }
+  .set-blob.is-dict { background: radial-gradient(ellipse at center, rgba(192, 132, 232, 0.08) 0%, rgba(192, 132, 232, 0.02) 70%); border-color: var(--purple); }
+  .elem { padding: 8px 14px; border-radius: 20px; background: rgba(240, 160, 75, 0.15); border: 2px solid var(--accent); color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; transition: all 0.3s; }
+  .elem.entering { animation: pop 0.4s; }
+  .elem.duplicate-rejected { animation: rejectPulse 0.6s; opacity: 0.4; text-decoration: line-through; border-color: var(--red); color: var(--red); background: rgba(229, 115, 115, 0.08); }
+  .elem.added { background: rgba(163, 217, 119, 0.15); border-color: var(--green); color: var(--green); }
+  .elem.removing { animation: shrink 0.4s forwards; }
+  @keyframes pop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes rejectPulse { 0%,100% { transform: scale(1); } 40% { transform: scale(1.1); } }
+  @keyframes shrink { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }
+
+  .input-list { background: rgba(0,0,0,0.25); border-radius: 6px; padding: 10px 14px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .input-list .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-right: 6px; }
+  .input-list .bracket { color: var(--accent); font-size: 16px; }
+  .input-list .item { padding: 4px 8px; background: rgba(240,160,75,0.08); border: 1px solid var(--line); border-radius: 4px; color: var(--ink); }
+  .input-list .item.consumed { opacity: 0.3; background: rgba(163, 217, 119, 0.08); border-color: var(--green); }
+  .input-list .item.current { background: rgba(240, 160, 75, 0.18); border-color: var(--accent); color: var(--accent); }
+  .input-list .item.dup { background: rgba(229, 115, 115, 0.18); border-color: var(--red); color: var(--red); }
+
+  .type-display { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px; display: flex; align-items: center; gap: 10px; min-height: 38px; }
+  .type-display .label { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; }
+  .type-display .val { color: var(--green); font-weight: 700; }
+  .type-display .val.bad { color: var(--red); }
+  .type-display .val.dict-val { color: var(--purple); }
+  .type-display.pending { opacity: 0.4; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 60px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .purple { color: var(--purple); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Sets — unordered, unique, mutable</h1>
+    <p class="sub">Duplicates silently dropped. {} is NOT empty set — that\'s an empty dict. Use set().</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">Dedup on creation</button>
+      <button class="qb warn" data-i="1">{} vs set() — gotcha</button>
+      <button class="qb" data-i="2">add() — insert</button>
+      <button class="qb" data-i="3">update() — add many</button>
+      <button class="qb" data-i="4">remove() — delete</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div id="inputHost"></div>
+          <div class="set-card">
+            <div class="lbl">SET <span class="name" id="setName">a</span><span class="count-tag" id="countTag">len = 0</span></div>
+            <div class="set-blob empty-msg" id="setBlob">— empty —</div>
+          </div>
+          <div class="type-display pending" id="typeDisplay">
+            <span class="label">type():</span>
+            <span class="val" id="typeVal">—</span>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|set|dict|type|add|update|remove)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+const SCENARIOS = [
+  {
+    name: "Dedup on creation",
+    sub: "a = {1, 2, 3, 1, 2, 3}",
+    setName: "a",
+    code: [
+      "a = {1, 2, 3, 1, 2, 3}",
+      "print(a)",
+      "# Output: {1, 2, 3}",
+      "print(type(a))",
+      "# <class 'set'>"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'The literal lists six items, but a set keeps only <span class="accent">unique</span> ones.', input: ['1','2','3','1','2','3'], inputState: 'pending', set: [], type: null },
+      { kind: 'exec', line: 0, msg: 'Read first three: <span class="ok">1, 2, 3</span> — all new. They go in.', input: ['1','2','3','1','2','3'], inputState: [0,1,2], set: [{val:'1', state:'entering'},{val:'2', state:'entering'},{val:'3', state:'entering'}], type: null },
+      { kind: 'exec', line: 0, msg: 'Next item is <span class="bad">1</span> — already present. <span class="bad">Silently dropped.</span>', input: ['1','2','3','1','2','3'], inputState: [0,1,2,'dup-3'], set: [{val:'1'},{val:'2'},{val:'3'},{val:'1', state:'duplicate-rejected'}], type: null },
+      { kind: 'exec', line: 0, msg: '<span class="bad">2</span> too — already in. Dropped.', input: ['1','2','3','1','2','3'], inputState: [0,1,2,'dup-3','dup-4'], set: [{val:'1'},{val:'2'},{val:'3'},{val:'2', state:'duplicate-rejected'}], type: null },
+      { kind: 'exec', line: 0, msg: '<span class="bad">3</span> already in. Dropped.', input: ['1','2','3','1','2','3'], inputState: [0,1,2,'dup-3','dup-4','dup-5'], set: [{val:'1'},{val:'2'},{val:'3'},{val:'3', state:'duplicate-rejected'}], type: null },
+      { kind: 'exec-return', line: 1, msg: 'Final set: three unique elements.', input: null, set: [{val:'1'},{val:'2'},{val:'3'}], type: null },
+      { kind: 'exec-return', line: 3, msg: 'type() confirms — <span class="ok">set</span>.', input: null, set: [{val:'1'},{val:'2'},{val:'3'}], type: 'set' }
+    ],
+    insight: 'Sets <em>silently</em> de-duplicate. No error, no warning — duplicates just don\'t take up extra space.'
+  },
+  {
+    name: "Empty set — the {} gotcha",
+    sub: "{} creates a dict, not a set",
+    setName: "b",
+    code: [
+      "a = set()",
+      "print(type(a))   # <class 'set'>",
+      "",
+      "b = {}",
+      "print(type(b))   # <class 'dict'>   NOT a set!",
+      "",
+      "c = {1, 2, 3}",
+      "print(type(c))   # <class 'set'>"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: '<span class="blue">set()</span> with no args creates a genuinely empty <span class="ok">set</span>.', set: [], type: 'set' },
+      { kind: 'exec-return', line: 1, msg: 'type confirms — set.', set: [], type: 'set' },
+      { kind: 'exec', line: 3, msg: 'Now <span class="bad">{}</span> — looks like an empty set, but…', set: [], setIsDict: true, type: null },
+      { kind: 'exec-fail', line: 4, msg: 'It\'s an empty <span class="purple">dict</span>! Python reserves {} for empty dict.', set: [], setIsDict: true, type: 'dict', typeBad: true },
+      { kind: 'exec', line: 6, msg: 'Non-empty {…} IS a set as long as it doesn\'t look like dict key:value pairs.', set: [{val:'1', state:'entering'},{val:'2', state:'entering'},{val:'3', state:'entering'}], type: null },
+      { kind: 'exec-return', line: 7, msg: '<span class="ok">{1, 2, 3}</span> is a set. Same braces, but no colons → set, not dict.', set: [{val:'1'},{val:'2'},{val:'3'}], type: 'set' }
+    ],
+    insight: '<span class="accent">{}</span> = empty dict (always). For an empty set, you <em>must</em> use <span class="accent">set()</span>. Top exam gotcha.'
+  },
+  {
+    name: "add() — single element",
+    sub: "colors.add('black')",
+    setName: "colors",
+    code: [
+      "colors = {'red', 'green', 'yellow'}",
+      "colors.add('black')",
+      "print(colors)"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Start with three colors.', set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'"}], type: null },
+      { kind: 'exec', line: 1, msg: '<span class="blue">add()</span> inserts one element.', set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'"},{val:"'black'", state:'entering added'}], type: null },
+      { kind: 'exec-return', line: 2, msg: 'Set now has four. <span class="ok">add</span> on a duplicate would be silently ignored.', set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'"},{val:"'black'"}], type: null }
+    ],
+    insight: '<span class="accent">add(x)</span> inserts one element. If x is already in the set, it\'s a no-op — no error, no duplicate.'
+  },
+  {
+    name: "update() — multiple at once",
+    sub: "colors.update(['white', 'blue'])",
+    setName: "colors",
+    code: [
+      "colors = {'red', 'green', 'yellow', 'black'}",
+      "li = ['white', 'blue']",
+      "colors.update(li)",
+      "print(colors)"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Existing set.', set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'"},{val:"'black'"}], type: null },
+      { kind: 'exec', line: 1, msg: 'A list of two more items.', input: ["'white'","'blue'"], inputState: 'pending', set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'"},{val:"'black'"}], type: null },
+      { kind: 'exec', line: 2, msg: '<span class="blue">update()</span> takes any iterable and adds every element. Duplicates dropped as usual.', input: ["'white'","'blue'"], inputState: [0,1], set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'"},{val:"'black'"},{val:"'white'", state:'entering added'},{val:"'blue'", state:'entering added'}], type: null },
+      { kind: 'exec-return', line: 3, msg: 'Six colors in the set.', input: null, set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'"},{val:"'black'"},{val:"'white'"},{val:"'blue'"}], type: null }
+    ],
+    insight: 'Mnemonic: <span class="accent">add</span> = one item, <span class="accent">update</span> = many items (from any iterable — list, tuple, another set…).'
+  },
+  {
+    name: "remove() — delete an element",
+    sub: "colors.remove('yellow')",
+    setName: "colors",
+    code: [
+      "colors = {'red', 'green', 'yellow', 'blue'}",
+      "colors.remove('yellow')",
+      "print(colors)"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Four colors.', set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'"},{val:"'blue'"}], type: null },
+      { kind: 'exec', line: 1, msg: '<span class="bad">remove</span> takes an element value (not index) — sets are unordered.', set: [{val:"'red'"},{val:"'green'"},{val:"'yellow'", state:'removing'},{val:"'blue'"}], type: null },
+      { kind: 'exec-return', line: 2, msg: 'Down to three. <span class="bad">remove on a missing element raises KeyError</span>; use <span class="accent">discard()</span> for the silent version.', set: [{val:"'red'"},{val:"'green'"},{val:"'blue'"}], type: null }
+    ],
+    insight: 'Two removers: <span class="accent">remove(x)</span> raises if missing; <span class="accent">discard(x)</span> stays quiet. Pick by your error-handling preference.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('setName').textContent = sc.setName || '—';
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Input list (optional)
+  const inputHost = document.getElementById('inputHost');
+  if (cur && cur.input) {
+    let html = '<div class="input-list"><span class="lbl">INPUT ITERABLE:</span><span class="bracket">[</span>';
+    cur.input.forEach((v, i) => {
+      let itemCls = 'item';
+      if (Array.isArray(cur.inputState)) {
+        if (cur.inputState.includes(i)) itemCls += ' consumed';
+        cur.inputState.forEach(s => {
+          if (typeof s === 'string' && s.startsWith('dup-') && Number(s.slice(4)) === i) itemCls += ' dup';
+        });
+      }
+      html += `<span class="${itemCls}">${v}</span>`;
+      if (i < cur.input.length - 1) html += '<span style="color:var(--muted)">,</span>';
+    });
+    html += '<span class="bracket">]</span></div>';
+    inputHost.innerHTML = html;
+  } else {
+    inputHost.innerHTML = '';
+  }
+
+  // Set blob
+  const setBlob = document.getElementById('setBlob');
+  const setItems = cur ? (cur.set || []) : [];
+  setBlob.classList.toggle('is-dict', !!(cur && cur.setIsDict));
+  if (setItems.length === 0) {
+    setBlob.classList.add('empty-msg');
+    setBlob.textContent = cur && cur.setIsDict ? '— empty (but it\'s actually a DICT) —' : '— empty —';
+  } else {
+    setBlob.classList.remove('empty-msg');
+    setBlob.innerHTML = setItems.map(it => `<span class="elem ${it.state || ''}">${it.val}</span>`).join('');
+  }
+  // Count tag
+  const livePairs = setItems.filter(it => !(it.state || '').includes('duplicate-rejected') && !(it.state || '').includes('removing'));
+  document.getElementById('countTag').textContent = `len = ${livePairs.length}`;
+
+  // Type display
+  const typeDisp = document.getElementById('typeDisplay');
+  const typeVal = document.getElementById('typeVal');
+  if (cur && cur.type) {
+    typeDisp.classList.remove('pending');
+    typeVal.textContent = `<class '${cur.type}'>`;
+    typeVal.classList.toggle('bad', !!cur.typeBad);
+    typeVal.classList.toggle('dict-val', cur.type === 'dict');
+  } else {
+    typeDisp.classList.add('pending');
+    typeVal.textContent = '—';
+    typeVal.classList.remove('bad', 'dict-val');
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

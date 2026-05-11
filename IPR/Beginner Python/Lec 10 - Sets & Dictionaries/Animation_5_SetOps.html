@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Set Operations — Union, Intersection, Difference</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 440px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* The Venn diagram area */
+  .venn-stage { position: relative; height: 230px; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 12px; }
+  .venn-svg { width: 100%; height: 100%; }
+  .venn-label-A, .venn-label-B { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; }
+  .venn-label-A { fill: var(--accent); }
+  .venn-label-B { fill: var(--blue); }
+
+  /* Result card */
+  .result-card { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .result-call { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--ink); }
+  .result-call .name { color: var(--accent); font-weight: 700; }
+  .result-call .op { color: var(--green); font-weight: 700; padding: 0 4px; }
+  .result-set { background: rgba(163, 217, 119, 0.1); border: 1.5px solid var(--green); border-radius: 6px; padding: 10px 12px; min-height: 42px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .result-set.pending { background: transparent; border-color: var(--line); border-style: dashed; opacity: 0.6; }
+  .result-set .placeholder { color: var(--muted); font-family: Georgia, serif; font-style: italic; font-size: 12px; }
+  .result-set .bracket { color: var(--green); font-weight: 700; font-size: 16px; }
+  .result-set .item { padding: 4px 9px; background: rgba(163, 217, 119, 0.18); border: 1.5px solid var(--green); border-radius: 4px; color: var(--green); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 60px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Set Operations — Union, Intersection, Difference</h1>
+    <p class="sub">A | B everything; A &amp; B only the overlap; A − B in A but not B.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">Setup A and B</button>
+      <button class="qb" data-i="1">A.intersection(B)</button>
+      <button class="qb" data-i="2">A.union(B)</button>
+      <button class="qb" data-i="3">A.difference(B)</button>
+      <button class="qb" data-i="4">B - A (asymmetric)</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="venn-stage">
+            <svg class="venn-svg" viewBox="0 0 540 210" preserveAspectRatio="xMidYMid meet" id="vennSvg">
+              <!-- Region clip paths -->
+              <defs>
+                <clipPath id="clipA"><circle cx="200" cy="105" r="92"/></clipPath>
+                <clipPath id="clipB"><circle cx="340" cy="105" r="92"/></clipPath>
+              </defs>
+              <!-- Fill regions (drawn as full circles, then we'll add an overlap region tinted differently) -->
+              <circle cx="200" cy="105" r="92" id="circleA-fill" fill="rgba(240,160,75,0.10)" stroke="none"/>
+              <circle cx="340" cy="105" r="92" id="circleB-fill" fill="rgba(93,173,236,0.10)" stroke="none"/>
+              <!-- Intersection region: render circle B clipped by circle A -->
+              <g clip-path="url(#clipA)">
+                <circle cx="340" cy="105" r="92" id="intersection-fill" fill="rgba(192,132,232,0.0)"/>
+              </g>
+              <!-- Outlines -->
+              <circle cx="200" cy="105" r="92" id="circleA" fill="none" stroke="rgba(240,160,75,0.55)" stroke-width="2.5"/>
+              <circle cx="340" cy="105" r="92" id="circleB" fill="none" stroke="rgba(93,173,236,0.55)" stroke-width="2.5"/>
+              <!-- Labels for each circle -->
+              <text x="148" y="38" class="venn-label-A">A: food you like</text>
+              <text x="307" y="38" class="venn-label-B">B: expensive</text>
+              <!-- Elements positioned -->
+              <g id="elementsHost"></g>
+            </svg>
+          </div>
+
+          <div class="result-card">
+            <div class="result-call" id="resultCall">—</div>
+            <div class="result-set pending" id="resultSet">
+              <span class="placeholder">— pending —</span>
+            </div>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|set|union|intersection|difference)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+// Element positions inside the Venn
+// A only region: x roughly 115-170, B only: 370-425, intersection: 230-310
+// Element format: { name, region: 'A'|'B'|'AB', x, y }
+const ELEMENTS = [
+  { name: "Noodles",    region: 'A',  x: 145, y: 75 },
+  { name: "Pasta",      region: 'A',  x: 150, y: 130 },
+  { name: "Chocolates", region: 'A',  x: 150, y: 160 },
+  { name: "Burger",     region: 'A',  x: 165, y: 105 },
+  { name: "Pizza",      region: 'AB', x: 270, y: 105 },
+  { name: "Croissant",  region: 'B',  x: 385, y: 80 },
+  { name: "Avocado",    region: 'B',  x: 388, y: 135 }
+];
+
+function inRegion(el, mask) {
+  // mask: 'A','B','A_AND_B','A_OR_B','A_MINUS_B','B_MINUS_A','ALL'
+  if (mask === 'ALL') return true;
+  if (mask === 'A') return el.region === 'A' || el.region === 'AB';
+  if (mask === 'B') return el.region === 'B' || el.region === 'AB';
+  if (mask === 'A_AND_B') return el.region === 'AB';
+  if (mask === 'A_OR_B') return true; // all three regions
+  if (mask === 'A_MINUS_B') return el.region === 'A';
+  if (mask === 'B_MINUS_A') return el.region === 'B';
+  return false;
+}
+
+const SCENARIOS = [
+  {
+    name: "Setup — two sets",
+    sub: "A and B with one overlap (Pizza)",
+    code: [
+      "food_that_you_like_to_eat = {",
+      "    'Pizza', 'Noodles', 'Pasta',",
+      "    'Chocolates', 'Burger'",
+      "}",
+      "food_that_are_expensive = {",
+      "    'Pizza', 'Croissant', 'Avocado'",
+      "}"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Build set <span class="accent">A</span> (foods you like).', highlight: 'A', call: null },
+      { kind: 'exec', line: 5, msg: 'Build set <span class="blue">B</span> (foods that are expensive).', highlight: 'B', call: null },
+      { kind: 'exec-return', line: 6, msg: 'Note <span class="ok">Pizza</span> sits in the <em>overlap</em> — it\'s in both sets.', highlight: 'ALL', call: null }
+    ],
+    insight: 'Two sets visualized side by side. The middle region is where elements appear in <em>both</em>.'
+  },
+  {
+    name: "A.intersection(B)",
+    sub: "Only the overlap",
+    code: [
+      "A.intersection(B)",
+      "# also written as: A & B",
+      "# {'Pizza'}"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: '<span class="blue">intersection()</span> keeps only elements present in <em>both</em> sets.', highlight: 'A_AND_B', call: 'A.intersection(B)' },
+      { kind: 'exec-return', line: 2, msg: 'Only <span class="ok">\'Pizza\'</span> qualifies — the lone element in the middle.', highlight: 'A_AND_B', call: 'A.intersection(B)', result: ["'Pizza'"] }
+    ],
+    insight: 'Intersection = AND. Shorter syntax: <span class="accent">A &amp; B</span>. Empty set if there\'s no overlap.'
+  },
+  {
+    name: "A.union(B)",
+    sub: "Everything from either set",
+    code: [
+      "A.union(B)",
+      "# also written as: A | B",
+      "# {'Avocado', 'Burger',",
+      "#  'Chocolates', 'Croissant',",
+      "#  'Noodles', 'Pasta', 'Pizza'}"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: '<span class="blue">union()</span> keeps every element from <em>either</em> set.', highlight: 'A_OR_B', call: 'A.union(B)' },
+      { kind: 'exec-return', line: 4, msg: 'All 7 unique elements — duplicates collapse (Pizza only once).', highlight: 'A_OR_B', call: 'A.union(B)', result: ["'Pizza'","'Noodles'","'Pasta'","'Chocolates'","'Burger'","'Croissant'","'Avocado'"] }
+    ],
+    insight: 'Union = OR. Shorter: <span class="accent">A | B</span>. Even though Pizza is in both inputs, the result has it once — sets are about uniqueness.'
+  },
+  {
+    name: "A.difference(B)",
+    sub: "In A but not in B",
+    code: [
+      "A.difference(B)",
+      "# also written as: A - B",
+      "# {'Burger', 'Chocolates',",
+      "#  'Noodles', 'Pasta'}"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: '<span class="blue">difference()</span> keeps elements from A that <em>don\'t</em> appear in B.', highlight: 'A_MINUS_B', call: 'A.difference(B)' },
+      { kind: 'exec-return', line: 4, msg: 'Pizza is removed (it\'s in B). The other 4 stay.', highlight: 'A_MINUS_B', call: 'A.difference(B)', result: ["'Noodles'","'Pasta'","'Chocolates'","'Burger'"] }
+    ],
+    insight: 'Difference = "A minus what\'s also in B." Shorter: <span class="accent">A - B</span>. Order matters — see next scenario.'
+  },
+  {
+    name: "B - A (asymmetric)",
+    sub: "B.difference(A) — flipped, different result",
+    code: [
+      "B - A",
+      "# also: B.difference(A)",
+      "# {'Croissant', 'Avocado'}"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Flip the order: now in <span class="blue">B</span> but not in A.', highlight: 'B_MINUS_A', call: 'B - A' },
+      { kind: 'exec-return', line: 2, msg: 'Two foods that are expensive but you don\'t like.', highlight: 'B_MINUS_A', call: 'B - A', result: ["'Croissant'","'Avocado'"] }
+    ],
+    insight: 'Difference is <em>not</em> symmetric: <span class="accent">A - B ≠ B - A</span> in general. Union and intersection <em>are</em> symmetric.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Update venn fills based on highlight
+  const highlight = cur ? cur.highlight : null;
+  const fillA = document.getElementById('circleA-fill');
+  const fillB = document.getElementById('circleB-fill');
+  const fillInt = document.getElementById('intersection-fill');
+  // Reset
+  fillA.setAttribute('fill', 'rgba(240,160,75,0.10)');
+  fillB.setAttribute('fill', 'rgba(93,173,236,0.10)');
+  fillInt.setAttribute('fill', 'rgba(192,132,232,0.0)');
+  if (highlight === 'A') {
+    fillA.setAttribute('fill', 'rgba(240,160,75,0.32)');
+    fillInt.setAttribute('fill', 'rgba(240,160,75,0.32)');
+  } else if (highlight === 'B') {
+    fillB.setAttribute('fill', 'rgba(93,173,236,0.32)');
+    fillInt.setAttribute('fill', 'rgba(93,173,236,0.32)');
+  } else if (highlight === 'A_AND_B') {
+    fillInt.setAttribute('fill', 'rgba(163,217,119,0.45)');
+  } else if (highlight === 'A_OR_B') {
+    fillA.setAttribute('fill', 'rgba(163,217,119,0.35)');
+    fillB.setAttribute('fill', 'rgba(163,217,119,0.35)');
+    fillInt.setAttribute('fill', 'rgba(163,217,119,0.45)');
+  } else if (highlight === 'A_MINUS_B') {
+    fillA.setAttribute('fill', 'rgba(163,217,119,0.42)');
+  } else if (highlight === 'B_MINUS_A') {
+    fillB.setAttribute('fill', 'rgba(163,217,119,0.42)');
+  } else if (highlight === 'ALL') {
+    fillA.setAttribute('fill', 'rgba(240,160,75,0.22)');
+    fillB.setAttribute('fill', 'rgba(93,173,236,0.22)');
+    fillInt.setAttribute('fill', 'rgba(192,132,232,0.30)');
+  }
+
+  // Render elements
+  const elementsHost = document.getElementById('elementsHost');
+  const showAll = scenarioIdx === 0 ? (stepIdx >= 1) : true;
+  const showBOnly = scenarioIdx === 0 ? (stepIdx >= 2) : true;
+  const showElems = ELEMENTS.filter(el => {
+    if (scenarioIdx === 0) {
+      if (stepIdx === 1) return el.region === 'A' || el.region === 'AB';
+      if (stepIdx >= 2) return true;
+      return false;
+    }
+    return true;
+  });
+  // Set "captured" state if this element is in the highlighted region
+  elementsHost.innerHTML = showElems.map(el => {
+    let captured = false;
+    if (highlight && highlight !== 'ALL') {
+      captured = inRegion(el, highlight);
+    }
+    const dimmed = (highlight && highlight !== 'ALL' && !captured);
+    const fill = captured ? '#a3d977' : (el.region === 'A' ? '#f0a04b' : el.region === 'B' ? '#5dadec' : '#c084e8');
+    const opacity = dimmed ? '0.32' : '1';
+    const fontWeight = captured ? '700' : '500';
+    return `<text x="${el.x}" y="${el.y}" font-family="JetBrains Mono, monospace" font-size="11" fill="${fill}" opacity="${opacity}" font-weight="${fontWeight}" text-anchor="middle">${el.name}</text>`;
+  }).join('');
+
+  // Result card
+  const resultCall = document.getElementById('resultCall');
+  const resultSet = document.getElementById('resultSet');
+  if (cur && cur.call) {
+    resultCall.innerHTML = cur.call.replace(/A\b/, '<span class="name">A</span>').replace(/B\b/, '<span class="name">B</span>').replace(/(intersection|union|difference)/, '<span class="op">$1</span>');
+  } else {
+    resultCall.textContent = '—';
+  }
+  if (cur && cur.result) {
+    resultSet.classList.remove('pending');
+    resultSet.innerHTML = '<span class="bracket">{</span>' +
+      cur.result.map(r => `<span class="item">${r}</span>`).join('') +
+      '<span class="bracket">}</span>';
+  } else {
+    resultSet.classList.add('pending');
+    resultSet.innerHTML = '<span class="placeholder">— pending —</span>';
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>

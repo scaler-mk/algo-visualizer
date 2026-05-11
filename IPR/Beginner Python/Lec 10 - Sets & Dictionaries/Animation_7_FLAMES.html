@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FLAMES — sets in a game</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8; --pink: #f5a5b8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .auto-btn { background: transparent; color: var(--blue); border: 1px solid var(--blue); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .auto-btn:hover { background: rgba(93, 173, 236, 0.1); }
+  .auto-btn.playing { background: var(--blue); color: #1a1d23; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1.15fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12px; line-height: 1.65; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 16px; min-height: 500px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Name strings */
+  .names-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .name-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .name-card .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .name-card.boy .lbl { color: var(--blue); }
+  .name-card.girl .lbl { color: var(--pink); }
+  .name-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; transition: all 0.3s; }
+  .name-card.boy .name-val { color: var(--blue); }
+  .name-card.girl .name-val { color: var(--pink); }
+  .name-val .strip { text-decoration: line-through; text-decoration-color: var(--red); opacity: 0.4; }
+
+  /* Two set blobs side by side */
+  .sets-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .set-blob-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .set-blob-card .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .set-blob-card.boy .lbl .head { color: var(--blue); }
+  .set-blob-card.girl .lbl .head { color: var(--pink); }
+  .set-blob-card .count-tag { color: var(--accent); font-family: 'JetBrains Mono', monospace; padding: 1px 5px; background: rgba(240,160,75,0.1); border-radius: 3px; font-size: 9px; }
+  .set-blob { border: 2px dashed var(--line); border-radius: 30px; padding: 12px 10px; min-height: 70px; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; align-items: center; transition: all 0.3s; }
+  .set-blob-card.boy .set-blob { border-color: var(--blue); background: rgba(93,173,236,0.04); }
+  .set-blob-card.girl .set-blob { border-color: var(--pink); background: rgba(245,165,184,0.04); }
+  .set-blob .placeholder { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+  .elem { padding: 4px 9px; border-radius: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; transition: all 0.35s; }
+  .set-blob-card.boy .elem { background: rgba(93,173,236,0.15); border: 1.5px solid var(--blue); color: var(--blue); }
+  .set-blob-card.girl .elem { background: rgba(245,165,184,0.15); border: 1.5px solid var(--pink); color: var(--pink); }
+  .elem.common-mark { background: rgba(163,217,119,0.2) !important; border-color: var(--green) !important; color: var(--green) !important; box-shadow: 0 0 0 2px rgba(163,217,119,0.15); }
+  .elem.removed { opacity: 0.25; text-decoration: line-through; }
+
+  /* Score arithmetic */
+  .score-card { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; transition: all 0.3s; }
+  .score-card.pending { opacity: 0.4; }
+  .score-line { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .score-line .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; min-width: 70px; }
+  .score-line .num-pill { padding: 2px 8px; background: rgba(93,173,236,0.15); border: 1.5px solid var(--blue); border-radius: 4px; color: var(--blue); font-weight: 700; }
+  .score-line .num-pill.girl { background: rgba(245,165,184,0.15); border-color: var(--pink); color: var(--pink); }
+  .score-line .total-pill { padding: 3px 10px; background: rgba(240,160,75,0.18); border: 2px solid var(--accent); border-radius: 4px; color: var(--accent); font-weight: 700; font-size: 15px; }
+  .score-line .mod-pill { padding: 3px 10px; background: rgba(163,217,119,0.15); border: 2px solid var(--green); border-radius: 4px; color: var(--green); font-weight: 700; font-size: 15px; }
+
+  /* FLAMES table */
+  .flames-table { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; }
+  .flames-table .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .flames-rows { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .flames-row { padding: 5px 4px; border-radius: 4px; text-align: center; background: rgba(255,255,255,0.03); border: 1.5px solid var(--line); transition: all 0.3s; }
+  .flames-row .r { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+  .flames-row .name-r { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); font-weight: 700; }
+  .flames-row.winner { background: rgba(245,165,184,0.18); border-color: var(--pink); animation: pulse 0.8s 2; }
+  .flames-row.winner .r { color: var(--pink); }
+  .flames-row.winner .name-r { color: var(--pink); font-size: 13px; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  /* Verdict pill */
+  .verdict-card { background: rgba(0,0,0,0.4); border-radius: 6px; padding: 12px; text-align: center; display: none; }
+  .verdict-card.shown { display: block; }
+  .verdict-card .lbl { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .verdict-pill { display: inline-block; padding: 6px 22px; border-radius: 22px; background: rgba(245,165,184,0.18); border: 2.5px solid var(--pink); color: var(--pink); font-family: Georgia, serif; font-style: italic; font-size: 24px; font-weight: 700; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 13px 16px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; line-height: 1.5; color: var(--ink); min-height: 50px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .pink { color: var(--pink); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 10px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>FLAMES — sets, differences, and a verdict</h1>
+    <p class="sub">Strip → set → common → leftover → score → mod 6 → table lookup.</p>
+
+    <div class="controls">
+      <span class="ctl-label">INPUTS:</span>
+      <button class="qb active">'aakar sharma' &amp; 'disha patani'</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="auto-btn" id="autoBtn">▶ Auto-play</button>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="names-row">
+            <div class="name-card boy">
+              <div class="lbl">BOY NAME</div>
+              <div class="name-val" id="boyName">—</div>
+            </div>
+            <div class="name-card girl">
+              <div class="lbl">GIRL NAME</div>
+              <div class="name-val" id="girlName">—</div>
+            </div>
+          </div>
+          <div class="sets-row">
+            <div class="set-blob-card boy">
+              <div class="lbl"><span class="head">set_b (boy)</span><span class="count-tag" id="boyCount">—</span></div>
+              <div class="set-blob" id="boyBlob"><span class="placeholder">— not yet —</span></div>
+            </div>
+            <div class="set-blob-card girl">
+              <div class="lbl"><span class="head">set_g (girl)</span><span class="count-tag" id="girlCount">—</span></div>
+              <div class="set-blob" id="girlBlob"><span class="placeholder">— not yet —</span></div>
+            </div>
+          </div>
+          <div class="score-card pending" id="scoreCard">
+            <div class="score-line"><span class="lbl">ARITHMETIC:</span><span id="scoreLine">—</span></div>
+            <div class="score-line"><span class="lbl">MOD 6:</span><span id="modLine">—</span></div>
+          </div>
+          <div class="flames-table">
+            <div class="lbl">FLAMES MAPPING (r = score % 6)</div>
+            <div class="flames-rows" id="flamesRows"></div>
+          </div>
+          <div class="verdict-card" id="verdictCard">
+            <div class="lbl">RESULT</div>
+            <div class="verdict-pill" id="verdictPill">—</div>
+          </div>
+          <div class="commentary" id="commentary">Click <strong>Step ▸</strong> or <strong>Auto-play</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|import)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|set|lower)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+const FLAMES = [
+  { r: 0, name: 'Sibling' },
+  { r: 1, name: 'Friends' },
+  { r: 2, name: 'Love' },
+  { r: 3, name: 'Affair' },
+  { r: 4, name: 'Marriage' },
+  { r: 5, name: 'Enemy' }
+];
+
+// boy = 'aakar sharma' → after clean: 'aakarsharma' → unique: {a,k,r,s,h,m}
+// girl = 'disha patani' → after clean: 'dishapatani' → unique: {a,d,h,i,n,p,s,t}
+// common = {a, s, h}
+// uniq_b = {k, m, r} (size 3)
+// uniq_g = {d, i, n, p, t} (size 5)
+// score = 8, score%6 = 2 → Love
+
+const SET_B_FULL = ['a','k','r','s','h','m'];
+const SET_G_FULL = ['a','d','h','i','n','p','s','t'];
+const COMMON = ['a','h','s'];
+const UNIQ_B = ['k','m','r'];
+const UNIQ_G = ['d','i','n','p','t'];
+
+const SCENARIO = {
+  name: "FLAMES with 'aakar sharma' & 'disha patani'",
+  sub: "Six steps from raw strings to verdict",
+  code: [
+    "import string",
+    "boy = 'aakar sharma'",
+    "girl = 'disha patani'",
+    "",
+    "# 1) lowercase + keep only alphabets",
+    "boy = boy.lower()",
+    "girl = girl.lower()",
+    "boy_clean = ''.join(c for c in boy",
+    "                   if c in string.ascii_lowercase)",
+    "girl_clean = ''.join(c for c in girl",
+    "                    if c in string.ascii_lowercase)",
+    "",
+    "# 2) sets of unique letters",
+    "set_b = set(boy_clean)",
+    "set_g = set(girl_clean)",
+    "",
+    "# 3) remove common letters",
+    "common = set_b & set_g",
+    "uniq_b = set_b - common",
+    "uniq_g = set_g - common",
+    "",
+    "# 4) score, 5) mod, 6) lookup",
+    "score = len(uniq_b) + len(uniq_g)",
+    "mapping = {0:'Sibling', 1:'Friends',",
+    "           2:'Love', 3:'Affair',",
+    "           4:'Marriage', 5:'Enemy'}",
+    "print(mapping[score % 6])"
+  ],
+  insight: 'The whole game reduces to <span class="accent">set operations</span>: intersection finds shared letters, difference strips them, and the remaining sizes feed a modular table lookup.',
+  plan: [
+    { kind: 'exec', line: 1, msg: 'Read both names — start with raw strings.',
+      boy: { val: 'aakar sharma', stripped: '' }, girl: { val: 'disha patani', stripped: '' },
+      setB: null, setG: null
+    },
+    { kind: 'exec', line: 5, msg: 'Step 1: <span class="accent">lowercase + keep only letters</span> (drop the space).',
+      boy: { val: 'aakar·sharma', stripped: 'space' }, girl: { val: 'disha·patani', stripped: 'space' },
+      setB: null, setG: null
+    },
+    { kind: 'exec', line: 13, msg: 'Step 2: convert to <span class="blue">sets</span> — duplicates collapse, order doesn\'t matter.',
+      boy: { val: 'aakarsharma', clean: true }, girl: { val: 'dishapatani', clean: true },
+      setB: SET_B_FULL, setG: SET_G_FULL
+    },
+    { kind: 'exec', line: 17, msg: 'Step 3a: <span class="ok">common = set_b &amp; set_g</span> — letters in BOTH names get highlighted.',
+      setB: SET_B_FULL, setG: SET_G_FULL, common: COMMON, showScore: false
+    },
+    { kind: 'exec', line: 18, msg: 'Step 3b: subtract the common ones from each set. <span class="bad">Cross them out.</span>',
+      setB: SET_B_FULL, setG: SET_G_FULL, common: COMMON, removed: true
+    },
+    { kind: 'exec', line: 22, msg: 'Step 4: <span class="accent">score = len(uniq_b) + len(uniq_g)</span> = 3 + 5 = <span class="ok">8</span>.',
+      setB: SET_B_FULL, setG: SET_G_FULL, common: COMMON, removed: true,
+      score: { b: 3, g: 5, total: 8 }
+    },
+    { kind: 'exec', line: 26, msg: 'Step 5: <span class="ok">8 % 6 = 2</span>. That\'s our row in the FLAMES table.',
+      setB: SET_B_FULL, setG: SET_G_FULL, common: COMMON, removed: true,
+      score: { b: 3, g: 5, total: 8 }, mod: 2
+    },
+    { kind: 'exec-return', line: 26, msg: 'Step 6: row 2 in the table — <span class="pink">Love</span>. 💖',
+      setB: SET_B_FULL, setG: SET_G_FULL, common: COMMON, removed: true,
+      score: { b: 3, g: 5, total: 8 }, mod: 2, verdict: 'Love'
+    }
+  ]
+};
+
+let stepIdx = 0;
+let autoTimer = null;
+
+function render() {
+  const sc = SCENARIO;
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Names
+  const boyName = document.getElementById('boyName');
+  const girlName = document.getElementById('girlName');
+  if (cur && cur.boy) {
+    if (cur.boy.stripped === 'space') {
+      // Show with space struck through
+      boyName.innerHTML = "'aakar<span class=\"strip\">·</span>sharma'";
+    } else if (cur.boy.clean) {
+      boyName.textContent = "'" + cur.boy.val + "'";
+    } else {
+      boyName.textContent = "'" + cur.boy.val + "'";
+    }
+  } else if (cur) {
+    boyName.textContent = "'aakar sharma'";
+  } else {
+    boyName.textContent = '—';
+  }
+  if (cur && cur.girl) {
+    if (cur.girl.stripped === 'space') {
+      girlName.innerHTML = "'disha<span class=\"strip\">·</span>patani'";
+    } else if (cur.girl.clean) {
+      girlName.textContent = "'" + cur.girl.val + "'";
+    } else {
+      girlName.textContent = "'" + cur.girl.val + "'";
+    }
+  } else if (cur) {
+    girlName.textContent = "'disha patani'";
+  } else {
+    girlName.textContent = '—';
+  }
+
+  // Sets
+  const commonSet = new Set(cur && cur.common ? cur.common : []);
+  const isRemoved = !!(cur && cur.removed);
+  function renderSetBlob(setArr) {
+    if (!setArr) return '<span class="placeholder">— not yet —</span>';
+    return setArr.map(el => {
+      let cls = 'elem';
+      if (commonSet.has(el)) {
+        if (isRemoved) cls += ' common-mark removed';
+        else cls += ' common-mark';
+      }
+      return `<span class="${cls}">${el}</span>`;
+    }).join('');
+  }
+  document.getElementById('boyBlob').innerHTML = renderSetBlob(cur ? cur.setB : null);
+  document.getElementById('girlBlob').innerHTML = renderSetBlob(cur ? cur.setG : null);
+  document.getElementById('boyCount').textContent = cur && cur.setB ? `len = ${isRemoved ? UNIQ_B.length : cur.setB.length}` : '—';
+  document.getElementById('girlCount').textContent = cur && cur.setG ? `len = ${isRemoved ? UNIQ_G.length : cur.setG.length}` : '—';
+
+  // Score card
+  const scoreCard = document.getElementById('scoreCard');
+  const scoreLine = document.getElementById('scoreLine');
+  const modLine = document.getElementById('modLine');
+  if (cur && cur.score) {
+    scoreCard.classList.remove('pending');
+    scoreLine.innerHTML = `<span class="num-pill">len(uniq_b) = ${cur.score.b}</span> + <span class="num-pill girl">len(uniq_g) = ${cur.score.g}</span> = <span class="total-pill">${cur.score.total}</span>`;
+    if (cur.mod !== undefined) {
+      modLine.innerHTML = `<span class="total-pill">${cur.score.total}</span> % <span style="color:var(--muted)">6</span> = <span class="mod-pill">${cur.mod}</span>`;
+    } else {
+      modLine.innerHTML = '—';
+    }
+  } else {
+    scoreCard.classList.add('pending');
+    scoreLine.innerHTML = '—';
+    modLine.innerHTML = '—';
+  }
+
+  // FLAMES table
+  const flamesRows = document.getElementById('flamesRows');
+  const winnerR = cur && cur.verdict ? FLAMES.find(f => f.name === cur.verdict).r : -1;
+  flamesRows.innerHTML = FLAMES.map(f => {
+    let cls = 'flames-row';
+    if (f.r === winnerR) cls += ' winner';
+    return `<div class="${cls}"><div class="r">r = ${f.r}</div><div class="name-r">${f.name}</div></div>`;
+  }).join('');
+
+  // Verdict card
+  const verdictCard = document.getElementById('verdictCard');
+  const verdictPill = document.getElementById('verdictPill');
+  if (cur && cur.verdict) {
+    verdictCard.classList.add('shown');
+    verdictPill.textContent = cur.verdict;
+  } else {
+    verdictCard.classList.remove('shown');
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset() {
+  stopAuto();
+  stepIdx = 0;
+  render();
+}
+
+function stopAuto() {
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    document.getElementById('autoBtn').classList.remove('playing');
+    document.getElementById('autoBtn').textContent = '▶ Auto-play';
+  }
+}
+
+function startAuto() {
+  document.getElementById('autoBtn').classList.add('playing');
+  document.getElementById('autoBtn').textContent = '⏸ Pause';
+  autoTimer = setInterval(() => {
+    if (stepIdx < SCENARIO.plan.length) {
+      stepIdx++;
+      render();
+    } else {
+      stopAuto();
+    }
+  }, 1500);
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  stopAuto();
+  if (stepIdx < SCENARIO.plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('autoBtn').addEventListener('click', () => {
+  if (autoTimer) stopAuto();
+  else startAuto();
+});
+
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dictionary Creation — keys are unique, must be immutable</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; position: relative; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-fail { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .viz-area { background: #0d1117; border-radius: 6px; padding: 18px; min-height: 380px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* The dictionary as locker rack */
+  .dict-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .dict-card .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .dict-card .dict-name { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 12px; }
+  .dict-empty-msg { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 13px; text-align: center; padding: 12px; }
+  .pair-row { display: grid; grid-template-columns: 1fr 30px 1fr; gap: 6px; align-items: center; margin-bottom: 6px; transition: all 0.3s; }
+  .pair-row.entering { animation: slidein 0.4s ease-out; }
+  .pair-row.overridden .pair-val { background: rgba(229,115,115,0.18); border-color: var(--red); color: var(--red); text-decoration: line-through; }
+  .pair-row.overridden .pair-val.new-val { background: rgba(163, 217, 119, 0.22); border-color: var(--green); color: var(--green); text-decoration: none; }
+  .pair-row.error-row { animation: shake 0.5s; }
+  @keyframes slidein { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  .pair-key { background: rgba(240,160,75,0.12); border: 2px solid var(--accent); border-radius: 6px; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 700; text-align: center; }
+  .pair-key.bad { background: rgba(229,115,115,0.18); border-color: var(--red); color: var(--red); }
+  .pair-key.list-key { background: rgba(150, 113, 215, 0.12); border-color: var(--purple); border-style: dashed; color: var(--purple); }
+  .pair-arrow { text-align: center; color: var(--muted); font-size: 16px; }
+  .pair-val { background: rgba(93,173,236,0.12); border: 2px solid var(--blue); border-radius: 6px; padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--blue); font-weight: 700; text-align: center; transition: all 0.3s; }
+  .pair-val.pending { opacity: 0.4; }
+
+  .type-display { background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; display: flex; align-items: center; gap: 10px; min-height: 38px; }
+  .type-display .label { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; }
+  .type-display .val { color: var(--green); font-weight: 700; }
+  .type-display .val.bad { color: var(--red); }
+  .type-display.pending { opacity: 0.4; }
+
+  .commentary { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; font-family: Georgia, serif; font-style: italic; font-size: 13px; line-height: 1.55; color: var(--ink); min-height: 60px; }
+  .commentary .ok { color: var(--green); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .bad { color: var(--red); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .blue { color: var(--blue); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary .purple { color: var(--purple); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .insight { background: rgba(163, 217, 119, 0.08); border: 1px dashed var(--green); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--green); line-height: 1.5; }
+  .insight .accent { color: var(--accent); font-weight: 700; font-style: normal; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Dictionary Creation — unique keys, immutable keys</h1>
+    <p class="sub">Two creation styles, what happens with duplicate keys, and the rule on key types.</p>
+
+    <div class="controls">
+      <span class="ctl-label">SCENARIOS:</span>
+      <button class="qb" data-i="0">Empty: {} vs dict()</button>
+      <button class="qb" data-i="1">Basic key→value pairs</button>
+      <button class="qb warn" data-i="2">Duplicate keys — last wins</button>
+      <button class="qb warn" data-i="3">List as key fails</button>
+      <button class="qb" data-i="4">Tuple as key works</button>
+      <span style="flex:1"></span>
+      <span class="iter-counter">STEP<span class="num-c" id="stepNum">0</span>/ <span id="stepMax">0</span></span>
+      <button class="step-btn" id="stepBtn">Step ▸</button>
+      <button class="reset-btn" id="resetBtn">↺ Reset</button>
+    </div>
+
+    <div class="stage">
+      <div class="panel">
+        <div class="panel-title">SOURCE CODE</div>
+        <div class="scenario-head" id="scTitle"></div>
+        <div class="scenario-sub" id="scSub"></div>
+        <div class="code" id="codeBox"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">VISUALIZATION</div>
+        <div class="viz-area">
+          <div class="dict-card">
+            <div class="lbl">DICTIONARY: <span class="dict-name" id="dictName">d</span></div>
+            <div id="dictRows"><div class="dict-empty-msg">— empty —</div></div>
+          </div>
+          <div class="type-display pending" id="typeDisplay">
+            <span class="label">type():</span>
+            <span class="val" id="typeVal">—</span>
+          </div>
+          <div class="commentary" id="commentary">Pick a scenario, then click <strong>Step ▸</strong>.</div>
+          <div id="insightHost"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const protectedSegs = [];
+  function makeKey(n) { let s = ''; n += 1; while (n > 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return '\u0001Z' + s + 'Z\u0002'; }
+  function protect(html) { protectedSegs.push(html); return makeKey(protectedSegs.length - 1); }
+  h = h.replace(/(#[^\n]*)/g, (m) => protect('<span class="cmt">' + m + '</span>'));
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, (m) => protect('<span class="str">' + m + '</span>'));
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|dict|tuple|type)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  h = h.replace(/\u0001Z([A-Z]+)Z\u0002/g, (_, code) => { let n = 0; for (let i = 0; i < code.length; i++) n = n * 26 + (code.charCodeAt(i) - 65); return protectedSegs[n - 1]; });
+  return h;
+}
+
+// Each pair entry: { key, val, overridden?, newVal?, listKey?, badKey?, errorRow? }
+const SCENARIOS = [
+  {
+    name: "Empty dictionary — two ways",
+    sub: "{} and dict() both create an empty dict",
+    dictName: "d",
+    code: [
+      "d = {}            # literal",
+      "print(type(d))",
+      "",
+      "d = dict()        # constructor",
+      "print(type(d))"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'The literal <span class="accent">{}</span> creates an empty dictionary.', pairs: [], type: 'dict' },
+      { kind: 'exec-return', line: 1, msg: 'type() confirms — <span class="ok">dict</span>.', pairs: [], type: 'dict' },
+      { kind: 'exec', line: 3, msg: 'The <span class="blue">dict()</span> constructor does the same thing — empty dict.', pairs: [], type: 'dict' },
+      { kind: 'exec-return', line: 4, msg: 'Same result: <span class="ok">dict</span>. Both forms are equivalent for empty creation.', pairs: [], type: 'dict' }
+    ],
+    insight: '<span class="accent">{}</span> is the dict literal. Be careful: this is also what creates an empty dict <em>not</em> an empty set — we\'ll see that gotcha later.'
+  },
+  {
+    name: "Basic key-value pairs",
+    sub: "d = {'a': 1, 'b': 1}",
+    dictName: "d",
+    code: [
+      "d = {'a': 1, 'b': 1}",
+      "print(d)",
+      "# Output: {'a': 1, 'b': 1}"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Two pairs created. Keys are strings, values are ints.', pairs: [{key:"'a'", val:'1', entering:true}], type: null },
+      { kind: 'exec', line: 0, msg: 'Second pair: same <em>value</em>, but a different key — allowed (values may repeat).', pairs: [{key:"'a'", val:'1'},{key:"'b'", val:'1', entering:true}], type: null },
+      { kind: 'exec-return', line: 1, msg: 'Both pairs sit in insertion order — that order is preserved (Python 3.7+).', pairs: [{key:"'a'", val:'1'},{key:"'b'", val:'1'}], type: 'dict' }
+    ],
+    insight: 'Keys must be unique, but values can repeat. The dictionary remembers the order you inserted things.'
+  },
+  {
+    name: "Duplicate key — last write wins",
+    sub: "d = {'a': 1, 'a': 10}",
+    dictName: "d",
+    code: [
+      "d = {'a': 1, 'a': 10}",
+      "print(d)",
+      "# Output: {'a': 10}"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'First pair: <span class="accent">\'a\'</span> → <span class="blue">1</span>.', pairs: [{key:"'a'", val:'1', entering:true}], type: null },
+      { kind: 'exec', line: 0, msg: 'Second pair has the <span class="bad">same key</span> — Python doesn\'t add a new slot. It <span class="bad">overwrites</span> the existing value.', pairs: [{key:"'a'", val:'10', overridden:true, oldVal:'1'}], type: null },
+      { kind: 'exec-return', line: 1, msg: 'Only one entry remains. <span class="ok">Last write wins.</span>', pairs: [{key:"'a'", val:'10'}], type: 'dict' }
+    ],
+    insight: 'Keys are unique. Writing the same key twice doesn\'t throw an error — the later value silently replaces the earlier one.'
+  },
+  {
+    name: "List as a key — FAILS",
+    sub: "a = {[1,2,3]: 'abc'}",
+    dictName: "a",
+    code: [
+      "a = {[1,2,3]: 'abc'}",
+      "# TypeError: unhashable type: 'list'"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Try to use a <span class="bad">list</span> as a key.', pairs: [{key:"[1,2,3]", val:"'abc'", listKey:true, badKey:true, errorRow:true}], type: null },
+      { kind: 'exec-fail', line: 1, msg: '<span class="bad">TypeError!</span> Lists are mutable — Python can\'t hash them. Keys need a stable identity.', pairs: [{key:"[1,2,3]", val:"'abc'", listKey:true, badKey:true}], type: 'TypeError', typeBad:true, error: "TypeError: unhashable type: 'list'" }
+    ],
+    insight: 'Mutable types (<span class="accent">list</span>, <span class="accent">set</span>, <span class="accent">dict</span>) can\'t be keys. If a key\'s contents could change, the dict could no longer find it.'
+  },
+  {
+    name: "Tuple as a key — WORKS",
+    sub: "a = {(1,2,3): 'abc'}",
+    dictName: "a",
+    code: [
+      "a = {(1,2,3): 'abc'}",
+      "print(a)",
+      "# Output: {(1, 2, 3): 'abc'}"
+    ],
+    plan: [
+      { kind: 'exec', line: 0, msg: 'Same shape, but the key is a <span class="ok">tuple</span> — immutable.', pairs: [{key:"(1,2,3)", val:"'abc'", entering:true}], type: null },
+      { kind: 'exec-return', line: 1, msg: 'Tuples are hashable because their contents can\'t change. <span class="ok">Valid key.</span>', pairs: [{key:"(1,2,3)", val:"'abc'"}], type: 'dict' }
+    ],
+    insight: 'Immutable types — <span class="accent">str</span>, <span class="accent">int</span>, <span class="accent">float</span>, <span class="accent">tuple</span>, <span class="accent">frozenset</span> — can be keys. Mutable types cannot.'
+  }
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('scTitle').textContent = sc.name;
+  document.getElementById('scSub').textContent = sc.sub;
+  document.getElementById('dictName').textContent = sc.dictName;
+  document.getElementById('stepNum').textContent = stepIdx;
+  document.getElementById('stepMax').textContent = sc.plan.length;
+  document.querySelectorAll('.qb').forEach((b,i) => b.classList.toggle('active', i === scenarioIdx));
+
+  const codeBox = document.getElementById('codeBox');
+  const cur = stepIdx > 0 ? sc.plan[stepIdx-1] : null;
+  codeBox.innerHTML = sc.code.map((line, i) => {
+    let cls = 'code-line';
+    if (cur && cur.line === i) {
+      if (cur.kind === 'exec-return') cls += ' exec-return';
+      else if (cur.kind === 'exec-fail') cls += ' exec-fail';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${paint(line)}</span>`;
+  }).join('');
+
+  // Dict rows
+  const dictRows = document.getElementById('dictRows');
+  const pairs = cur ? cur.pairs : [];
+  if (pairs.length === 0) {
+    dictRows.innerHTML = '<div class="dict-empty-msg">— empty —</div>';
+  } else {
+    dictRows.innerHTML = pairs.map((p) => {
+      let rowCls = 'pair-row';
+      if (p.entering) rowCls += ' entering';
+      if (p.overridden) rowCls += ' overridden';
+      if (p.errorRow) rowCls += ' error-row';
+      let keyCls = 'pair-key';
+      if (p.listKey) keyCls += ' list-key';
+      if (p.badKey) keyCls += ' bad';
+      if (p.overridden) {
+        return `<div class="${rowCls}"><div class="${keyCls}">${p.key}</div><div class="pair-arrow">→</div><div style="display:flex;flex-direction:column;gap:4px;"><div class="pair-val">${p.oldVal}</div><div class="pair-val new-val">${p.val}</div></div></div>`;
+      }
+      return `<div class="${rowCls}"><div class="${keyCls}">${p.key}</div><div class="pair-arrow">→</div><div class="pair-val">${p.val}</div></div>`;
+    }).join('');
+  }
+
+  // Type display
+  const typeDisp = document.getElementById('typeDisplay');
+  const typeVal = document.getElementById('typeVal');
+  if (cur && cur.type) {
+    typeDisp.classList.remove('pending');
+    if (cur.error) {
+      typeVal.textContent = cur.error;
+    } else {
+      typeVal.textContent = `<class '${cur.type}'>`;
+    }
+    typeVal.classList.toggle('bad', !!cur.typeBad);
+  } else {
+    typeDisp.classList.add('pending');
+    typeVal.textContent = '—';
+    typeVal.classList.remove('bad');
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : 'Click <strong>Step ▸</strong> to begin.';
+
+  const insightHost = document.getElementById('insightHost');
+  if (stepIdx === sc.plan.length && sc.insight) {
+    insightHost.innerHTML = `<div class="insight">💡 ${sc.insight}</div>`;
+  } else {
+    insightHost.innerHTML = '';
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= sc.plan.length;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) {
+    stepIdx++;
+    render();
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach((b,i) => {
+  b.addEventListener('click', () => reset(i));
+});
+
+reset(0);
+</script>
+</body>
+</html>
