@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>range() explorer — sequences on a number line</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px 22px; margin-bottom: 20px; }
+  .control-row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .control-row:last-child { margin-bottom: 0; }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+
+  .num-input { background: #0d1117; border: 1px solid var(--line); border-radius: 4px; padding: 7px 10px; color: var(--ink); font-family: inherit; font-size: 13px; width: 70px; text-align: center; }
+  .num-input:focus { outline: none; border-color: var(--accent); }
+
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.empty { border-color: #4a4a5a; }
+  .qb.empty:hover { border-color: var(--red); color: var(--red); }
+  .qb.empty.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+
+  .stage { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .call-display { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 16px; line-height: 1.6; margin-bottom: 16px; font-family: 'JetBrains Mono', monospace; text-align: center; }
+  .fn { color: var(--blue); font-weight: 600; }
+  .num { color: var(--green); }
+  .arrow { color: var(--muted); margin: 0 12px; }
+  .seq-output { color: var(--accent); font-weight: 600; }
+  .seq-empty { color: var(--red); font-style: italic; font-family: Georgia, serif; }
+
+  .verdict-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 10px 14px; background: var(--panel-2); border-radius: 6px; border-left: 3px solid var(--accent); }
+  .verdict-row.empty { border-left-color: var(--red); }
+  .verdict-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .verdict-text { font-family: Georgia, serif; font-style: italic; font-size: 13px; color: var(--ink); flex: 1; }
+  .verdict-text strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .verdict-row.empty .verdict-text strong { color: var(--red); }
+
+  .number-line-wrap { background: #0d1117; border-radius: 6px; padding: 22px 18px 18px; margin-bottom: 16px; overflow-x: auto; }
+  .number-line { position: relative; height: 130px; min-width: 600px; }
+
+  .legend-row { display: flex; gap: 24px; margin-top: 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+
+  .empty-explanation { background: rgba(229, 115, 115, 0.08); border: 1px solid var(--red); border-radius: 6px; padding: 12px 16px; color: var(--red); font-size: 12.5px; margin-bottom: 14px; font-family: Georgia, serif; font-style: italic; line-height: 1.55; display: none; }
+  .empty-explanation.show { display: block; }
+  .empty-explanation strong { font-family: 'JetBrains Mono', monospace; font-style: normal; }
+
+  .for-output-block { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 13px; line-height: 1.7; margin-top: 14px; }
+  .for-code { color: var(--muted); margin-bottom: 8px; font-style: italic; font-size: 11px; font-family: Georgia, serif; }
+  .for-code code { font-family: 'JetBrains Mono', monospace; color: var(--ink); font-style: normal; background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 3px; }
+  .for-out { color: var(--green); font-family: 'JetBrains Mono', monospace; }
+  .for-out.empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>range() — generate sequences for your loops</h1>
+  <div class="sub">range(start, end, step) is half-open: stop value NEVER appears. Step direction must point from start towards end, or the sequence is empty.</div>
+
+  <div class="controls">
+    <div class="control-row">
+      <span class="ctl-label">START</span>
+      <input class="num-input" type="number" id="i-start" value="0">
+      <span class="ctl-label">END</span>
+      <input class="num-input" type="number" id="i-end" value="5">
+      <span class="ctl-label">STEP</span>
+      <input class="num-input" type="number" id="i-step" value="1">
+    </div>
+    <div class="control-row">
+      <span class="ctl-label">PRESETS</span>
+      <button class="qb active" data-args="0,5,1">range(5)</button>
+      <button class="qb" data-args="1,5,1">range(1,5)</button>
+      <button class="qb" data-args="5,15,2">range(5,15,2)</button>
+      <button class="qb" data-args="-5,0,1">range(-5,0)</button>
+      <button class="qb" data-args="0,-5,-1">range(0,-5,-1)</button>
+      <button class="qb empty" data-args="0,-5,1">range(-5) ⚠ empty</button>
+      <button class="qb empty" data-args="-4,-10,1">range(-4,-10) ⚠ empty</button>
+      <button class="qb empty" data-args="5,1,1">range(5,1) ⚠ empty</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="call-display" id="call">range(5) <span class="arrow">→</span> <span class="seq-output" id="seq">0, 1, 2, 3, 4</span></div>
+
+    <div class="verdict-row" id="verdict">
+      <span class="verdict-label">REASONING</span>
+      <span class="verdict-text" id="verdict-text">start=0, end=5, step=+1. Going from 0 toward 5 by adding 1 — produces 5 values, ending just before 5.</span>
+    </div>
+
+    <div class="empty-explanation" id="empty-msg"></div>
+
+    <div class="panel-title">ON A NUMBER LINE</div>
+    <div class="number-line-wrap">
+      <svg class="number-line" id="line" viewBox="0 0 1100 130" preserveAspectRatio="none"></svg>
+    </div>
+
+    <div class="legend-row">
+      <span class="legend-item"><span class="legend-swatch" style="background: var(--accent)"></span>included value</span>
+      <span class="legend-item"><span class="legend-swatch" style="background: transparent; border: 2px dashed var(--red)"></span>end value (excluded)</span>
+      <span class="legend-item"><span class="legend-swatch" style="background: var(--blue)"></span>start position</span>
+      <span class="legend-item"><span class="legend-swatch" style="background: var(--muted); opacity: 0.4"></span>not in range</span>
+    </div>
+
+    <div class="for-output-block">
+      <div class="for-code">When used in a for loop:  <code id="forline">for i in range(5): print(i)</code></div>
+      <div class="for-out" id="forout">0
+1
+2
+3
+4</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function compute(start, end, step) {
+  if (step === 0) return { values: [], reason: 'step cannot be 0', error: true };
+  const values = [];
+  if (step > 0) {
+    if (start >= end) {
+      return { values: [], reason: `start (${start}) is not less than end (${end}), and step is positive (+${step}) — cannot reach end by adding`, empty: true };
+    }
+    for (let v = start; v < end; v += step) values.push(v);
+  } else {
+    if (start <= end) {
+      return { values: [], reason: `start (${start}) is not greater than end (${end}), and step is negative (${step}) — cannot reach end by subtracting`, empty: true };
+    }
+    for (let v = start; v > end; v += step) values.push(v);
+  }
+  return { values, empty: false };
+}
+
+function callRepr(start, end, step) {
+  if (start === 0 && step === 1) return `range(${end})`;
+  if (step === 1) return `range(${start}, ${end})`;
+  return `range(${start}, ${end}, ${step})`;
+}
+
+function render() {
+  const start = parseInt(document.getElementById('i-start').value);
+  const end = parseInt(document.getElementById('i-end').value);
+  const step = parseInt(document.getElementById('i-step').value);
+  if (isNaN(start) || isNaN(end) || isNaN(step)) return;
+
+  const result = compute(start, end, step);
+  const call = callRepr(start, end, step);
+
+  // Highlight matching preset
+  document.querySelectorAll('.qb').forEach(b => {
+    const args = b.dataset.args.split(',').map(Number);
+    b.classList.toggle('active', args[0] === start && args[1] === end && args[2] === step);
+  });
+
+  // Update call display
+  if (result.values.length > 0) {
+    document.getElementById('call').innerHTML = `<span class="fn">${call}</span> <span class="arrow">→</span> <span class="seq-output">${result.values.join(', ')}</span>`;
+  } else {
+    document.getElementById('call').innerHTML = `<span class="fn">${call}</span> <span class="arrow">→</span> <span class="seq-empty">empty sequence</span>`;
+  }
+
+  // Verdict
+  const vr = document.getElementById('verdict');
+  const vt = document.getElementById('verdict-text');
+  const em = document.getElementById('empty-msg');
+
+  if (result.error) {
+    vr.classList.add('empty');
+    vt.innerHTML = '<strong>ValueError</strong> — step argument cannot be zero. Python raises an error before the loop even starts.';
+    em.classList.remove('show');
+  } else if (result.empty) {
+    vr.classList.add('empty');
+    const arrowDir = step > 0 ? 'forwards' : 'backwards';
+    vt.innerHTML = `Step <strong>${step >= 0 ? '+' : ''}${step}</strong> moves ${arrowDir}, but start <strong>${start}</strong> is on the wrong side of end <strong>${end}</strong>. Python returns an empty sequence (no error). Loops with this range simply <strong>never execute</strong>.`;
+    em.innerHTML = `<strong>${call}</strong> produces an empty sequence. ${result.reason}.`;
+    em.classList.add('show');
+  } else {
+    vr.classList.remove('empty');
+    const arrowDir = step > 0 ? 'increasing' : 'decreasing';
+    const stepDesc = Math.abs(step) === 1 ? `by ${step > 0 ? '1' : '-1'}` : `by ${step}`;
+    vt.innerHTML = `Going from <strong>${start}</strong> to <strong>${end}</strong>, ${stepDesc} (${arrowDir}). End value <strong>${end}</strong> is excluded. Produced <strong>${result.values.length}</strong> value${result.values.length === 1 ? '' : 's'}.`;
+    em.classList.remove('show');
+  }
+
+  drawLine(start, end, step, result);
+
+  // For loop output
+  const forline = document.getElementById('forline');
+  forline.textContent = `for i in ${call}: print(i)`;
+  const fo = document.getElementById('forout');
+  if (result.values.length > 0) {
+    fo.className = 'for-out';
+    fo.textContent = result.values.join('\n');
+  } else {
+    fo.className = 'for-out empty';
+    fo.textContent = '(nothing printed — loop body never ran)';
+  }
+}
+
+function drawLine(start, end, step, result) {
+  const svg = document.getElementById('line');
+  svg.innerHTML = '';
+
+  // Domain
+  const allVals = [start, end, ...result.values];
+  const minV = Math.min(...allVals);
+  const maxV = Math.max(...allVals);
+  const span = maxV - minV;
+  const pad = Math.max(1, Math.ceil(span * 0.15));
+  const lo = minV - pad;
+  const hi = maxV + pad;
+
+  const W = 1080;
+  const H = 130;
+  const margin = { l: 20, r: 20, t: 25, b: 30 };
+  const innerW = W - margin.l - margin.r;
+  const yMid = 70;
+
+  const x = v => margin.l + ((v - lo) / (hi - lo)) * innerW;
+
+  // Axis line
+  const axis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  axis.setAttribute('x1', margin.l);
+  axis.setAttribute('x2', W - margin.r);
+  axis.setAttribute('y1', yMid);
+  axis.setAttribute('y2', yMid);
+  axis.setAttribute('stroke', '#3a3f4b');
+  axis.setAttribute('stroke-width', '1.5');
+  svg.appendChild(axis);
+
+  // Tick marks for integer positions (sparingly)
+  const range = hi - lo;
+  let tickStep = 1;
+  if (range > 20) tickStep = 2;
+  if (range > 40) tickStep = 5;
+  if (range > 100) tickStep = 10;
+  const tickStart = Math.ceil(lo / tickStep) * tickStep;
+  for (let v = tickStart; v <= hi; v += tickStep) {
+    const xv = x(v);
+    const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    tick.setAttribute('x1', xv);
+    tick.setAttribute('x2', xv);
+    tick.setAttribute('y1', yMid - 4);
+    tick.setAttribute('y2', yMid + 4);
+    tick.setAttribute('stroke', '#4a4f5b');
+    tick.setAttribute('stroke-width', '1');
+    svg.appendChild(tick);
+    const lab = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lab.setAttribute('x', xv);
+    lab.setAttribute('y', yMid + 22);
+    lab.setAttribute('text-anchor', 'middle');
+    lab.setAttribute('fill', '#5a5f6b');
+    lab.setAttribute('font-family', 'JetBrains Mono, monospace');
+    lab.setAttribute('font-size', '10');
+    lab.textContent = v;
+    svg.appendChild(lab);
+  }
+
+  // Step arrows between values
+  if (result.values.length > 1) {
+    for (let i = 0; i < result.values.length - 1; i++) {
+      const x1 = x(result.values[i]);
+      const x2 = x(result.values[i+1]);
+      const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const dx = (x2 - x1) / 2;
+      const arcH = 18;
+      const yArcTop = yMid - 26;
+      arc.setAttribute('d', `M ${x1} ${yMid - 12} Q ${x1 + dx} ${yArcTop - arcH} ${x2} ${yMid - 12}`);
+      arc.setAttribute('fill', 'none');
+      arc.setAttribute('stroke', '#f0a04b');
+      arc.setAttribute('stroke-width', '1.5');
+      arc.setAttribute('opacity', '0.5');
+      svg.appendChild(arc);
+    }
+  }
+
+  // Markers for included values
+  result.values.forEach((v, i) => {
+    const xv = x(v);
+    const isStart = i === 0;
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', xv);
+    dot.setAttribute('cy', yMid);
+    dot.setAttribute('r', '7');
+    dot.setAttribute('fill', isStart ? '#5dadec' : '#f0a04b');
+    dot.setAttribute('stroke', '#0d1117');
+    dot.setAttribute('stroke-width', '2');
+    svg.appendChild(dot);
+
+    const lab = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lab.setAttribute('x', xv);
+    lab.setAttribute('y', yMid - 14);
+    lab.setAttribute('text-anchor', 'middle');
+    lab.setAttribute('fill', isStart ? '#5dadec' : '#f0a04b');
+    lab.setAttribute('font-family', 'JetBrains Mono, monospace');
+    lab.setAttribute('font-size', '11');
+    lab.setAttribute('font-weight', '600');
+    lab.textContent = v;
+    svg.appendChild(lab);
+  });
+
+  // End marker (excluded)
+  const xe = x(end);
+  const endDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  endDot.setAttribute('cx', xe);
+  endDot.setAttribute('cy', yMid);
+  endDot.setAttribute('r', '6');
+  endDot.setAttribute('fill', 'transparent');
+  endDot.setAttribute('stroke', '#e57373');
+  endDot.setAttribute('stroke-width', '2');
+  endDot.setAttribute('stroke-dasharray', '2 2');
+  svg.appendChild(endDot);
+
+  const endLab = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  endLab.setAttribute('x', xe);
+  endLab.setAttribute('y', yMid + 38);
+  endLab.setAttribute('text-anchor', 'middle');
+  endLab.setAttribute('fill', '#e57373');
+  endLab.setAttribute('font-family', 'Georgia, serif');
+  endLab.setAttribute('font-style', 'italic');
+  endLab.setAttribute('font-size', '10');
+  endLab.textContent = `end=${end} (excluded)`;
+  svg.appendChild(endLab);
+
+  // Start label if not already drawn
+  if (result.values.length > 0) {
+    const sLab = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    sLab.setAttribute('x', x(start));
+    sLab.setAttribute('y', yMid + 38);
+    sLab.setAttribute('text-anchor', 'middle');
+    sLab.setAttribute('fill', '#5dadec');
+    sLab.setAttribute('font-family', 'Georgia, serif');
+    sLab.setAttribute('font-style', 'italic');
+    sLab.setAttribute('font-size', '10');
+    sLab.textContent = `start=${start}`;
+    svg.appendChild(sLab);
+  } else {
+    // For empty case, show start and direction arrow
+    const sx = x(start);
+    const sDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    sDot.setAttribute('cx', sx);
+    sDot.setAttribute('cy', yMid);
+    sDot.setAttribute('r', '7');
+    sDot.setAttribute('fill', '#5dadec');
+    sDot.setAttribute('stroke', '#0d1117');
+    sDot.setAttribute('stroke-width', '2');
+    svg.appendChild(sDot);
+    const sLab = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    sLab.setAttribute('x', sx);
+    sLab.setAttribute('y', yMid - 14);
+    sLab.setAttribute('text-anchor', 'middle');
+    sLab.setAttribute('fill', '#5dadec');
+    sLab.setAttribute('font-family', 'JetBrains Mono, monospace');
+    sLab.setAttribute('font-size', '11');
+    sLab.setAttribute('font-weight', '600');
+    sLab.textContent = start;
+    svg.appendChild(sLab);
+    const sLab2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    sLab2.setAttribute('x', sx);
+    sLab2.setAttribute('y', yMid + 38);
+    sLab2.setAttribute('text-anchor', 'middle');
+    sLab2.setAttribute('fill', '#5dadec');
+    sLab2.setAttribute('font-family', 'Georgia, serif');
+    sLab2.setAttribute('font-style', 'italic');
+    sLab2.setAttribute('font-size', '10');
+    sLab2.textContent = `start=${start}`;
+    svg.appendChild(sLab2);
+
+    // Direction arrow showing where step goes
+    const stepDir = step > 0 ? 1 : -1;
+    const arrowLen = 60;
+    const ax1 = sx;
+    const ax2 = sx + arrowLen * stepDir;
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrow.setAttribute('d', `M ${ax1} ${yMid - 30} L ${ax2} ${yMid - 30} L ${ax2 - 6 * stepDir} ${yMid - 34} M ${ax2} ${yMid - 30} L ${ax2 - 6 * stepDir} ${yMid - 26}`);
+    arrow.setAttribute('stroke', '#e57373');
+    arrow.setAttribute('stroke-width', '2');
+    arrow.setAttribute('fill', 'none');
+    svg.appendChild(arrow);
+
+    const arrLab = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    arrLab.setAttribute('x', (ax1 + ax2) / 2);
+    arrLab.setAttribute('y', yMid - 38);
+    arrLab.setAttribute('text-anchor', 'middle');
+    arrLab.setAttribute('fill', '#e57373');
+    arrLab.setAttribute('font-family', 'Georgia, serif');
+    arrLab.setAttribute('font-style', 'italic');
+    arrLab.setAttribute('font-size', '10');
+    arrLab.textContent = `step ${step > 0 ? '+' : ''}${step} — wrong direction`;
+    svg.appendChild(arrLab);
+  }
+}
+
+document.getElementById('i-start').addEventListener('input', render);
+document.getElementById('i-end').addEventListener('input', render);
+document.getElementById('i-step').addEventListener('input', render);
+
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    const parts = b.dataset.args.split(',').map(Number);
+    const s = parts[0], e = parts[1], st = parts[2];
+    document.getElementById('i-start').value = String(s);
+    document.getElementById('i-end').value = String(e);
+    document.getElementById('i-step').value = String(st);
+    // Force read via setTimeout to ensure DOM has updated
+    setTimeout(render, 0);
+  });
+});
+
+render();
+</script>
+</body>
+</html>

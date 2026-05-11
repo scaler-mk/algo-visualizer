@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nested loops — outer and inner walking together</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 22px; margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .play-btn { background: var(--blue); color: #1a1d23; border: none; padding: 10px 18px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .play-btn:hover { background: #79c2ff; }
+  .play-btn.stop { background: var(--red); }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 6px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 13px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.2s; }
+  .code-line.exec-outer { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-inner { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-end { background: rgba(163, 217, 119, 0.12); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  .state-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 5px 13px; font-size: 12px; }
+  .pill-key { color: var(--muted); font-size: 10px; margin-right: 6px; letter-spacing: 0.08em; }
+  .pill-val { color: var(--ink); font-weight: 600; }
+  .pill.outer { border-color: var(--blue); background: rgba(93,173,236,0.08); }
+  .pill.outer .pill-val { color: var(--blue); }
+  .pill.inner { border-color: var(--accent); background: rgba(240,160,75,0.08); }
+  .pill.inner .pill-val { color: var(--accent); }
+  .pill.counter { border-color: var(--green); background: rgba(163,217,119,0.08); }
+  .pill.counter .pill-val { color: var(--green); }
+
+  .grid-wrap { background: #0d1117; border-radius: 6px; padding: 18px; margin-bottom: 14px; }
+  .grid-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; }
+  .grid {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .cell {
+    aspect-ratio: 1.6;
+    background: var(--panel-2);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--muted);
+    transition: all 0.2s;
+    border: 1px solid var(--line);
+  }
+  .cell.filled { background: rgba(240, 160, 75, 0.12); color: var(--accent); border-color: rgba(240,160,75,0.4); }
+  .cell.current { background: var(--accent); color: #1a1d23; border-color: var(--accent); transform: scale(1.08); font-weight: 700; box-shadow: 0 0 12px rgba(240, 160, 75, 0.5); }
+  .cell.row-active { border-color: var(--blue); }
+  .row-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: Georgia, serif;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    padding-right: 8px;
+    justify-content: flex-end;
+  }
+  .row-label.active { color: var(--blue); font-weight: 600; }
+
+  .output-block { background: #0d1117; border-radius: 6px; padding: 12px 14px; min-height: 80px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; white-space: pre; }
+  .output-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  .dimension-callout {
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    border-left: 3px solid var(--green);
+  }
+  .dimension-callout strong { color: var(--green); font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nested loops — outer drives the row, inner fills the column</h1>
+  <div class="sub">For every ONE step of the outer loop, the inner loop runs to completion. That's how a 1D loop becomes 2D. Watch the cells fill in left-to-right, top-to-bottom.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-s="0">5×5 grid of 1 2 3 4 5</button>
+    <button class="qb" data-s="1">3×4 multiplication grid</button>
+    <button class="qb" data-s="2">Total iterations counter</button>
+    <span style="margin-left: auto;"></span>
+    <button class="step-btn" id="step">Step ▸</button>
+    <button class="play-btn" id="play">Auto ▶</button>
+    <button class="reset-btn" id="reset">Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="scenario-head" id="sc-head">5×5 grid of 1 2 3 4 5</div>
+      <div class="scenario-sub" id="sc-sub">Outer for repeats the row 5 times, inner for prints 1–5</div>
+      <div class="code" id="code"></div>
+
+      <div class="state-row" style="margin-top: 18px;">
+        <div class="pill outer" id="p-outer"><span class="pill-key">OUTER</span><span class="pill-val">—</span></div>
+        <div class="pill inner" id="p-inner"><span class="pill-key">INNER</span><span class="pill-val">—</span></div>
+        <div class="pill counter" id="p-count"><span class="pill-key">TOTAL ITERS</span><span class="pill-val">0</span></div>
+      </div>
+
+      <div class="commentary" id="commentary">Press <strong>Step ▸</strong> to advance one cell at a time, or <strong>Auto ▶</strong> to watch the grid fill in. The outer loop variable updates only when the inner loop finishes.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">2D OUTPUT</div>
+      <div class="grid-wrap">
+        <div class="grid-title">cells fill in row-major order</div>
+        <div id="grid-container"></div>
+      </div>
+
+      <div class="panel-title" style="margin-top: 16px;">RAW PRINT OUTPUT</div>
+      <div class="output-block" id="output"><div class="output-empty">no output yet</div></div>
+
+      <div class="dimension-callout" id="dim-note">
+        <strong>1 outer × N inner = 2D</strong> — a single for loop produces 1D data (a row). Add another loop around it, and you get a 2D structure. For a 3D structure, add a third loop. Pattern continues for any number of dimensions.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    head: '5×5 grid of 1 2 3 4 5',
+    sub: 'Outer for repeats the row 5 times, inner for prints 1–5',
+    rows: 5, cols: 5,
+    cellVal: (r, c) => c + 1, // inner index 0..4 -> value 1..5
+    codeLines: [
+      ['<span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(<span class="num">5</span>):', 'outer'],
+      ['    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, <span class="num">6</span>):', 'inner'],
+      ['        <span class="fn">print</span>(i, end=<span class="str">" "</span>)', 'body'],
+      ['    <span class="fn">print</span>()', 'end-inner'],
+    ],
+    rowLabels: ['_ = 0', '_ = 1', '_ = 2', '_ = 3', '_ = 4'],
+  },
+  {
+    head: '3×4 multiplication grid',
+    sub: 'cell[i][j] = (i+1) × (j+1) — each cell uses BOTH loop variables',
+    rows: 3, cols: 4,
+    cellVal: (r, c) => (r + 1) * (c + 1),
+    codeLines: [
+      ['<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, <span class="num">4</span>):', 'outer'],
+      ['    <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(<span class="num">1</span>, <span class="num">5</span>):', 'inner'],
+      ['        <span class="fn">print</span>(i*j, end=<span class="str">" "</span>)', 'body'],
+      ['    <span class="fn">print</span>()', 'end-inner'],
+    ],
+    rowLabels: ['i = 1', 'i = 2', 'i = 3'],
+  },
+  {
+    head: 'Total iterations counter',
+    sub: '4 outer × 6 inner = 24 total iterations. Outer step happens 4 times.',
+    rows: 4, cols: 6,
+    cellVal: (r, c) => `${r + 1}·${c + 1}`,
+    codeLines: [
+      ['count = <span class="num">0</span>', null],
+      ['<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">4</span>):', 'outer'],
+      ['    <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(<span class="num">6</span>):', 'inner'],
+      ['        count += <span class="num">1</span>', 'body'],
+      ['    <span class="fn">print</span>(<span class="str">f"after outer={i}: {count}"</span>)', 'end-inner'],
+    ],
+    rowLabels: ['i = 0', 'i = 1', 'i = 2', 'i = 3'],
+    isCounter: true,
+  },
+];
+
+let scen = 0;
+// state machine: each step is one cell
+// step is (r, c) with r in [0, rows), c in [-1, cols]
+// c=-1 means about to enter inner (highlight outer); c=cols means inner done (highlight end-inner)
+let curR = 0, curC = -1;
+let cellsFilled = new Set();
+let output = [];
+let totalIters = 0;
+let playTimer = null;
+
+function reset() {
+  curR = 0;
+  curC = -1;
+  cellsFilled = new Set();
+  output = [];
+  totalIters = 0;
+  if (playTimer) { clearInterval(playTimer); playTimer = null; document.getElementById('play').textContent = 'Auto ▶'; document.getElementById('play').classList.remove('stop'); }
+  const s = SCENARIOS[scen];
+  document.getElementById('sc-head').textContent = s.head;
+  document.getElementById('sc-sub').textContent = s.sub;
+  renderCode(null);
+  renderGrid();
+  renderOutput();
+  document.getElementById('p-outer').querySelector('.pill-val').textContent = '—';
+  document.getElementById('p-inner').querySelector('.pill-val').textContent = '—';
+  document.getElementById('p-count').querySelector('.pill-val').textContent = '0';
+  document.getElementById('commentary').innerHTML = `Press <strong>Step ▸</strong> to advance one cell at a time, or <strong>Auto ▶</strong> to watch the grid fill in. The outer loop variable updates only when the inner loop finishes.`;
+  document.getElementById('step').disabled = false;
+  document.getElementById('play').disabled = false;
+}
+
+function renderCode(activeKind) {
+  const s = SCENARIOS[scen];
+  const html = s.codeLines.map(([text, kind]) => {
+    let cls = 'code-line';
+    if (kind && kind === activeKind) {
+      if (kind === 'outer') cls += ' exec-outer';
+      else if (kind === 'inner') cls += ' exec-inner';
+      else if (kind === 'body') cls += ' exec-inner';
+      else if (kind === 'end-inner') cls += ' exec-end';
+    }
+    return `<span class="${cls}">${text}</span>`;
+  }).join('');
+  document.getElementById('code').innerHTML = html;
+}
+
+function renderGrid() {
+  const s = SCENARIOS[scen];
+  const container = document.getElementById('grid-container');
+  // grid is "row label | cells"
+  container.innerHTML = '';
+  for (let r = 0; r < s.rows; r++) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'grid';
+    rowDiv.style.gridTemplateColumns = `auto repeat(${s.cols}, 1fr)`;
+    const lbl = document.createElement('div');
+    lbl.className = 'row-label' + (r === curR ? ' active' : '');
+    lbl.textContent = s.rowLabels[r];
+    rowDiv.appendChild(lbl);
+    for (let c = 0; c < s.cols; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (r === curR && c === curC) cell.classList.add('current');
+      else if (cellsFilled.has(`${r},${c}`)) cell.classList.add('filled');
+      if (r === curR) cell.classList.add('row-active');
+      const val = s.cellVal(r, c);
+      cell.textContent = (r === curR && c <= curC) || (r < curR) ? val : '·';
+      rowDiv.appendChild(cell);
+    }
+    container.appendChild(rowDiv);
+  }
+}
+
+function renderOutput() {
+  const ob = document.getElementById('output');
+  if (output.length === 0) {
+    ob.innerHTML = '<div class="output-empty">no output yet</div>';
+  } else {
+    ob.textContent = output.join('\n');
+  }
+}
+
+function step() {
+  const s = SCENARIOS[scen];
+
+  // Phase logic
+  if (curC === -1) {
+    // Outer step starting - highlight outer
+    renderCode('outer');
+    document.getElementById('p-outer').querySelector('.pill-val').textContent = s.rowLabels[curR];
+    document.getElementById('p-inner').querySelector('.pill-val').textContent = '—';
+    document.getElementById('commentary').innerHTML = `<strong>Outer loop step ${curR + 1} of ${s.rows}</strong> — about to enter the inner loop. Inner counter resets to start.`;
+    curC = 0;
+    renderGrid();
+    return;
+  }
+
+  if (curC < s.cols) {
+    // Inner step (filling cell)
+    renderCode('body');
+    document.getElementById('p-inner').querySelector('.pill-val').textContent = String(curC);
+    cellsFilled.add(`${curR},${curC}`);
+    const val = s.cellVal(curR, curC);
+    if (curC === 0) output.push('');  // start new row
+    output[output.length - 1] = (output[output.length - 1] + ' ' + val).trim();
+    totalIters++;
+    document.getElementById('p-count').querySelector('.pill-val').textContent = totalIters;
+    document.getElementById('commentary').innerHTML = `<strong>Inner iter ${curC + 1}</strong> of row ${curR + 1} → printed <strong>${val}</strong>. Total cells so far: <strong>${totalIters}</strong>.`;
+    curC++;
+    renderGrid();
+    renderOutput();
+    return;
+  }
+
+  if (curC === s.cols) {
+    // Inner loop done, print() at end
+    renderCode('end-inner');
+    document.getElementById('commentary').innerHTML = `<strong>Inner loop done</strong> — print() with no args emits a newline. Now the outer loop advances and we start the next row.`;
+    curC = -1;
+    curR++;
+    if (curR >= s.rows) {
+      // All done
+      document.getElementById('p-outer').querySelector('.pill-val').textContent = 'done';
+      document.getElementById('p-inner').querySelector('.pill-val').textContent = 'done';
+      document.getElementById('commentary').innerHTML = `<strong>All ${s.rows * s.cols} cells filled</strong>. The outer ran ${s.rows} times. For each outer step, the inner ran ${s.cols} times. <strong>${s.rows} × ${s.cols} = ${s.rows * s.cols}</strong> total inner-body executions.`;
+      document.getElementById('step').disabled = true;
+      if (playTimer) { clearInterval(playTimer); playTimer = null; document.getElementById('play').textContent = 'Auto ▶'; document.getElementById('play').classList.remove('stop'); document.getElementById('play').disabled = true; }
+    }
+    renderGrid();
+    return;
+  }
+}
+
+function togglePlay() {
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = null;
+    document.getElementById('play').textContent = 'Auto ▶';
+    document.getElementById('play').classList.remove('stop');
+  } else {
+    document.getElementById('play').textContent = 'Stop ■';
+    document.getElementById('play').classList.add('stop');
+    playTimer = setInterval(() => {
+      if (document.getElementById('step').disabled) {
+        clearInterval(playTimer);
+        playTimer = null;
+        document.getElementById('play').textContent = 'Auto ▶';
+        document.getElementById('play').classList.remove('stop');
+        document.getElementById('play').disabled = true;
+        return;
+      }
+      step();
+    }, 350);
+  }
+}
+
+document.getElementById('step').addEventListener('click', step);
+document.getElementById('play').addEventListener('click', togglePlay);
+document.getElementById('reset').addEventListener('click', reset);
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    scen = parseInt(b.dataset.s);
+    reset();
+  });
+});
+
+reset();
+</script>
+</body>
+</html>

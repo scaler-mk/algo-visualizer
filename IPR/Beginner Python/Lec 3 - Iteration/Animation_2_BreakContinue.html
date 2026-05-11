@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Break vs Continue — and the continue trap</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 22px; margin-bottom: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.trap { border-color: #5a3030; color: #c87070; }
+  .qb.trap.active { border-color: var(--red); color: var(--red); background: rgba(229, 115, 115, 0.08); }
+
+  .stage { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-head.danger { color: var(--red); }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 13px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-break { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-continue { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-skip { opacity: 0.35; text-decoration: line-through; text-decoration-color: var(--blue); }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  .state-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 5px 13px; font-size: 12px; }
+  .pill-key { color: var(--muted); font-size: 10px; margin-right: 6px; letter-spacing: 0.08em; }
+  .pill-val { color: var(--ink); font-weight: 600; }
+  .pill.hot { border-color: var(--accent); background: rgba(240,160,75,0.08); }
+  .pill.hot .pill-val { color: var(--accent); }
+  .pill.danger { border-color: var(--red); background: rgba(229,115,115,0.08); }
+  .pill.danger .pill-val { color: var(--red); }
+
+  .cond-box { background: #0d1117; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; border-left: 3px solid var(--line); }
+  .cond-box.true { border-left-color: var(--green); }
+  .cond-box.false { border-left-color: var(--red); }
+  .cond-box.break { border-left-color: var(--red); }
+  .cond-box.continue { border-left-color: var(--blue); }
+  .cond-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .cond-action { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .cond-action.break-c { color: var(--red); }
+  .cond-action.cont-c { color: var(--blue); }
+  .cond-action.skip-c { color: var(--green); }
+
+  .output-block { background: #0d1117; border-radius: 6px; padding: 12px 14px; min-height: 70px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; }
+  .output-line { color: var(--green); display: inline; margin-right: 8px; }
+  .output-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+  .commentary.danger { border-left-color: var(--red); }
+  .commentary.danger strong { color: var(--red); }
+
+  .infinite-warning { background: rgba(229, 115, 115, 0.1); border: 1px solid var(--red); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--red); font-size: 12px; display: none; }
+  .infinite-warning.show { display: block; }
+  .infinite-warning strong { font-family: 'JetBrains Mono', monospace; }
+
+  .iter-trail { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .iter-trail-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-right: 6px; }
+  .it-chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px; font-size: 11px; }
+  .it-chip.printed { color: var(--green); border-color: rgba(163, 217, 119, 0.4); }
+  .it-chip.skipped { color: var(--blue); border-color: rgba(93,173,236,0.4); opacity: 0.7; text-decoration: line-through; }
+  .it-chip.broke { color: var(--red); border-color: var(--red); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Break and continue — same code, very different outputs</h1>
+  <div class="sub"><span style="color: var(--red);">break</span> exits the loop entirely. <span style="color: var(--blue);">continue</span> skips the rest of the iteration and jumps back to the condition. The order of statements inside the loop matters — a lot.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-s="0">break at count==4</button>
+    <button class="qb" data-s="1">continue at count==4</button>
+    <button class="qb" data-s="2">continue with even numbers (for)</button>
+    <button class="qb trap" data-s="3">⚠ continue BEFORE update — INFINITE</button>
+    <span style="margin-left: auto;"></span>
+    <button class="step-btn" id="step">Step ▸</button>
+    <button class="reset-btn" id="reset">Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="scenario-head" id="sc-head">break at count==4</div>
+      <div class="scenario-sub" id="sc-sub">When count hits 4, break out entirely</div>
+      <div class="code" id="code"></div>
+      <div class="commentary" id="commentary">Press Step ▸ to begin. We'll trace iteration by iteration.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">TRACE</div>
+      <div class="state-row">
+        <div class="pill" id="p-iter"><span class="pill-key">ITER</span><span class="pill-val">—</span></div>
+        <div class="pill" id="p-count"><span class="pill-key">count / i</span><span class="pill-val">—</span></div>
+      </div>
+
+      <div class="cond-box" id="cond-box">
+        <div class="cond-label">WHAT JUST HAPPENED</div>
+        <span class="cond-action" id="cond-action">—</span>
+      </div>
+
+      <div class="iter-trail" id="trail"><span class="iter-trail-label">SEEN SO FAR</span><span style="color: var(--muted); font-style: italic; font-size: 11px;">nothing yet</span></div>
+
+      <div class="panel-title" style="margin-top: 4px;">OUTPUT</div>
+      <div class="output-block" id="output"><div class="output-empty">no output yet</div></div>
+
+      <div class="infinite-warning" id="warn">
+        ⚠ <strong>Infinite loop alert</strong> — <strong>continue</strong> jumps BACK to the condition without running the update. <strong>count</strong> stays at 4 forever. In real Python you'd hit Ctrl+C. (Capped at 6 iterations here.)
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Scenario 0: while + break at count==4
+// Scenario 1: while + continue after update (count==4 skipped, no infinite)
+// Scenario 2: for + continue on even
+// Scenario 3: while + continue BEFORE update (INFINITE at 4)
+
+const SCENARIOS = [
+  {
+    head: 'break at count==4',
+    sub: 'A while loop that bails out as soon as the condition is met',
+    danger: false,
+    isFor: false,
+    codeLines: [
+      ['<span class="kw">count</span> = <span class="num">1</span>', 'init'],
+      ['<span class="kw">while</span> count &lt;= <span class="num">100</span>:', 'cond'],
+      ['    <span class="kw">if</span> count == <span class="num">4</span>:', 'check'],
+      ['        <span class="kw">break</span>', 'break'],
+      ['    <span class="fn">print</span>(count, end=<span class="str">" "</span>)', 'print'],
+      ['    count += <span class="num">1</span>', 'update'],
+    ],
+    // Pre-computed steps
+    steps: [
+      { kind: 'init', count: 1, comment: '<strong>Init</strong> — count = 1.' },
+      { kind: 'cond', count: 1, verdict: true, comment: 'count = 1, condition <strong>1 ≤ 100</strong> is True. Enter loop.' },
+      { kind: 'check', count: 1, hit: false, comment: '<strong>if count == 4</strong>? 1 ≠ 4, condition False. Skip the break, fall through.' },
+      { kind: 'print', count: 1, comment: '<strong>print(1)</strong> — added to output.' },
+      { kind: 'update', count: 2, comment: '<strong>count += 1</strong> — count becomes 2. Back to top.' },
+      { kind: 'cond', count: 2, verdict: true, comment: 'count = 2, condition True. Enter loop body.' },
+      { kind: 'check', count: 2, hit: false, comment: '2 ≠ 4, skip break.' },
+      { kind: 'print', count: 2, comment: '<strong>print(2)</strong>.' },
+      { kind: 'update', count: 3, comment: 'count → 3.' },
+      { kind: 'cond', count: 3, verdict: true, comment: 'count = 3, condition True.' },
+      { kind: 'check', count: 3, hit: false, comment: '3 ≠ 4, skip break.' },
+      { kind: 'print', count: 3, comment: '<strong>print(3)</strong>.' },
+      { kind: 'update', count: 4, comment: 'count → 4. Now things get interesting.' },
+      { kind: 'cond', count: 4, verdict: true, comment: 'count = 4, condition <strong>4 ≤ 100</strong> is still True. Enter loop.' },
+      { kind: 'check', count: 4, hit: true, comment: '<strong>if count == 4</strong>? YES. About to hit break.' },
+      { kind: 'break', count: 4, comment: '<strong>break</strong> — exit the entire loop immediately. print(4) and the update NEVER run. Output ends at "1 2 3".' },
+    ],
+    finalOutput: ['1', '2', '3'],
+  },
+  {
+    head: 'continue after update — count==4 skipped',
+    sub: 'continue jumps back to the condition. Update was already done so count keeps progressing.',
+    danger: false,
+    isFor: false,
+    codeLines: [
+      ['<span class="kw">count</span> = <span class="num">1</span>', 'init'],
+      ['<span class="kw">while</span> count &lt;= <span class="num">10</span>:', 'cond'],
+      ['    count += <span class="num">1</span>', 'update'],
+      ['    <span class="kw">if</span> count == <span class="num">4</span>:', 'check'],
+      ['        <span class="kw">continue</span>', 'continue'],
+      ['    <span class="fn">print</span>(count, end=<span class="str">" "</span>)', 'print'],
+    ],
+    steps: [
+      { kind: 'init', count: 1, comment: '<strong>Init</strong> — count = 1.' },
+      { kind: 'cond', count: 1, verdict: true, comment: 'condition True (1 ≤ 10).' },
+      { kind: 'update', count: 2, comment: '<strong>count += 1</strong> — count = 2. Note: update comes BEFORE the print here.' },
+      { kind: 'check', count: 2, hit: false, comment: '2 ≠ 4, skip continue.' },
+      { kind: 'print', count: 2, comment: '<strong>print(2)</strong>.' },
+      { kind: 'cond', count: 2, verdict: true, comment: 'back to top. condition True.' },
+      { kind: 'update', count: 3, comment: 'count = 3.' },
+      { kind: 'check', count: 3, hit: false, comment: '3 ≠ 4, skip continue.' },
+      { kind: 'print', count: 3, comment: '<strong>print(3)</strong>.' },
+      { kind: 'cond', count: 3, verdict: true, comment: 'condition True.' },
+      { kind: 'update', count: 4, comment: 'count = 4.' },
+      { kind: 'check', count: 4, hit: true, comment: '4 == 4, condition True!' },
+      { kind: 'continue', count: 4, comment: '<strong>continue</strong> — skip <strong>print(4)</strong> and jump back to the top. count was ALREADY updated before the continue, so progress isn\'t lost.' },
+      { kind: 'cond', count: 4, verdict: true, comment: 'condition True (4 ≤ 10).' },
+      { kind: 'update', count: 5, comment: 'count = 5. We escaped the 4!' },
+      { kind: 'check', count: 5, hit: false, comment: '5 ≠ 4.' },
+      { kind: 'print', count: 5, comment: '<strong>print(5)</strong>. Loop continues normally from here.' },
+    ],
+    finalOutput: ['2', '3', '5'],
+    // Note: We stop here, showing the pattern — full output would be 2 3 5 6 7 8 9 10 11
+    truncatedNote: 'Continues through 6, 7, 8, 9, 10, 11 — full output: <strong>2 3 5 6 7 8 9 10 11</strong>',
+  },
+  {
+    head: 'for loop + continue — only odd numbers',
+    sub: 'continue inside for is simpler: no manual update, so no infinite-loop risk',
+    danger: false,
+    isFor: true,
+    codeLines: [
+      ['<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">6</span>):', 'forhead'],
+      ['    <span class="kw">if</span> i % <span class="num">2</span> == <span class="num">0</span>:', 'check'],
+      ['        <span class="kw">continue</span>', 'continue'],
+      ['    <span class="fn">print</span>(i)', 'print'],
+    ],
+    steps: [
+      { kind: 'forhead', count: 0, comment: '<strong>for i in range(6)</strong> — i takes values 0, 1, 2, 3, 4, 5. Start with i = 0.' },
+      { kind: 'check', count: 0, hit: true, comment: '<strong>i % 2 == 0</strong>? 0 % 2 = 0, True. continue.' },
+      { kind: 'continue', count: 0, comment: '<strong>continue</strong> — skip print(0), get next value.' },
+      { kind: 'forhead', count: 1, comment: 'i = 1.' },
+      { kind: 'check', count: 1, hit: false, comment: '1 % 2 = 1, condition False.' },
+      { kind: 'print', count: 1, comment: '<strong>print(1)</strong>.' },
+      { kind: 'forhead', count: 2, comment: 'i = 2.' },
+      { kind: 'check', count: 2, hit: true, comment: '2 % 2 = 0, True. continue.' },
+      { kind: 'continue', count: 2, comment: 'skip print(2).' },
+      { kind: 'forhead', count: 3, comment: 'i = 3.' },
+      { kind: 'check', count: 3, hit: false, comment: 'False.' },
+      { kind: 'print', count: 3, comment: '<strong>print(3)</strong>.' },
+      { kind: 'forhead', count: 4, comment: 'i = 4.' },
+      { kind: 'check', count: 4, hit: true, comment: 'True. continue.' },
+      { kind: 'continue', count: 4, comment: 'skip print(4).' },
+      { kind: 'forhead', count: 5, comment: 'i = 5.' },
+      { kind: 'check', count: 5, hit: false, comment: 'False.' },
+      { kind: 'print', count: 5, comment: '<strong>print(5)</strong>. for loop is exhausted, exits.' },
+    ],
+    finalOutput: ['1', '3', '5'],
+  },
+  {
+    head: 'continue BEFORE update — INFINITE at count==4',
+    sub: 'The classic trap. continue jumps to the condition without doing the update.',
+    danger: true,
+    isFor: false,
+    codeLines: [
+      ['<span class="kw">count</span> = <span class="num">1</span>', 'init'],
+      ['<span class="kw">while</span> count &lt;= <span class="num">10</span>:', 'cond'],
+      ['    <span class="kw">if</span> count == <span class="num">4</span>:', 'check'],
+      ['        <span class="kw">continue</span>', 'continue'],
+      ['    <span class="fn">print</span>(count, end=<span class="str">" "</span>)', 'print'],
+      ['    count += <span class="num">1</span>', 'update'],
+    ],
+    steps: [
+      { kind: 'init', count: 1, comment: '<strong>Init</strong> — count = 1.' },
+      { kind: 'cond', count: 1, verdict: true, comment: 'condition True.' },
+      { kind: 'check', count: 1, hit: false, comment: '1 ≠ 4, skip.' },
+      { kind: 'print', count: 1, comment: '<strong>print(1)</strong>.' },
+      { kind: 'update', count: 2, comment: 'count → 2. All good so far.' },
+      { kind: 'cond', count: 2, verdict: true, comment: 'condition True.' },
+      { kind: 'check', count: 2, hit: false, comment: '2 ≠ 4.' },
+      { kind: 'print', count: 2, comment: '<strong>print(2)</strong>.' },
+      { kind: 'update', count: 3, comment: 'count → 3.' },
+      { kind: 'cond', count: 3, verdict: true, comment: 'condition True.' },
+      { kind: 'check', count: 3, hit: false, comment: '3 ≠ 4.' },
+      { kind: 'print', count: 3, comment: '<strong>print(3)</strong>.' },
+      { kind: 'update', count: 4, comment: 'count → 4. Now we\'re entering the danger zone.' },
+      { kind: 'cond', count: 4, verdict: true, comment: 'condition True (4 ≤ 10).' },
+      { kind: 'check', count: 4, hit: true, comment: '<strong>4 == 4</strong>. About to continue.' },
+      { kind: 'continue', count: 4, danger: true, comment: '<strong>continue</strong> — jumps BACK to the condition. The update <strong>count += 1</strong> was AFTER the continue, so it never runs. <strong>count is still 4</strong>.' },
+      { kind: 'cond', count: 4, verdict: true, danger: true, comment: 'condition <strong>4 ≤ 10</strong> still True. Same iteration starts again with count = 4.' },
+      { kind: 'check', count: 4, hit: true, danger: true, comment: '<strong>4 == 4</strong> AGAIN.' },
+      { kind: 'continue', count: 4, danger: true, comment: '<strong>continue</strong> AGAIN. We\'re stuck. This will repeat forever.' },
+      { kind: 'cond', count: 4, verdict: true, danger: true, infCap: true, comment: '<strong>Stuck</strong> — this would repeat forever. <strong>Fix:</strong> put the update BEFORE the continue, or use a for loop where the update is automatic.' },
+    ],
+    finalOutput: ['1', '2', '3'],
+  },
+];
+
+let scen = 0;
+let stepIdx = 0;
+let output = [];
+let trail = [];
+
+function setScenario(idx) {
+  scen = idx;
+  reset();
+}
+
+function reset() {
+  const s = SCENARIOS[scen];
+  stepIdx = 0;
+  output = [];
+  trail = [];
+  document.getElementById('sc-head').textContent = s.head;
+  document.getElementById('sc-head').className = 'scenario-head' + (s.danger ? ' danger' : '');
+  document.getElementById('sc-sub').textContent = s.sub;
+  renderCode(null);
+  document.getElementById('p-iter').querySelector('.pill-val').textContent = '—';
+  document.getElementById('p-count').querySelector('.pill-val').textContent = '—';
+  document.getElementById('cond-action').textContent = '—';
+  document.getElementById('cond-action').className = 'cond-action';
+  document.getElementById('cond-box').className = 'cond-box';
+  document.getElementById('output').innerHTML = '<div class="output-empty">no output yet</div>';
+  document.getElementById('warn').classList.remove('show');
+  document.getElementById('commentary').className = 'commentary';
+  document.getElementById('commentary').innerHTML = "Press <strong>Step ▸</strong> to begin. We'll trace iteration by iteration.";
+  document.getElementById('step').disabled = false;
+  renderTrail();
+}
+
+function renderCode(kind) {
+  const s = SCENARIOS[scen];
+  const lineKindMap = {
+    'init': 'init', 'cond': 'cond', 'forhead': 'forhead', 'check': 'check',
+    'break': 'break', 'continue': 'continue', 'print': 'print', 'update': 'update',
+  };
+  const html = s.codeLines.map(([text, k]) => {
+    let cls = 'code-line';
+    if (k === kind) {
+      if (kind === 'break') cls += ' exec-break';
+      else if (kind === 'continue') cls += ' exec-continue';
+      else cls += ' exec';
+    }
+    return `<span class="${cls}">${text}</span>`;
+  }).join('');
+  document.getElementById('code').innerHTML = html;
+}
+
+function renderTrail() {
+  const el = document.getElementById('trail');
+  if (trail.length === 0) {
+    el.innerHTML = '<span class="iter-trail-label">SEEN SO FAR</span><span style="color: var(--muted); font-style: italic; font-size: 11px;">nothing yet</span>';
+    return;
+  }
+  const chips = trail.map(t => `<span class="it-chip ${t.cls}">${t.label}</span>`).join('');
+  el.innerHTML = '<span class="iter-trail-label">SEEN SO FAR</span>' + chips;
+}
+
+function step() {
+  const s = SCENARIOS[scen];
+  if (stepIdx >= s.steps.length) return;
+  const st = s.steps[stepIdx];
+
+  // Render code highlighting
+  renderCode(st.kind);
+
+  // Update count pill
+  document.getElementById('p-count').querySelector('.pill-val').textContent = st.count;
+  document.getElementById('p-count').classList.toggle('hot', !st.danger);
+  document.getElementById('p-count').classList.toggle('danger', !!st.danger);
+
+  // Determine iteration number
+  // Count iterations by counting cond/forhead entries
+  let iter = 0;
+  for (let i = 0; i <= stepIdx; i++) {
+    if (s.steps[i].kind === 'cond' || s.steps[i].kind === 'forhead') iter++;
+  }
+  document.getElementById('p-iter').querySelector('.pill-val').textContent = iter;
+
+  // Action description
+  const cb = document.getElementById('cond-box');
+  const ca = document.getElementById('cond-action');
+  cb.className = 'cond-box';
+  ca.className = 'cond-action';
+
+  switch (st.kind) {
+    case 'init':
+      ca.textContent = 'Initialize: ' + s.codeLines[0][0].replace(/<[^>]+>/g, '');
+      cb.classList.add('true');
+      break;
+    case 'cond':
+      ca.innerHTML = `<span style="color: ${st.verdict ? 'var(--green)' : 'var(--red)'}">condition ${st.verdict ? 'True → enter body' : 'False → exit loop'}</span>`;
+      cb.classList.add(st.verdict ? 'true' : 'false');
+      break;
+    case 'forhead':
+      ca.innerHTML = `<span style="color: var(--accent)">next value from range → i = ${st.count}</span>`;
+      cb.classList.add('true');
+      break;
+    case 'check':
+      ca.innerHTML = `<span style="color: ${st.hit ? 'var(--accent)' : 'var(--muted)'}">if check: ${st.hit ? 'TRUE — about to act' : 'False — fall through'}</span>`;
+      break;
+    case 'break':
+      ca.innerHTML = '<span style="color: var(--red); font-weight: 700;">break  →  EXIT LOOP NOW</span>';
+      cb.classList.add('break');
+      break;
+    case 'continue':
+      ca.innerHTML = '<span style="color: var(--blue); font-weight: 700;">continue  →  back to top, skip rest of body</span>';
+      cb.classList.add('continue');
+      break;
+    case 'print':
+      ca.innerHTML = `<span style="color: var(--green)">print(${st.count})  →  added to output</span>`;
+      cb.classList.add('true');
+      output.push(`${st.count}`);
+      trail.push({ label: `${st.count}`, cls: 'printed' });
+      break;
+    case 'update':
+      ca.innerHTML = `<span style="color: var(--accent)">count updated → ${st.count}</span>`;
+      cb.classList.add('true');
+      break;
+  }
+
+  // Track skipped iterations in trail for continue cases
+  if (st.kind === 'continue') {
+    trail.push({ label: `${st.count}✗`, cls: 'skipped' });
+  }
+  if (st.kind === 'break') {
+    trail.push({ label: `${st.count}✗break`, cls: 'broke' });
+  }
+
+  // Output
+  const ob = document.getElementById('output');
+  if (output.length === 0) {
+    ob.innerHTML = '<div class="output-empty">no output yet</div>';
+  } else {
+    ob.innerHTML = output.map(l => `<span class="output-line">${l}</span>`).join('');
+  }
+  renderTrail();
+
+  // Commentary
+  const cm = document.getElementById('commentary');
+  cm.innerHTML = st.comment;
+  cm.classList.toggle('danger', !!st.danger);
+
+  // Danger warnings
+  if (st.danger) {
+    document.getElementById('warn').classList.add('show');
+  }
+  if (st.infCap) {
+    document.getElementById('step').disabled = true;
+  }
+
+  stepIdx++;
+  if (stepIdx >= s.steps.length) {
+    document.getElementById('step').disabled = true;
+    if (s.truncatedNote) {
+      cm.innerHTML += '<br><br>' + s.truncatedNote;
+    } else if (!st.infCap) {
+      // Normal done
+    }
+  }
+}
+
+document.getElementById('step').addEventListener('click', step);
+document.getElementById('reset').addEventListener('click', reset);
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    setScenario(parseInt(b.dataset.s));
+  });
+});
+
+reset();
+</script>
+</body>
+</html>

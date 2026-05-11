@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>While loop anatomy — the four parts</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 22px; margin-bottom: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+
+  .stage { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 6px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 13px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  /* Components grid */
+  .components { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .comp { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 11px 13px; transition: all 0.2s; }
+  .comp.active { border-color: var(--accent); background: rgba(240, 160, 75, 0.1); box-shadow: 0 0 0 1px var(--accent); }
+  .comp-label { font-size: 9.5px; color: var(--muted); letter-spacing: 0.13em; margin-bottom: 4px; }
+  .comp-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); font-weight: 600; }
+  .comp.active .comp-val { color: var(--accent); }
+
+  /* State pills */
+  .state-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .pill { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 5px 13px; font-size: 12px; }
+  .pill-key { color: var(--muted); font-size: 10px; margin-right: 6px; letter-spacing: 0.08em; }
+  .pill-val { color: var(--ink); font-weight: 600; }
+  .pill.hot { border-color: var(--accent); background: rgba(240, 160, 75, 0.08); }
+  .pill.hot .pill-val { color: var(--accent); }
+
+  /* Condition box */
+  .cond-box { background: #0d1117; border-radius: 6px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; border-left: 3px solid var(--line); }
+  .cond-box.true { border-left-color: var(--green); }
+  .cond-box.false { border-left-color: var(--red); }
+  .cond-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+  .cond-expr { font-family: 'JetBrains Mono', monospace; }
+  .cond-verdict { float: right; font-weight: 600; }
+  .cond-verdict.t { color: var(--green); }
+  .cond-verdict.f { color: var(--red); }
+
+  /* Output */
+  .output-block { background: #0d1117; border-radius: 6px; padding: 12px 14px; min-height: 100px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; }
+  .output-line { color: var(--green); }
+  .output-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  /* Iteration counter */
+  .iter-strip { display: flex; gap: 6px; margin-bottom: 12px; align-items: center; }
+  .iter-chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 3px 9px; font-size: 11px; color: var(--muted); }
+  .iter-chip.cur { border-color: var(--accent); color: var(--accent); background: rgba(240, 160, 75, 0.1); }
+  .iter-chip.done { color: var(--green); border-color: var(--green); opacity: 0.7; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; }
+
+  /* Flow diagram */
+  .flow-mini { background: var(--panel-2); border-radius: 6px; padding: 14px; margin-bottom: 14px; }
+  .flow-mini-title { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+
+  .infinite-warning { background: rgba(229, 115, 115, 0.1); border: 1px solid var(--red); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--red); font-size: 12px; display: none; }
+  .infinite-warning.show { display: block; }
+  .infinite-warning strong { font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>While loop — the four parts working together</h1>
+  <div class="sub">Initialization, condition, action, update. Skip any of them and the loop misbehaves. Step through to watch each part fire.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-s="0">Print 1 to 5</button>
+    <button class="qb" data-s="1">Print 1 to 3, watch all 4 parts</button>
+    <button class="qb" data-s="2">⚠ Forgot to update — infinite</button>
+    <span style="margin-left: auto;"></span>
+    <button class="step-btn" id="step">Step ▸</button>
+    <button class="reset-btn" id="reset">Reset</button>
+  </div>
+
+  <div class="stage">
+
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="scenario-head" id="sc-head">Print 1 to 5</div>
+      <div class="scenario-sub" id="sc-sub">Classic while: count starts at 1, stops at 5</div>
+
+      <div class="code" id="code"></div>
+
+      <div class="commentary" id="commentary">Press Step ▸ to begin. We'll trace each iteration through the four loop components.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">THE FOUR COMPONENTS</div>
+
+      <div class="components">
+        <div class="comp" id="c-init">
+          <div class="comp-label">1 — INITIALIZATION</div>
+          <div class="comp-val" id="v-init">—</div>
+        </div>
+        <div class="comp" id="c-cond">
+          <div class="comp-label">2 — CONDITION</div>
+          <div class="comp-val" id="v-cond">—</div>
+        </div>
+        <div class="comp" id="c-act">
+          <div class="comp-label">3 — ACTION</div>
+          <div class="comp-val" id="v-act">—</div>
+        </div>
+        <div class="comp" id="c-upd">
+          <div class="comp-label">4 — UPDATE</div>
+          <div class="comp-val" id="v-upd">—</div>
+        </div>
+      </div>
+
+      <div class="state-row">
+        <div class="pill" id="p-iter"><span class="pill-key">ITER</span><span class="pill-val">—</span></div>
+        <div class="pill" id="p-count"><span class="pill-key">count</span><span class="pill-val">—</span></div>
+        <div class="pill" id="p-n"><span class="pill-key">n</span><span class="pill-val">—</span></div>
+      </div>
+
+      <div class="cond-box" id="cond-box">
+        <div class="cond-label">CURRENT CONDITION CHECK</div>
+        <span class="cond-expr" id="cond-expr">—</span>
+        <span class="cond-verdict" id="cond-verdict"></span>
+      </div>
+
+      <div class="panel-title" style="margin-top: 4px;">OUTPUT</div>
+      <div class="output-block" id="output"><div class="output-empty">no output yet</div></div>
+
+      <div class="infinite-warning" id="warn">
+        ⚠ <strong>Infinite loop alert</strong> — <strong>count</strong> never changes, so the condition stays <strong>True</strong> forever. In a real Python session you'd hit Ctrl+C to stop it. (We'll cap this at 8 iterations so your browser survives.)
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    head: 'Print 1 to 5',
+    sub: 'Classic while: count starts at 1, stops at 5',
+    init: 'count = 1',
+    update: 'count += 1',
+    initVal: 1, n: 5,
+    hasUpdate: true,
+    codeLines: [
+      ['<span class="kw">n</span> = <span class="num">5</span>', null],
+      ['<span class="kw">count</span> = <span class="num">1</span>', 'init'],
+      ['<span class="kw">while</span> count &lt;= n:', 'cond'],
+      ['    <span class="fn">print</span>(count)', 'act'],
+      ['    count += <span class="num">1</span>', 'upd'],
+      ['<span class="fn">print</span>(<span class="str">"end"</span>)', 'end'],
+    ],
+  },
+  {
+    head: 'Print 1 to 3 — watch all 4 parts',
+    sub: 'Shorter run to see every component fire on every iteration',
+    init: 'count = 1',
+    update: 'count += 1',
+    initVal: 1, n: 3,
+    hasUpdate: true,
+    codeLines: [
+      ['<span class="kw">n</span> = <span class="num">3</span>', null],
+      ['<span class="kw">count</span> = <span class="num">1</span>', 'init'],
+      ['<span class="kw">while</span> count &lt;= n:', 'cond'],
+      ['    <span class="fn">print</span>(count)', 'act'],
+      ['    count += <span class="num">1</span>', 'upd'],
+      ['<span class="fn">print</span>(<span class="str">"end"</span>)', 'end'],
+    ],
+  },
+  {
+    head: 'Forgot to update count — INFINITE LOOP',
+    sub: 'Same code, but the update line is missing. The condition can never become False.',
+    init: 'count = 1',
+    update: '(missing!)',
+    initVal: 1, n: 5,
+    hasUpdate: false,
+    codeLines: [
+      ['<span class="kw">n</span> = <span class="num">5</span>', null],
+      ['<span class="kw">count</span> = <span class="num">1</span>', 'init'],
+      ['<span class="kw">while</span> count &lt;= n:', 'cond'],
+      ['    <span class="fn">print</span>(count)', 'act'],
+      ['    <span class="cmt"># count += 1  ← FORGOT THIS</span>', 'upd-missing'],
+      ['<span class="fn">print</span>(<span class="str">"end"</span>)', 'end'],
+    ],
+  },
+];
+
+let scen = 0;
+let phase = 'idle'; // idle | init | check | action | update | exit | done | inf_cap
+let count = 0;
+let iters = [];
+let output = [];
+
+function reset() {
+  const s = SCENARIOS[scen];
+  count = s.initVal;
+  phase = 'idle';
+  iters = [];
+  output = [];
+  document.getElementById('sc-head').textContent = s.head;
+  document.getElementById('sc-sub').textContent = s.sub;
+  renderCode(null);
+  document.getElementById('v-init').textContent = '—';
+  document.getElementById('v-cond').textContent = '—';
+  document.getElementById('v-act').textContent = '—';
+  document.getElementById('v-upd').textContent = '—';
+  for (const id of ['c-init','c-cond','c-act','c-upd']) document.getElementById(id).classList.remove('active');
+  document.getElementById('p-iter').querySelector('.pill-val').textContent = '—';
+  document.getElementById('p-count').querySelector('.pill-val').textContent = '—';
+  document.getElementById('p-n').querySelector('.pill-val').textContent = s.n;
+  document.getElementById('p-iter').classList.remove('hot');
+  document.getElementById('p-count').classList.remove('hot');
+  document.getElementById('cond-box').className = 'cond-box';
+  document.getElementById('cond-expr').textContent = '—';
+  document.getElementById('cond-verdict').textContent = '';
+  document.getElementById('output').innerHTML = '<div class="output-empty">no output yet</div>';
+  document.getElementById('warn').classList.remove('show');
+  document.getElementById('commentary').innerHTML = "Press <strong>Step ▸</strong> to begin. We'll trace each iteration through the four loop components.";
+  document.getElementById('step').disabled = false;
+}
+
+function renderCode(activeKind) {
+  const s = SCENARIOS[scen];
+  const html = s.codeLines.map(([text, kind]) => {
+    const cls = (kind === activeKind && kind !== null) ? 'code-line exec' : 'code-line';
+    return `<span class="${cls}">${text}</span>`;
+  }).join('');
+  document.getElementById('code').innerHTML = html;
+}
+
+function setComp(id, active) {
+  for (const x of ['c-init','c-cond','c-act','c-upd']) {
+    document.getElementById(x).classList.toggle('active', x === id);
+  }
+}
+
+function updateOutput() {
+  const ob = document.getElementById('output');
+  if (output.length === 0) {
+    ob.innerHTML = '<div class="output-empty">no output yet</div>';
+  } else {
+    ob.innerHTML = output.map(l => `<div class="output-line">${l}</div>`).join('');
+  }
+}
+
+function comment(html) { document.getElementById('commentary').innerHTML = html; }
+
+function step() {
+  const s = SCENARIOS[scen];
+
+  if (phase === 'idle') {
+    // Run init
+    phase = 'init';
+    document.getElementById('v-init').textContent = s.init;
+    setComp('c-init', true);
+    renderCode('init');
+    document.getElementById('p-count').querySelector('.pill-val').textContent = count;
+    document.getElementById('p-count').classList.add('hot');
+    comment(`<strong>Init</strong> — runs ONCE before the loop. We set <strong>count = ${s.initVal}</strong>. This gives the condition something to check.`);
+    return;
+  }
+
+  if (phase === 'init' || phase === 'update') {
+    // Move to condition check
+    phase = 'check';
+    const ok = count <= s.n;
+    document.getElementById('v-cond').textContent = `count <= ${s.n}`;
+    setComp('c-cond', true);
+    renderCode('cond');
+    document.getElementById('cond-expr').textContent = `${count} <= ${s.n}`;
+    document.getElementById('cond-verdict').textContent = ok ? 'True →  enter' : 'False →  exit';
+    document.getElementById('cond-verdict').className = 'cond-verdict ' + (ok ? 't' : 'f');
+    document.getElementById('cond-box').className = 'cond-box ' + (ok ? 'true' : 'false');
+    if (ok) {
+      const it = iters.length + 1;
+      iters.push(it);
+      document.getElementById('p-iter').querySelector('.pill-val').textContent = it;
+      document.getElementById('p-iter').classList.add('hot');
+      comment(`<strong>Condition</strong> — <strong>${count} <= ${s.n}</strong> is True. Enter the loop body. Iteration <strong>${it}</strong> begins.`);
+    } else {
+      comment(`<strong>Condition</strong> — <strong>${count} <= ${s.n}</strong> is False. Exit the loop. Whatever comes after runs next.`);
+      phase = 'exit';
+    }
+    return;
+  }
+
+  if (phase === 'check') {
+    // Run action (print)
+    phase = 'action';
+    document.getElementById('v-act').textContent = `print(${count})`;
+    setComp('c-act', true);
+    renderCode('act');
+    output.push(`${count}`);
+    updateOutput();
+    comment(`<strong>Action</strong> — the body runs. <strong>print(${count})</strong> appears in the output.`);
+    return;
+  }
+
+  if (phase === 'action') {
+    // Run update
+    phase = 'update';
+    if (s.hasUpdate) {
+      const oldCount = count;
+      count += 1;
+      document.getElementById('v-upd').textContent = `count = ${count}`;
+      setComp('c-upd', true);
+      renderCode('upd');
+      document.getElementById('p-count').querySelector('.pill-val').textContent = count;
+      comment(`<strong>Update</strong> — <strong>count</strong> changes from ${oldCount} to <strong>${count}</strong>. Now we jump back up to re-check the condition.`);
+    } else {
+      // missing update — count stays same
+      document.getElementById('v-upd').textContent = '⚠ missing';
+      setComp('c-upd', true);
+      renderCode('upd-missing');
+      comment(`<strong>Update SKIPPED</strong> — there's no <strong>count += 1</strong>. So <strong>count</strong> stays at <strong>${count}</strong> forever. The next condition check will pass for the same reason as this one did...`);
+      document.getElementById('warn').classList.add('show');
+      // Cap the infinite loop
+      if (iters.length >= 8) {
+        phase = 'inf_cap';
+        document.getElementById('step').disabled = true;
+        comment(`<strong>Stopped after 8 iterations</strong> — in real Python this would just keep going. To fix: add <strong>count += 1</strong> inside the loop body.`);
+        return;
+      }
+    }
+    return;
+  }
+
+  if (phase === 'exit') {
+    phase = 'done';
+    renderCode('end');
+    setComp(null, false);
+    output.push('end');
+    updateOutput();
+    document.getElementById('p-iter').classList.remove('hot');
+    document.getElementById('p-count').classList.remove('hot');
+    comment(`<strong>Loop exited</strong> after ${iters.length} iteration${iters.length === 1 ? '' : 's'}. The statement after the loop — <strong>print("end")</strong> — runs and the program finishes.`);
+    document.getElementById('step').disabled = true;
+    return;
+  }
+}
+
+document.getElementById('step').addEventListener('click', step);
+document.getElementById('reset').addEventListener('click', reset);
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    scen = parseInt(b.dataset.s);
+    reset();
+  });
+});
+
+reset();
+</script>
+</body>
+</html>
