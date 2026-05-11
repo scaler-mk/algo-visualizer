@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Slicing with steps — when Python skips elements</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .list-frame { background: #0d1117; border-radius: 6px; padding: 22px 18px; min-height: 280px; }
+  .list-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+  .row { display: flex; gap: 4px; justify-content: center; align-items: center; }
+  .row + .row { margin-top: 4px; }
+  .idx-cell { width: 64px; text-align: center; font-size: 11px; font-family: 'JetBrains Mono', monospace; padding: 4px 0; color: var(--muted); }
+  .cell { width: 64px; height: 52px; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--ink); position: relative; transition: all 0.3s; }
+  .cell.picked { border-color: var(--accent); background: rgba(240, 160, 75, 0.22); transform: translateY(-6px); box-shadow: 0 6px 16px rgba(240,160,75,0.18); }
+  .cell.picked::before { content: attr(data-order); position:absolute; top:-10px; right:-6px; width: 18px; height: 18px; background: var(--accent); color: #1a1d23; font-size: 10px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .cell.skipped { opacity: 0.35; }
+  .cell.cursor { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(93,173,236,0.15); }
+
+  .cursor-row { display: flex; gap: 4px; justify-content: center; height: 22px; margin-bottom: 4px; }
+  .cursor-cell { width: 64px; text-align: center; font-size: 14px; color: var(--blue); font-weight: 700; opacity: 0; transition: opacity 0.2s; }
+  .cursor-cell.show { opacity: 1; }
+
+  .result-display { display: flex; gap: 14px; align-items: center; justify-content: center; margin-top: 18px; padding: 14px; background: var(--panel-2); border-radius: 6px; min-height: 48px; flex-wrap: wrap; }
+  .expr { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: var(--blue); font-weight: 600; }
+  .arrow-sep { color: var(--muted); font-size: 14px; }
+  .slice-out { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: var(--green); font-weight: 600; }
+  .formula { font-family: Georgia, serif; font-style: italic; color: var(--muted); font-size: 11.5px; }
+  .formula strong { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-style: normal; font-weight: 600; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .bad { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .insight { background: rgba(192, 132, 232, 0.08); border: 1px solid rgba(192, 132, 232, 0.4); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--purple); font-size: 11.5px; font-family: Georgia, serif; font-style: italic; display: none; }
+  .insight.show { display: block; }
+  .insight strong { font-family: 'JetBrains Mono', monospace; color: var(--purple); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Slicing with steps — when Python skips elements</h1>
+  <div class="sub">The third number in a slice is <strong>step</strong>: how far to jump after picking each element. Positive steps move right; negative steps move <em>backward</em>. Watch the cursor walk.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-sc="0">nums[::2] — every other element</button>
+    <button class="qb" data-sc="1">nums[::-1] — reverse the list</button>
+    <button class="qb" data-sc="2">nums[::-2] — every 2nd from the back</button>
+    <button class="qb" data-sc="3">nums[1:6:2] — start, stop, AND step</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">SOURCE CODE</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+      <div class="code" id="codeBlock"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">THE WALK</div>
+      <div class="list-frame">
+        <div class="list-label" id="listLabel">nums = [0, 1, 2, 3, 4, 5]</div>
+        <div class="cursor-row" id="cursorRow"></div>
+        <div class="row" id="cellRow"></div>
+        <div class="row" id="idxRow"></div>
+        <div class="result-display" id="resultDisplay">
+          <span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">— press Step ▸ to begin —</span>
+        </div>
+      </div>
+      <div class="commentary" id="commentary">Pick a scenario above. Watch the blue cursor walk the list with the chosen <strong>step</strong>.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const NUMS = [0, 1, 2, 3, 4, 5];
+const N = NUMS.length;
+
+function computeIndices(start, stop, step) {
+  const out = [];
+  if (step > 0) for (let i = start; i < stop; i += step) out.push(i);
+  else for (let i = start; i > stop; i += step) out.push(i);
+  return out;
+}
+
+const SCENARIOS = [
+  {
+    name: 'nums[::2] — every other element',
+    sub: 'No start, no stop, step = 2. Begin at 0, jump 2 each time, stop at end.',
+    code: [
+      'nums = [0, 1, 2, 3, 4, 5]',
+      '',
+      'print(nums[::2])',
+    ],
+    start: 0, stop: N, step: 2, expr: 'nums[::2]',
+    plan: [
+      { kind: 'init', line: 0, msg: `Same list as before — six elements, indices 0–5.` },
+      { kind: 'explain', msg: `<strong>nums[::2]</strong> — blanks for <em>start</em> and <em>stop</em> mean defaults (<strong>0</strong> and <strong>len(nums)</strong>). The <strong>step = 2</strong> means: pick one, skip one.` },
+      { kind: 'walk', idx: 0, order: 0, msg: `Cursor at index <strong>0</strong> → pick <span class="ok">0</span>.` },
+      { kind: 'walk', idx: 2, order: 1, msg: `Jump +2 to index <strong>2</strong> → pick <span class="ok">2</span>.` },
+      { kind: 'walk', idx: 4, order: 2, msg: `Jump +2 to index <strong>4</strong> → pick <span class="ok">4</span>.` },
+      { kind: 'walk', idx: 6, last: true, msg: `Jump +2 to index <strong>6</strong> — but that's past the end (<strong>stop = 6</strong>). Walk halts.` },
+      { kind: 'result', line: 2, msg: `<strong>nums[::2]</strong> → <span class="ok">[0, 2, 4]</span>.` },
+    ],
+    insight: `Positive step walks <em>forward</em>. The cursor halts the moment it reaches or passes the (default or explicit) stop.`,
+  },
+  {
+    name: 'nums[::-1] — reverse the list',
+    sub: 'Negative step walks backward. The famous "reverse trick".',
+    code: [
+      'nums = [0, 1, 2, 3, 4, 5]',
+      '',
+      'print(nums[::-1])',
+    ],
+    start: 5, stop: -1, step: -1, expr: 'nums[::-1]',
+    plan: [
+      { kind: 'init', line: 0, msg: `Now the trick: <strong>step = -1</strong>.` },
+      { kind: 'explain', msg: `When step is negative, defaults flip: <strong>start</strong> becomes the <em>last</em> index (5) and <strong>stop</strong> goes past the front. We walk <em>right to left</em>.` },
+      { kind: 'walk', idx: 5, order: 0, msg: `Cursor at index <strong>5</strong> → pick <span class="ok">5</span>.` },
+      { kind: 'walk', idx: 4, order: 1, msg: `Step <strong>-1</strong> → index 4 → pick <span class="ok">4</span>.` },
+      { kind: 'walk', idx: 3, order: 2, msg: `Index 3 → pick <span class="ok">3</span>.` },
+      { kind: 'walk', idx: 2, order: 3, msg: `Index 2 → pick <span class="ok">2</span>.` },
+      { kind: 'walk', idx: 1, order: 4, msg: `Index 1 → pick <span class="ok">1</span>.` },
+      { kind: 'walk', idx: 0, order: 5, msg: `Index 0 → pick <span class="ok">0</span>. We've reached the start.` },
+      { kind: 'result', line: 2, msg: `<strong>nums[::-1]</strong> → <span class="ok">[5, 4, 3, 2, 1, 0]</span>. The list, reversed — without modifying the original.` },
+    ],
+    insight: `<strong>nums[::-1]</strong> returns a <em>new</em> reversed list. The original <strong>nums</strong> is unchanged. Compare with <strong>nums.reverse()</strong>, which flips in-place and modifies the original.`,
+  },
+  {
+    name: 'nums[::-2] — every 2nd from the back',
+    sub: 'Negative step combined with skipping — reverse AND drop every other.',
+    code: [
+      'nums = [0, 1, 2, 3, 4, 5]',
+      '',
+      'print(nums[::-2])',
+    ],
+    start: 5, stop: -1, step: -2, expr: 'nums[::-2]',
+    plan: [
+      { kind: 'init', line: 0, msg: `This one combines two ideas: walk backward (negative step) <em>and</em> skip every other (magnitude 2).` },
+      { kind: 'explain', msg: `<strong>step = -2</strong>: start at the last index and jump <em>backward</em> by 2 each time.` },
+      { kind: 'walk', idx: 5, order: 0, msg: `Cursor at <strong>5</strong> → pick <span class="ok">5</span>.` },
+      { kind: 'walk', idx: 3, order: 1, msg: `Jump -2 → index <strong>3</strong> → pick <span class="ok">3</span>.` },
+      { kind: 'walk', idx: 1, order: 2, msg: `Jump -2 → index <strong>1</strong> → pick <span class="ok">1</span>.` },
+      { kind: 'walk', idx: -1, last: true, msg: `Jump -2 → index <strong>-1</strong> (before the start). Walk halts.` },
+      { kind: 'result', line: 2, msg: `<strong>nums[::-2]</strong> → <span class="ok">[5, 3, 1]</span>.` },
+    ],
+    insight: `Reading the slice backwards: start at end, drop one, take one, drop one, take one… It's exactly the same picks as <strong>nums[::2]</strong> reversed.`,
+  },
+  {
+    name: 'nums[1:6:2] — start, stop, AND step',
+    sub: 'All three numbers explicit — useful when you only want part of the list, stepped.',
+    code: [
+      'nums = [0, 1, 2, 3, 4, 5]',
+      '',
+      'print(nums[1:6:2])',
+    ],
+    start: 1, stop: 6, step: 2, expr: 'nums[1:6:2]',
+    plan: [
+      { kind: 'init', line: 0, msg: `Now nothing is implicit — start, stop, and step are all spelled out.` },
+      { kind: 'explain', msg: `<strong>start = 1</strong>, <strong>stop = 6</strong>, <strong>step = 2</strong>. Begin at 1, walk forward by 2, stop before 6.` },
+      { kind: 'walk', idx: 1, order: 0, msg: `Cursor at <strong>1</strong> → pick <span class="ok">1</span>.` },
+      { kind: 'walk', idx: 3, order: 1, msg: `Jump +2 → index <strong>3</strong> → pick <span class="ok">3</span>.` },
+      { kind: 'walk', idx: 5, order: 2, msg: `Jump +2 → index <strong>5</strong> → pick <span class="ok">5</span>. Still less than stop (6), so it's included.` },
+      { kind: 'walk', idx: 7, last: true, msg: `Jump +2 → index <strong>7</strong> — past stop. Walk halts.` },
+      { kind: 'result', line: 2, msg: `<strong>nums[1:6:2]</strong> → <span class="ok">[1, 3, 5]</span>.` },
+    ],
+    insight: `When in doubt, read a slice left to right: <strong>start, stop, step</strong>. Then mentally walk the cursor from <em>start</em>, jumping by <em>step</em>, while staying inside <em>stop</em>.`,
+  },
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
+  h = h.replace(/(#[^<\n]*)/g, '<span class="cmt">$1</span>');
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|len|range|int|str)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  return h;
+}
+
+function buildList() {
+  const cellRow = document.getElementById('cellRow');
+  const idxRow = document.getElementById('idxRow');
+  const cursorRow = document.getElementById('cursorRow');
+  cellRow.innerHTML=''; idxRow.innerHTML=''; cursorRow.innerHTML='';
+  NUMS.forEach((v, i) => {
+    const cu = document.createElement('div'); cu.className='cursor-cell'; cu.id=`cur-${i}`; cu.textContent='▼'; cursorRow.appendChild(cu);
+    const c = document.createElement('div'); c.className='cell'; c.id=`cell-${i}`; c.textContent=v; cellRow.appendChild(c);
+    const x = document.createElement('div'); x.className='idx-cell'; x.id=`idx-${i}`; x.textContent=i; idxRow.appendChild(x);
+  });
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  buildList();
+  render();
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  const plan = sc.plan;
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  // Code
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line === idx) cls += ' exec';
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  // Reset visuals
+  document.querySelectorAll('.cell').forEach(c => { c.classList.remove('picked','skipped','cursor'); c.removeAttribute('data-order'); });
+  document.querySelectorAll('.cursor-cell').forEach(c => c.classList.remove('show'));
+
+  const resultDisplay = document.getElementById('resultDisplay');
+
+  // Walk through plan
+  let picks = [];
+  let resulted = false;
+  let lastCursorIdx = null;
+  let explained = false;
+  for (let s = 0; s < stepIdx; s++) {
+    const p = plan[s];
+    if (p.kind === 'walk') {
+      if (p.order !== undefined) {
+        picks.push({ idx: p.idx, order: p.order });
+        lastCursorIdx = p.idx;
+      } else {
+        lastCursorIdx = p.idx; // out-of-range cursor
+      }
+    }
+    if (p.kind === 'result') resulted = true;
+    if (p.kind === 'explain') explained = true;
+  }
+
+  // Paint picks
+  picks.forEach(p => {
+    const c = document.getElementById(`cell-${p.idx}`);
+    if (c) { c.classList.add('picked'); c.setAttribute('data-order', p.order); }
+  });
+
+  // Show cursor for current step (if walk)
+  if (cur && cur.kind === 'walk' && cur.idx >= 0 && cur.idx < N) {
+    document.getElementById(`cur-${cur.idx}`)?.classList.add('show');
+    document.getElementById(`cell-${cur.idx}`)?.classList.add('cursor');
+  }
+
+  // If result step, dim non-picks
+  if (resulted) {
+    const pickSet = new Set(picks.map(p => p.idx));
+    for (let i = 0; i < N; i++) {
+      if (!pickSet.has(i)) document.getElementById(`cell-${i}`)?.classList.add('skipped');
+    }
+  }
+
+  // Result display
+  if (resulted) {
+    const vals = picks.sort((a,b)=>a.order-b.order).map(p => NUMS[p.idx]);
+    resultDisplay.innerHTML = `
+      <span class="expr">${sc.expr}</span>
+      <span class="arrow-sep">→</span>
+      <span class="slice-out">[${vals.join(', ')}]</span>
+    `;
+  } else if (picks.length > 0) {
+    const vals = picks.sort((a,b)=>a.order-b.order).map(p => NUMS[p.idx]);
+    resultDisplay.innerHTML = `<span class="formula">Picks so far → <strong>[${vals.join(', ')}]</strong></span>`;
+  } else if (explained) {
+    resultDisplay.innerHTML = `<span class="formula">Ready to walk with <strong>${sc.expr}</strong>.</span>`;
+  } else if (cur) {
+    resultDisplay.innerHTML = `<span class="formula">Press <strong>Step ▸</strong> to walk.</span>`;
+  } else {
+    resultDisplay.innerHTML = `<span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">— press Step ▸ to begin —</span>`;
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : `Pick a scenario above. Watch the blue cursor walk the list with the chosen <strong>step</strong>.`;
+
+  const insightEl = document.getElementById('insight');
+  if (sc.insight && stepIdx === plan.length) {
+    insightEl.innerHTML = `<strong>Lesson →</strong> ${sc.insight}`;
+    insightEl.classList.add('show');
+  } else {
+    insightEl.classList.remove('show');
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>List indexing — positive & negative addresses</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-err { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .op { color: #ff9bb3; }
+
+  .list-frame { background: #0d1117; border-radius: 6px; padding: 22px 18px; min-height: 220px; }
+  .list-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+  .row { display: flex; gap: 4px; justify-content: center; align-items: center; }
+  .row + .row { margin-top: 4px; }
+  .idx-cell { width: 84px; text-align: center; font-size: 11px; font-family: 'JetBrains Mono', monospace; padding: 4px 0; transition: all 0.25s; }
+  .idx-cell.pos { color: var(--blue); }
+  .idx-cell.neg { color: var(--red); }
+  .idx-cell.active.pos { color: var(--accent); font-weight: 700; transform: scale(1.15); }
+  .idx-cell.active.neg { color: var(--accent); font-weight: 700; transform: scale(1.15); }
+  .cell { width: 84px; height: 56px; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--ink); transition: all 0.3s; }
+  .cell.active { border-color: var(--accent); background: rgba(240, 160, 75, 0.18); transform: translateY(-6px); box-shadow: 0 8px 20px rgba(240,160,75,0.18); }
+  .cell.error-flash { border-color: var(--red); background: rgba(229, 115, 115, 0.18); animation: shake 0.4s; }
+  @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-4px);} 75%{transform:translateX(4px);} }
+
+  .arrow-row { display: flex; gap: 4px; justify-content: center; height: 18px; margin-top: 6px; }
+  .arrow-cell { width: 84px; text-align: center; color: var(--accent); font-size: 14px; font-weight: 700; opacity: 0; transition: opacity 0.2s; }
+  .arrow-cell.show { opacity: 1; }
+
+  .expr-display { display: flex; gap: 12px; align-items: center; justify-content: center; margin-top: 18px; padding: 14px; background: var(--panel-2); border-radius: 6px; min-height: 56px; flex-wrap: wrap; }
+  .expr { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--blue); font-weight: 600; }
+  .expr .arrow { color: var(--muted); margin: 0 8px; }
+  .expr .result { color: var(--green); }
+  .expr.err .result { color: var(--red); }
+  .expr.faded { opacity: 0.35; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .bad { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .insight { background: rgba(229, 115, 115, 0.08); border: 1px solid rgba(229, 115, 115, 0.4); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--red); font-size: 11.5px; font-family: Georgia, serif; font-style: italic; display: none; }
+  .insight.show { display: block; }
+  .insight strong { font-family: 'JetBrains Mono', monospace; color: var(--red); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>List indexing — positive & negative addresses</h1>
+  <div class="sub">Every element has <em>two</em> addresses: a positive index counting from the front, and a negative one counting from the back. Step through to see how Python looks them up.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-sc="0">Positive index — count from the front</button>
+    <button class="qb" data-sc="1">Negative index — count from the back</button>
+    <button class="qb" data-sc="2">Both point to the same element</button>
+    <button class="qb warn" data-sc="3">⚠ IndexError — out of range</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">SOURCE CODE</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+      <div class="code" id="codeBlock"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">THE LIST</div>
+      <div class="list-frame">
+        <div class="list-label">students = ["Kusum", "Shubham", "Pooja", "Aakar", "Ravi"]</div>
+        <div class="row" id="posRow"></div>
+        <div class="row" id="cellRow"></div>
+        <div class="row" id="negRow"></div>
+        <div class="arrow-row" id="arrowRow"></div>
+        <div class="expr-display" id="exprDisplay">
+          <span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">— press Step ▸ to begin —</span>
+        </div>
+      </div>
+      <div class="commentary" id="commentary">Pick a scenario above. Each one demonstrates a different way Python locates elements in a list.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STUDENTS = ["Kusum", "Shubham", "Pooja", "Aakar", "Ravi"];
+const N = STUDENTS.length;
+
+const SCENARIOS = [
+  {
+    name: 'Positive index — count from the front',
+    sub: 'Indices begin at 0 for the first element and increase to the right.',
+    code: [
+      'students = ["Kusum", "Shubham", "Pooja", "Aakar", "Ravi"]',
+      '',
+      'print(students[0])',
+      'print(students[2])',
+      'print(students[4])',
+    ],
+    plan: [
+      { line: 0, kind: 'init', msg: `The list <strong>students</strong> is created. Each element gets a <span class="blue">positive index</span> starting at <strong>0</strong> from the left.` },
+      { line: 2, kind: 'lookup', idx: 0, expr: 'students[0]', result: '"Kusum"', msg: `<strong>students[0]</strong> — Python jumps to position <span class="blue">0</span> and returns <span class="ok">"Kusum"</span>.` },
+      { line: 3, kind: 'lookup', idx: 2, expr: 'students[2]', result: '"Pooja"', msg: `<strong>students[2]</strong> — three positions in from the left (0, 1, <span class="blue">2</span>) → <span class="ok">"Pooja"</span>.` },
+      { line: 4, kind: 'lookup', idx: 4, expr: 'students[4]', result: '"Ravi"', msg: `<strong>students[4]</strong> — the <em>last</em> element, since the list has 5 items (indices 0–4) → <span class="ok">"Ravi"</span>.` },
+    ],
+    insight: null,
+  },
+  {
+    name: 'Negative index — count from the back',
+    sub: '-1 is the last element. -2 is second-from-last. And so on.',
+    code: [
+      'students = ["Kusum", "Shubham", "Pooja", "Aakar", "Ravi"]',
+      '',
+      'print(students[-1])',
+      'print(students[-2])',
+      'print(students[-5])',
+    ],
+    plan: [
+      { line: 0, kind: 'init', msg: `Same list. Now each element <em>also</em> has a <span class="bad">negative index</span> counting from the right: <strong>-1</strong> is last, <strong>-2</strong> is second-from-last…` },
+      { line: 2, kind: 'lookup', idx: 4, negView: true, expr: 'students[-1]', result: '"Ravi"', msg: `<strong>students[-1]</strong> — one step back from the end → <span class="ok">"Ravi"</span>. Quick way to grab the last item.` },
+      { line: 3, kind: 'lookup', idx: 3, negView: true, expr: 'students[-2]', result: '"Aakar"', msg: `<strong>students[-2]</strong> — two steps back → <span class="ok">"Aakar"</span>.` },
+      { line: 4, kind: 'lookup', idx: 0, negView: true, expr: 'students[-5]', result: '"Kusum"', msg: `<strong>students[-5]</strong> — five steps back, which lands on the very first element → <span class="ok">"Kusum"</span>. Same as <strong>students[0]</strong>.` },
+    ],
+    insight: `For a list of length <strong>n</strong>, valid negative indices run from <strong>-1</strong> (last) to <strong>-n</strong> (first). Going further (e.g. <strong>-6</strong> here) raises <strong>IndexError</strong>.`,
+  },
+  {
+    name: 'Both point to the same element',
+    sub: 'Each element has two equivalent addresses — one positive, one negative.',
+    code: [
+      'students = ["Kusum", "Shubham", "Pooja", "Aakar", "Ravi"]',
+      '',
+      'print(students[1])   # positive view',
+      'print(students[-4])  # same element, negative view',
+    ],
+    plan: [
+      { line: 0, kind: 'init', msg: `Watch what happens when we ask for the same element using <em>two different</em> indices.` },
+      { line: 2, kind: 'lookup', idx: 1, expr: 'students[1]', result: '"Shubham"', msg: `<strong>students[1]</strong> — count <span class="blue">1</span> from the front → <span class="ok">"Shubham"</span>.` },
+      { line: 3, kind: 'lookup', idx: 1, negView: true, expr: 'students[-4]', result: '"Shubham"', msg: `<strong>students[-4]</strong> — count <span class="bad">4</span> from the back → <span class="ok">"Shubham"</span>. <em>Same element, different address.</em>` },
+    ],
+    insight: `The relation is <strong>negative_index = positive_index − n</strong>. So for n = 5, index <strong>1</strong> and index <strong>-4</strong> refer to the same element.`,
+  },
+  {
+    name: '⚠ IndexError — out of range',
+    sub: 'Asking for an index that doesn\'t exist crashes the program.',
+    code: [
+      'students = ["Kusum", "Shubham", "Pooja", "Aakar", "Ravi"]',
+      '',
+      'print(students[4])   # OK — last valid index',
+      'print(students[5])   # IndexError!',
+    ],
+    plan: [
+      { line: 0, kind: 'init', msg: `The list has <strong>5</strong> elements, so valid positive indices are <strong>0</strong> through <strong>4</strong>.` },
+      { line: 2, kind: 'lookup', idx: 4, expr: 'students[4]', result: '"Ravi"', msg: `<strong>students[4]</strong> — the last valid index → <span class="ok">"Ravi"</span>. So far so good.` },
+      { line: 3, kind: 'error', expr: 'students[5]', result: 'IndexError: list index out of range', msg: `<strong>students[5]</strong> — but there's <em>no</em> position 5. <span class="bad">IndexError</span> — execution stops here.` },
+    ],
+    insight: `<strong>Off-by-one is the #1 list bug.</strong> A list of length n has indices <strong>0</strong> to <strong>n−1</strong>, not <strong>0</strong> to <strong>n</strong>. Use <strong>len(students) − 1</strong> for the last index, or simply <strong>students[-1]</strong>.`,
+  },
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
+  h = h.replace(/(#[^<\n]*)/g, '<span class="cmt">$1</span>');
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|len|range|int|str)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  return h;
+}
+
+function buildList() {
+  const posRow = document.getElementById('posRow');
+  const cellRow = document.getElementById('cellRow');
+  const negRow = document.getElementById('negRow');
+  const arrowRow = document.getElementById('arrowRow');
+  posRow.innerHTML=''; cellRow.innerHTML=''; negRow.innerHTML=''; arrowRow.innerHTML='';
+  STUDENTS.forEach((v, i) => {
+    const p = document.createElement('div'); p.className='idx-cell pos'; p.id=`pos-${i}`; p.textContent = i; posRow.appendChild(p);
+    const c = document.createElement('div'); c.className='cell'; c.id=`cell-${i}`; c.textContent=`"${v}"`; cellRow.appendChild(c);
+    const n = document.createElement('div'); n.className='idx-cell neg'; n.id=`neg-${i}`; n.textContent = i-N; negRow.appendChild(n);
+    const a = document.createElement('div'); a.className='arrow-cell'; a.id=`arr-${i}`; a.textContent='↑'; arrowRow.appendChild(a);
+  });
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  buildList();
+  render();
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  const plan = sc.plan;
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line === idx) {
+      if (cur.kind === 'error') cls += ' exec-err';
+      else cls += ' exec';
+    }
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  document.querySelectorAll('.cell').forEach(c => c.classList.remove('active','error-flash'));
+  document.querySelectorAll('.idx-cell').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.arrow-cell').forEach(c => c.classList.remove('show'));
+
+  const exprDisplay = document.getElementById('exprDisplay');
+  if (cur) {
+    if (cur.kind === 'init') {
+      exprDisplay.innerHTML = `<span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">List loaded into memory — ready to index.</span>`;
+    } else if (cur.kind === 'lookup') {
+      const cell = document.getElementById(`cell-${cur.idx}`);
+      if (cell) cell.classList.add('active');
+      const arr = document.getElementById(`arr-${cur.idx}`);
+      if (arr) arr.classList.add('show');
+      if (cur.negView) document.getElementById(`neg-${cur.idx}`)?.classList.add('active');
+      else document.getElementById(`pos-${cur.idx}`)?.classList.add('active');
+
+      let exprs = '';
+      for (let s = 0; s < stepIdx; s++) {
+        const p = plan[s];
+        if (p.kind === 'lookup') {
+          const isCur = s === stepIdx - 1;
+          exprs += `<span class="expr ${isCur ? '' : 'faded'}">${p.expr}<span class="arrow">→</span><span class="result">${p.result}</span></span>`;
+        }
+        if (p.kind === 'error') {
+          const isCur = s === stepIdx - 1;
+          exprs += `<span class="expr err ${isCur ? '' : 'faded'}">${p.expr}<span class="arrow">→</span><span class="result">${p.result}</span></span>`;
+        }
+      }
+      exprDisplay.innerHTML = exprs;
+    } else if (cur.kind === 'error') {
+      document.querySelectorAll('.cell').forEach(c => c.classList.add('error-flash'));
+      let exprs = '';
+      for (let s = 0; s < stepIdx; s++) {
+        const p = plan[s];
+        const isCur = s === stepIdx - 1;
+        if (p.kind === 'lookup') {
+          exprs += `<span class="expr ${isCur ? '' : 'faded'}">${p.expr}<span class="arrow">→</span><span class="result">${p.result}</span></span>`;
+        }
+        if (p.kind === 'error') {
+          exprs += `<span class="expr err ${isCur ? '' : 'faded'}">${p.expr}<span class="arrow">→</span><span class="result">${p.result}</span></span>`;
+        }
+      }
+      exprDisplay.innerHTML = exprs;
+    }
+  } else {
+    exprDisplay.innerHTML = `<span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">— press Step ▸ to begin —</span>`;
+  }
+
+  const commentary = document.getElementById('commentary');
+  commentary.innerHTML = cur ? cur.msg : `Pick a scenario above. Each one demonstrates a different way Python locates elements in a list.`;
+
+  const insightEl = document.getElementById('insight');
+  if (sc.insight && stepIdx === plan.length) {
+    insightEl.innerHTML = `<strong>Lesson →</strong> ${sc.insight}`;
+    insightEl.classList.add('show');
+  } else {
+    insightEl.classList.remove('show');
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>
