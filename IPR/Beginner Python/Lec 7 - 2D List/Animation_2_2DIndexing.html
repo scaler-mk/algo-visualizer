@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D indexing — subjects[i][j], a two-stage lookup</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .qb.warn.active { border-color: var(--red); color: var(--red); background: rgba(229,115,115,0.08); }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-err { background: rgba(229, 115, 115, 0.18); border-left: 3px solid var(--red); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .grid-frame { background: #0d1117; border-radius: 6px; padding: 22px 18px; min-height: 320px; }
+  .grid-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .matrix { display: inline-block; }
+  .col-headers { display: flex; gap: 4px; margin-left: 56px; margin-bottom: 4px; }
+  .col-header { width: 64px; text-align: center; font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .col-header.active { color: var(--blue); font-weight: 700; }
+
+  .matrix-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+  .row-label { width: 52px; text-align: right; padding-right: 8px; font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-style: italic; transition: all 0.25s; }
+  .row-label.active { color: var(--accent); font-weight: 700; }
+  .row-name { font-size: 10px; color: var(--muted); display: block; margin-top: 2px; }
+
+  .cell { width: 64px; height: 48px; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--ink); transition: all 0.3s; }
+  .cell.row-active { border-color: var(--accent); background: rgba(240, 160, 75, 0.10); }
+  .cell.cell-active { border-color: var(--green); background: rgba(163, 217, 119, 0.20); transform: translateY(-4px); color: var(--green); box-shadow: 0 6px 16px rgba(163,217,119,0.18); }
+  .cell.error { border-color: var(--red); background: rgba(229,115,115,0.12); }
+
+  .row-bracket { margin-left: 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); padding: 4px 8px; border-radius: 4px; opacity: 0; transition: opacity 0.3s; }
+  .row-bracket.show { opacity: 1; color: var(--accent); border: 1px dashed var(--accent); background: rgba(240,160,75,0.04); }
+
+  .lookup-display { display: flex; gap: 14px; align-items: center; justify-content: center; padding: 14px; background: var(--panel-2); border-radius: 6px; min-height: 48px; flex-wrap: wrap; margin-top: 18px; }
+  .lookup-expr { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--blue); font-weight: 600; }
+  .lookup-arrow { color: var(--muted); font-size: 14px; }
+  .lookup-mid { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 600; }
+  .lookup-result { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--green); font-weight: 600; }
+  .lookup-result.err { color: var(--red); }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .bad { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .insight { background: rgba(240, 160, 75, 0.08); border: 1px solid rgba(240, 160, 75, 0.4); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--accent); font-size: 11.5px; font-family: Georgia, serif; font-style: italic; display: none; }
+  .insight.show { display: block; }
+  .insight strong { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>2D indexing — subjects[i][j], a two-stage lookup</h1>
+  <div class="sub">Reading from a 2D list takes two steps: <strong>[i]</strong> picks a row (which is itself a list), then <strong>[j]</strong> picks an element from that row. Watch each bracket do its work.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-sc="0">subjects[0][2] — row 0, col 2</button>
+    <button class="qb" data-sc="1">subjects[2][0] — Quiz 2</button>
+    <button class="qb" data-sc="2">subjects[1] alone — get the whole row</button>
+    <button class="qb warn" data-sc="3">⚠ subjects[3][0] — out of range</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">SOURCE CODE</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+      <div class="code" id="codeBlock"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">THE GRID</div>
+      <div class="grid-frame">
+        <div class="grid-label">subjects = [[1, 1, 1], [2, 2, 2], [3, 3, 3]]</div>
+        <div class="matrix" id="matrix"></div>
+        <div class="lookup-display" id="lookupDisplay">
+          <span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">— press Step ▸ to begin —</span>
+        </div>
+      </div>
+      <div class="commentary" id="commentary">Pick a scenario above. Each one shows how <strong>[i][j]</strong> peels apart into two simpler lookups.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROW_NAMES = ['maths', 'science', 'history'];
+const GRID = [[1,1,1], [2,2,2], [3,3,3]];
+
+const SCENARIOS = [
+  {
+    name: 'subjects[0][2] — row 0, col 2',
+    sub: 'The classic two-bracket lookup. First pick the row, then the column.',
+    code: [
+      'maths   = [1, 1, 1]',
+      'science = [2, 2, 2]',
+      'history = [3, 3, 3]',
+      'subjects = [maths, science, history]',
+      '',
+      'print(subjects[0][2])   # 1',
+    ],
+    target: [0, 2],
+    plan: [
+      { line: 3, kind: 'init', msg: `<strong>subjects</strong> is built — three rows, each itself a list of three ints. Visually, a 3×3 grid.` },
+      { line: 5, kind: 'pick-row', msg: `<strong>subjects[0]</strong> evaluates <em>first</em>. Python picks row <span class="blue">0</span> — which is the list <strong>[1, 1, 1]</strong>.` },
+      { line: 5, kind: 'pick-col', msg: `Now we have <strong>[1, 1, 1][2]</strong>. The second bracket indexes <em>into that row</em>, picking position <span class="blue">2</span> → <span class="ok">1</span>.` },
+    ],
+    insight: `<strong>subjects[0][2]</strong> is read left to right: <strong>subjects[0]</strong> → row, then <strong>[2]</strong> → column. Think of it as drilling down: outer first, inner second.`,
+  },
+  {
+    name: 'subjects[2][0] — Quiz 2',
+    sub: 'Same pattern, different indices. What does Quiz 2 expect?',
+    code: [
+      'subjects = [[1,1,1], [2,2,2], [3,3,3]]',
+      '',
+      'print(subjects[2][0])   # ?',
+    ],
+    target: [2, 0],
+    plan: [
+      { line: 0, kind: 'init', msg: `Same grid as before.` },
+      { line: 2, kind: 'pick-row', msg: `<strong>subjects[2]</strong> picks the <em>third</em> row → <strong>[3, 3, 3]</strong>.` },
+      { line: 2, kind: 'pick-col', msg: `<strong>[3, 3, 3][0]</strong> picks the first element → <span class="ok">3</span>. Quiz 2 answer confirmed.` },
+    ],
+    insight: `Row index always comes first. Even when all three values in a row are equal (like <strong>[3, 3, 3]</strong>), Python still does the lookup the same way.`,
+  },
+  {
+    name: 'subjects[1] alone — get the whole row',
+    sub: 'You don\'t have to take both brackets. One returns the whole inner list.',
+    code: [
+      'subjects = [[1,1,1], [2,2,2], [3,3,3]]',
+      '',
+      'row = subjects[1]',
+      'print(row)              # [2, 2, 2]',
+      'print(type(row))        # <class \'list\'>',
+    ],
+    target: [1, null],
+    plan: [
+      { line: 0, kind: 'init', msg: `Same grid.` },
+      { line: 2, kind: 'pick-row', msg: `<strong>subjects[1]</strong> picks <em>only</em> the row — the entire list <strong>[2, 2, 2]</strong>. No second bracket needed.` },
+      { line: 3, kind: 'row-result', msg: `Stored in <strong>row</strong>. Its type is <strong>list</strong> — a 1D list of three ints.` },
+    ],
+    insight: `A row of a 2D list is itself a 1D list. You can store it, iterate it, slice it, pass it to functions — same as any other list.`,
+  },
+  {
+    name: '⚠ subjects[3][0] — out of range',
+    sub: 'Same off-by-one trap as 1D lists — but now there are two indices to check.',
+    code: [
+      'subjects = [[1,1,1], [2,2,2], [3,3,3]]',
+      '',
+      'print(subjects[3][0])   # IndexError!',
+    ],
+    target: [3, 0],
+    plan: [
+      { line: 0, kind: 'init', msg: `<strong>subjects</strong> has only 3 rows — valid row indices are 0, 1, 2.` },
+      { line: 2, kind: 'error', msg: `<strong>subjects[3]</strong> — but there's no row 3. <span class="bad">IndexError: list index out of range</span>. Execution halts before the second bracket even runs.` },
+    ],
+    insight: `For an <strong>r × c</strong> 2D list, row indices run <strong>0 to r−1</strong> and column indices <strong>0 to c−1</strong>. Check both bounds when looping with raw indices.`,
+  },
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, '<span class="str">$1</span>');
+  h = h.replace(/(#[^<\n]*)/g, '<span class="cmt">$1</span>');
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False|class)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|type)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  return h;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  const plan = sc.plan;
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  // Code
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line === idx) {
+      if (cur.kind === 'error') cls += ' exec-err';
+      else cls += ' exec';
+    }
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  // Determine state
+  let rowPicked = false, colPicked = false, errored = false, rowResult = false;
+  for (let s = 0; s < stepIdx; s++) {
+    const p = plan[s];
+    if (p.kind === 'pick-row') rowPicked = true;
+    if (p.kind === 'pick-col') colPicked = true;
+    if (p.kind === 'row-result') rowResult = true;
+    if (p.kind === 'error') errored = true;
+  }
+
+  const [ti, tj] = sc.target;
+
+  // Render matrix
+  const matrix = document.getElementById('matrix');
+  let mh = '';
+  // Column headers
+  mh += '<div class="col-headers">';
+  for (let j = 0; j < 3; j++) {
+    const cls = (colPicked && j === tj) ? 'active' : '';
+    mh += `<div class="col-header ${cls}">j=${j}</div>`;
+  }
+  mh += '</div>';
+
+  // Rows
+  for (let i = 0; i < 3; i++) {
+    mh += `<div class="matrix-row">`;
+    const rowActive = (rowPicked || errored) && i === ti && ti < 3;
+    mh += `<div class="row-label ${rowActive ? 'active' : ''}">i=${i}<span class="row-name">${ROW_NAMES[i]}</span></div>`;
+    for (let j = 0; j < 3; j++) {
+      let cellCls = 'cell';
+      const isInActiveRow = rowPicked && i === ti && ti < 3;
+      const isExactTarget = colPicked && i === ti && j === tj && !errored;
+      if (isInActiveRow && !isExactTarget) cellCls += ' row-active';
+      if (isExactTarget) cellCls += ' cell-active';
+      mh += `<div class="${cellCls}">${GRID[i][j]}</div>`;
+    }
+    // Show bracket annotation when this row is the active one and we've picked the row but not the col yet
+    if (isRowResultStage(rowPicked, colPicked, rowResult, errored, i, ti)) {
+      mh += `<div class="row-bracket show">→ subjects[${ti}] = [${GRID[ti].join(', ')}]</div>`;
+    }
+    mh += `</div>`;
+  }
+
+  // If error, show ghost row 3
+  if (errored && ti === 3) {
+    mh += `<div class="matrix-row" style="opacity:0.5">`;
+    mh += `<div class="row-label active" style="color:var(--red)">i=3<span class="row-name">missing</span></div>`;
+    for (let j = 0; j < 3; j++) {
+      mh += `<div class="cell error">?</div>`;
+    }
+    mh += `<div class="row-bracket show" style="border-color:var(--red);color:var(--red);background:rgba(229,115,115,0.06)">→ IndexError</div>`;
+    mh += `</div>`;
+  }
+
+  matrix.innerHTML = mh;
+
+  // Lookup display
+  const ld = document.getElementById('lookupDisplay');
+  if (!cur) {
+    ld.innerHTML = `<span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">— press Step ▸ to begin —</span>`;
+  } else if (cur.kind === 'init') {
+    ld.innerHTML = `<span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">grid loaded — ready to index.</span>`;
+  } else if (cur.kind === 'pick-row') {
+    if (tj === null) {
+      // whole row case
+      ld.innerHTML = `<span class="lookup-expr">subjects[${ti}]</span><span class="lookup-arrow">→</span><span class="lookup-mid">[${GRID[ti].join(', ')}]</span>`;
+    } else {
+      ld.innerHTML = `<span class="lookup-expr">subjects[${ti}][${tj}]</span><span class="lookup-arrow">→</span><span class="lookup-mid">[${GRID[ti].join(', ')}][${tj}]</span>`;
+    }
+  } else if (cur.kind === 'pick-col') {
+    ld.innerHTML = `<span class="lookup-expr">subjects[${ti}][${tj}]</span><span class="lookup-arrow">→</span><span class="lookup-mid">[${GRID[ti].join(', ')}][${tj}]</span><span class="lookup-arrow">→</span><span class="lookup-result">${GRID[ti][tj]}</span>`;
+  } else if (cur.kind === 'row-result') {
+    ld.innerHTML = `<span class="lookup-expr">subjects[${ti}]</span><span class="lookup-arrow">→</span><span class="lookup-result">[${GRID[ti].join(', ')}]</span>`;
+  } else if (cur.kind === 'error') {
+    ld.innerHTML = `<span class="lookup-expr">subjects[${ti}]</span><span class="lookup-arrow">→</span><span class="lookup-result err">IndexError: list index out of range</span>`;
+  }
+
+  // Commentary
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : `Pick a scenario above. Each one shows how <strong>[i][j]</strong> peels apart into two simpler lookups.`;
+
+  const insightEl = document.getElementById('insight');
+  if (sc.insight && stepIdx === plan.length) {
+    insightEl.innerHTML = `<strong>Lesson →</strong> ${sc.insight}`;
+    insightEl.classList.add('show');
+  } else {
+    insightEl.classList.remove('show');
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+function isRowResultStage(rowPicked, colPicked, rowResult, errored, i, ti) {
+  // Show the row-extract annotation only when row is picked but col isn't yet (or the scenario only picks a row)
+  if (errored) return false;
+  if (i !== ti) return false;
+  if (rowResult) return true; // whole-row scenario
+  if (rowPicked && !colPicked) return true;
+  return false;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>List comprehension — a loop turned inside-out</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-return { background: rgba(163, 217, 119, 0.18); border-left: 3px solid var(--green); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+  .filter-kw { color: var(--accent); font-weight: 700; }
+
+  .compre-box { background: #0d1117; border-radius: 6px; padding: 18px; margin-bottom: 14px; }
+  .compre-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .compre-line { font-family: 'JetBrains Mono', monospace; font-size: 15px; padding: 4px 0; }
+
+  .iter-frame { background: #0d1117; border-radius: 6px; padding: 22px 18px; min-height: 240px; }
+  .iter-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .iter-line { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 4px; margin-bottom: 2px; transition: background 0.25s; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; opacity: 0.4; }
+  .iter-line.shown { opacity: 1; }
+  .iter-line.current { background: rgba(240, 160, 75, 0.12); }
+  .iter-line.kept { color: var(--green); }
+  .iter-line.skipped { color: var(--red); opacity: 0.7; }
+
+  .iter-x { width: 64px; color: var(--blue); font-weight: 600; flex-shrink: 0; }
+  .iter-cond { width: 120px; color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 11.5px; }
+  .iter-cond .true { color: var(--green); font-family: 'JetBrains Mono', monospace; font-style: normal; font-weight: 600; }
+  .iter-cond .false { color: var(--red); font-family: 'JetBrains Mono', monospace; font-style: normal; font-weight: 600; }
+  .iter-expr { width: 100px; color: var(--accent); font-weight: 600; }
+  .iter-result { color: var(--green); font-weight: 600; min-width: 60px; }
+  .iter-result.dropped { color: var(--red); text-decoration: line-through; }
+
+  .result-display { display: flex; gap: 10px; align-items: center; padding: 14px; background: var(--panel-2); border-radius: 6px; min-height: 48px; margin-top: 18px; flex-wrap: wrap; }
+  .result-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .result-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--green); font-weight: 600; }
+  .result-arrow { color: var(--muted); }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .bad { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .insight { background: rgba(240, 160, 75, 0.08); border: 1px solid rgba(240, 160, 75, 0.4); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--accent); font-size: 11.5px; font-family: Georgia, serif; font-style: italic; display: none; }
+  .insight.show { display: block; }
+  .insight strong { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>List comprehension — a loop turned inside-out</h1>
+  <div class="sub">Same loop, fewer lines. Step through each iteration to see which values pass the filter and what shape the result takes.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-sc="0">Squares — no filter</button>
+    <button class="qb" data-sc="1">Evens — with `if` filter</button>
+    <button class="qb" data-sc="2">Quiz 5 — `i*2 for i in range(1,4) if i%2!=0`</button>
+    <button class="qb" data-sc="3">Quiz 6 — nested `for`, pairs (i,j)</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">EQUIVALENT FORMS</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+
+      <div class="compre-box">
+        <div class="compre-label">LIST COMPREHENSION</div>
+        <div class="compre-line" id="compreLine"></div>
+      </div>
+
+      <div class="compre-box">
+        <div class="compre-label">EQUIVALENT FOR-LOOP</div>
+        <div class="code" id="codeBlock" style="margin:0"></div>
+      </div>
+
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ITERATIONS</div>
+      <div class="iter-frame">
+        <div class="iter-label" id="iterLabel">step through each iteration</div>
+        <div id="iterBody"></div>
+        <div class="result-display" id="resultDisplay">
+          <span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">— press Step ▸ to begin —</span>
+        </div>
+      </div>
+      <div class="commentary" id="commentary">Pick a scenario above. Each step shows one iteration: the value being tested, the filter result, and what enters the output.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    name: 'Squares — no filter',
+    sub: 'The simplest form: take every i, square it, collect into a list.',
+    compre: '[<span class="filter-kw">i ** 2</span> <span style="color:var(--purple)">for</span> i <span style="color:var(--purple)">in</span> <span style="color:var(--blue)">range</span>(1, 6)]',
+    code: [
+      'squares = []',
+      'for i in range(1, 6):',
+      '    squares.append(i ** 2)',
+    ],
+    iter: range(1, 6),
+    expr: i => i * i,
+    exprText: i => `${i} ** 2`,
+    cond: null,
+    plan: makePlan(range(1, 6), null, i => i * i, i => `${i} ** 2`),
+    insight: `Read it left to right: <strong>output expression</strong>, <strong>for</strong> clause, optional <strong>if</strong> clause. The expression on the left is what each kept item becomes in the result.`,
+  },
+  {
+    name: 'Evens — with `if` filter',
+    sub: 'Add an `if` clause to keep only items that pass a condition.',
+    compre: '[i <span style="color:var(--purple)">for</span> i <span style="color:var(--purple)">in</span> <span style="color:var(--blue)">range</span>(1, 11) <span style="color:var(--purple)">if</span> i % 2 == 0]',
+    code: [
+      'evens = []',
+      'for i in range(1, 11):',
+      '    if i % 2 == 0:',
+      '        evens.append(i)',
+    ],
+    iter: range(1, 11),
+    expr: i => i,
+    exprText: i => `${i}`,
+    cond: i => i % 2 === 0,
+    condText: i => `${i} % 2 == 0`,
+    plan: makePlan(range(1, 11), i => i % 2 === 0, i => i, i => `${i}`, i => `${i} % 2 == 0`),
+    insight: `<strong>if</strong> clauses are filters — they decide whether the current item gets evaluated and added. Items that fail the test are silently skipped.`,
+  },
+  {
+    name: 'Quiz 5 — `i*2 for i in range(1,4) if i%2!=0`',
+    sub: 'Filter on odd i, then double it. Watch each iteration build the answer.',
+    compre: '[<span class="filter-kw">i * 2</span> <span style="color:var(--purple)">for</span> i <span style="color:var(--purple)">in</span> <span style="color:var(--blue)">range</span>(1, 4) <span style="color:var(--purple)">if</span> i % 2 != 0]',
+    code: [
+      'li = []',
+      'for i in range(1, 4):',
+      '    if i % 2 != 0:',
+      '        li.append(i * 2)',
+    ],
+    iter: range(1, 4),
+    expr: i => i * 2,
+    exprText: i => `${i} * 2`,
+    cond: i => i % 2 !== 0,
+    condText: i => `${i} % 2 != 0`,
+    plan: makePlan(range(1, 4), i => i % 2 !== 0, i => i * 2, i => `${i} * 2`, i => `${i} % 2 != 0`),
+    insight: `Tip for quizzes: read the <strong>if</strong> first to find what survives, then apply the expression to the survivors. Here only <strong>1</strong> and <strong>3</strong> are odd → doubled to <strong>2</strong> and <strong>6</strong>.`,
+  },
+  {
+    name: 'Quiz 6 — nested `for`, pairs (i,j)',
+    sub: 'Two `for` clauses = nested loops. Outer changes slower, inner faster.',
+    compre: '[<span class="filter-kw">(i, j)</span> <span style="color:var(--purple)">for</span> i <span style="color:var(--purple)">in</span> <span style="color:var(--blue)">range</span>(3) <span style="color:var(--purple)">for</span> j <span style="color:var(--purple)">in</span> <span style="color:var(--blue)">range</span>(3) <span style="color:var(--purple)">if</span> i != j]',
+    code: [
+      'li = []',
+      'for i in range(3):',
+      '    for j in range(3):',
+      '        if i != j:',
+      '            li.append((i, j))',
+    ],
+    plan: makeNestedPlan(),
+    insight: `When a comprehension has multiple <strong>for</strong> clauses, they nest in the order written — the leftmost is the outermost loop, just like writing them out. Filters apply to whatever variable they appear after.`,
+  },
+];
+
+function range(start, stop) {
+  const r = [];
+  for (let i = start; i < stop; i++) r.push(i);
+  return r;
+}
+
+function makePlan(items, cond, expr, exprText, condText) {
+  const plan = [];
+  plan.push({ kind: 'init', msg: `Starting an empty list. We'll iterate <strong>${items.length}</strong> times.` });
+  items.forEach((i, idx) => {
+    const passesFilter = cond ? cond(i) : true;
+    if (cond) {
+      plan.push({
+        kind: 'iter',
+        i,
+        cond: condText(i),
+        condResult: passesFilter,
+        expr: exprText(i),
+        result: passesFilter ? expr(i) : null,
+        kept: passesFilter,
+        msg: passesFilter
+          ? `<strong>i = ${i}</strong> — filter <strong>${condText(i)}</strong> is <span class="ok">True</span>. Evaluate <strong>${exprText(i)}</strong> = <span class="ok">${expr(i)}</span> and append.`
+          : `<strong>i = ${i}</strong> — filter <strong>${condText(i)}</strong> is <span class="bad">False</span>. Skip this iteration entirely.`
+      });
+    } else {
+      plan.push({
+        kind: 'iter',
+        i,
+        expr: exprText(i),
+        result: expr(i),
+        kept: true,
+        msg: `<strong>i = ${i}</strong> — evaluate <strong>${exprText(i)}</strong> = <span class="ok">${expr(i)}</span> and append.`
+      });
+    }
+  });
+  plan.push({ kind: 'done', msg: `Iteration complete. The final list is the answer.` });
+  return plan;
+}
+
+function makeNestedPlan() {
+  const plan = [];
+  plan.push({ kind: 'init', msg: `Two nested loops. Outer <strong>i</strong> runs 0, 1, 2 — inner <strong>j</strong> runs 0, 1, 2 — filter keeps only pairs where <strong>i != j</strong>.` });
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      const kept = (i !== j);
+      plan.push({
+        kind: 'iter',
+        i, j,
+        cond: `${i} != ${j}`,
+        condResult: kept,
+        expr: `(${i}, ${j})`,
+        result: kept ? `(${i}, ${j})` : null,
+        kept,
+        msg: kept
+          ? `<strong>i=${i}, j=${j}</strong> — filter <strong>${i} != ${j}</strong> is <span class="ok">True</span>. Append <strong>(${i}, ${j})</strong>.`
+          : `<strong>i=${i}, j=${j}</strong> — filter <strong>${i} != ${j}</strong> is <span class="bad">False</span>. Skip.`
+      });
+    }
+  }
+  plan.push({ kind: 'done', msg: `All 9 pairs visited; 6 survived the filter.` });
+  return plan;
+}
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, '<span class="str">$1</span>');
+  h = h.replace(/(#[^<\n]*)/g, '<span class="cmt">$1</span>');
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|append|sum)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  return h;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  const plan = sc.plan;
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  document.getElementById('compreLine').innerHTML = sc.compre;
+
+  // Code
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.kind === 'iter') cls += ' exec';
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  // Iteration body
+  const iterBody = document.getElementById('iterBody');
+  let ibHtml = '';
+  const iterSteps = plan.filter(p => p.kind === 'iter');
+  let result = [];
+  let lastIterIdx = -1;
+  let iterStepCount = 0;
+  for (let s = 0; s < stepIdx; s++) {
+    if (plan[s].kind === 'iter') {
+      iterStepCount++;
+      lastIterIdx = iterStepCount - 1;
+      if (plan[s].kept) result.push(plan[s].result);
+    }
+  }
+
+  iterSteps.forEach((p, idx) => {
+    const shown = idx < iterStepCount;
+    const isCurrent = idx === lastIterIdx && cur && cur.kind === 'iter';
+    let cls = 'iter-line';
+    if (shown) cls += ' shown';
+    if (isCurrent) cls += ' current';
+    if (shown && !isCurrent) {
+      cls += p.kept ? ' kept' : ' skipped';
+    }
+
+    let xLabel = '';
+    if (p.j !== undefined) xLabel = `i=${p.i}, j=${p.j}`;
+    else xLabel = `i = ${p.i}`;
+
+    let condCell = '';
+    if (p.cond) {
+      const cls2 = p.condResult ? 'true' : 'false';
+      condCell = `<span class="iter-cond"><strong>${p.cond}</strong> → <span class="${cls2}">${p.condResult ? 'True' : 'False'}</span></span>`;
+    } else {
+      condCell = `<span class="iter-cond">— no filter —</span>`;
+    }
+
+    let resultCell = '';
+    if (p.kept) {
+      resultCell = `<span class="iter-result">${p.result}</span>`;
+    } else {
+      resultCell = `<span class="iter-result dropped">${p.expr}</span>`;
+    }
+
+    ibHtml += `<div class="${cls}">
+      <span class="iter-x">${xLabel}</span>
+      ${condCell}
+      <span class="iter-expr">${p.expr}</span>
+      ${resultCell}
+    </div>`;
+  });
+  iterBody.innerHTML = ibHtml;
+
+  // Result display
+  const rd = document.getElementById('resultDisplay');
+  if (cur && cur.kind === 'done') {
+    rd.innerHTML = `<span class="result-label">FINAL</span><span class="result-val">[${result.join(', ')}]</span>`;
+  } else if (result.length > 0) {
+    rd.innerHTML = `<span class="result-label">SO FAR</span><span class="result-val">[${result.join(', ')}]</span>`;
+  } else if (cur) {
+    rd.innerHTML = `<span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">empty list — nothing kept yet.</span>`;
+  } else {
+    rd.innerHTML = `<span style="font-family:Georgia,serif;font-style:italic;color:var(--muted);font-size:12px">— press Step ▸ to begin —</span>`;
+  }
+
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : `Pick a scenario above. Each step shows one iteration: the value being tested, the filter result, and what enters the output.`;
+
+  const insightEl = document.getElementById('insight');
+  if (sc.insight && stepIdx === plan.length) {
+    insightEl.innerHTML = `<strong>Lesson →</strong> ${sc.insight}`;
+    insightEl.classList.add('show');
+  } else {
+    insightEl.classList.remove('show');
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>

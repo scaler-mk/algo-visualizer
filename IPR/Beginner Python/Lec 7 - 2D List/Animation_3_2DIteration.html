@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2D iteration — row-wise vs column-wise traversal</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .code-line.exec-call { background: rgba(93, 173, 236, 0.18); border-left: 3px solid var(--blue); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .grid-frame { background: #0d1117; border-radius: 6px; padding: 22px 18px; min-height: 320px; }
+  .grid-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .matrix { display: inline-block; }
+  .col-headers { display: flex; gap: 4px; margin-left: 44px; margin-bottom: 4px; }
+  .col-header { width: 64px; text-align: center; font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .col-header.active { color: var(--blue); font-weight: 700; }
+
+  .matrix-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+  .row-label { width: 40px; text-align: right; padding-right: 6px; font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; transition: all 0.25s; }
+  .row-label.active { color: var(--accent); font-weight: 700; }
+
+  .cell { position: relative; width: 64px; height: 48px; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: var(--ink); transition: all 0.3s; }
+  .cell.visited { background: rgba(93, 173, 236, 0.10); border-color: rgba(93, 173, 236, 0.3); color: var(--blue); }
+  .cell.current { border-color: var(--accent); background: rgba(240,160,75,0.22); transform: translateY(-6px); color: var(--ink); box-shadow: 0 6px 16px rgba(240,160,75,0.18); }
+  .cell .order { position: absolute; top: -8px; right: -6px; width: 16px; height: 16px; background: var(--blue); color: #1a1d23; font-size: 9px; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .cell.current .order { background: var(--accent); }
+
+  .output-block { background: #0d1117; border-radius: 6px; padding: 12px 14px; min-height: 90px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; margin-top: 18px; }
+  .output-line { color: var(--green); }
+  .output-empty { color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .insight { background: rgba(240, 160, 75, 0.08); border: 1px solid rgba(240, 160, 75, 0.4); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--accent); font-size: 11.5px; font-family: Georgia, serif; font-style: italic; display: none; }
+  .insight.show { display: block; }
+  .insight strong { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>2D iteration — row-wise vs column-wise traversal</h1>
+  <div class="sub">Two nested loops can scan a grid in different orders. Swapping the inner and outer loops changes how cells are visited — and the output.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-sc="0">Row-wise — outer i, inner j</button>
+    <button class="qb" data-sc="1">Column-wise — outer j, inner i</button>
+    <button class="qb" data-sc="2">Row-wise sum — sum each row</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">SOURCE CODE</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+      <div class="code" id="codeBlock"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">THE TRAVERSAL</div>
+      <div class="grid-frame">
+        <div class="grid-label" id="gridLabel">a = [[1, 1, 1], [2, 2, 2], [3, 3, 3]]</div>
+        <div class="matrix" id="matrix"></div>
+      </div>
+      <div class="panel-title" style="margin-top:14px">OUTPUT</div>
+      <div class="output-block" id="output"><span class="output-empty">— press Step ▸ to begin —</span></div>
+      <div class="commentary" id="commentary">Pick a scenario above. Watch the cursor trace cells in the order the nested loop visits them.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const GRID = [[1,1,1],[2,2,2],[3,3,3]];
+const R = 3, C = 3;
+
+const SCENARIOS = [
+  {
+    name: 'Row-wise — outer i, inner j',
+    sub: 'Walk left-to-right within each row, top-to-bottom row by row.',
+    code: [
+      'a = [[1,1,1], [2,2,2], [3,3,3]]',
+      '',
+      'for i in range(len(a)):',
+      '    for j in range(len(a[i])):',
+      '        print(a[i][j], end=" ")',
+      '    print()',
+    ],
+    order: 'row',
+    plan: buildRowPlan(),
+  },
+  {
+    name: 'Column-wise — outer j, inner i',
+    sub: 'Swap the loop order. Now we descend column 0, then column 1, then column 2.',
+    code: [
+      'a = [[1,1,1], [2,2,2], [3,3,3]]',
+      '',
+      'for j in range(len(a[0])):',
+      '    for i in range(len(a)):',
+      '        print(a[i][j], end=" ")',
+      '    print()',
+    ],
+    order: 'col',
+    plan: buildColPlan(),
+  },
+  {
+    name: 'Row-wise sum — sum each row',
+    sub: 'A common pattern: visit each row, sum it, print the total. One output per row.',
+    code: [
+      'a = [[1,1,1], [2,2,2], [3,3,3]]',
+      '',
+      'for i in range(len(a)):',
+      '    row_sum = sum(a[i])',
+      '    print(row_sum)',
+    ],
+    order: 'sum',
+    plan: buildSumPlan(),
+  },
+];
+
+function buildRowPlan() {
+  const p = [];
+  p.push({ line: 0, kind: 'init', msg: `Grid loaded. Outer loop will iterate <strong>i = 0, 1, 2</strong>.` });
+  let n = 0;
+  for (let i = 0; i < R; i++) {
+    p.push({ line: 2, kind: 'enter-row', i, msg: `<strong>i = ${i}</strong> — enter the outer loop. Inner loop will now run for j = 0, 1, 2.` });
+    let buf = '';
+    for (let j = 0; j < C; j++) {
+      buf += GRID[i][j] + ' ';
+      p.push({ line: 4, kind: 'visit', i, j, order: n++, output: '__inline__', buf: buf.trim(), msg: `Visit <strong>a[${i}][${j}]</strong> → print <span class="ok">${GRID[i][j]}</span> with <strong>end=" "</strong>. Output stays on the same line.` });
+    }
+    p.push({ line: 5, kind: 'newline', i, buf: buf.trim(), commit: true, msg: `Inner loop done for row ${i}. <strong>print()</strong> emits a newline — flushing the row to the output.` });
+  }
+  p.push({ line: 5, kind: 'done', msg: `All rows visited. Final output shows the grid as a tidy 3-line block.` });
+  return p;
+}
+
+function buildColPlan() {
+  const p = [];
+  p.push({ line: 0, kind: 'init', msg: `Grid loaded. Outer loop will iterate <strong>j = 0, 1, 2</strong>.` });
+  let n = 0;
+  for (let j = 0; j < C; j++) {
+    p.push({ line: 2, kind: 'enter-col', j, msg: `<strong>j = ${j}</strong> — outer loop now picks column ${j}. Inner loop will descend through rows 0, 1, 2.` });
+    let buf = '';
+    for (let i = 0; i < R; i++) {
+      buf += GRID[i][j] + ' ';
+      p.push({ line: 4, kind: 'visit', i, j, order: n++, buf: buf.trim(), msg: `Visit <strong>a[${i}][${j}]</strong> → print <span class="ok">${GRID[i][j]}</span>. Same column, descending rows.` });
+    }
+    p.push({ line: 5, kind: 'newline', j, buf: buf.trim(), commit: true, msg: `Column ${j} fully traversed. <strong>print()</strong> ends the line.` });
+  }
+  p.push({ line: 5, kind: 'done', msg: `Different visit order, different output. Same data, transposed view.` });
+  return p;
+}
+
+function buildSumPlan() {
+  const p = [];
+  p.push({ line: 0, kind: 'init', msg: `Grid loaded. We'll sum each row and print one total per row.` });
+  let n = 0;
+  for (let i = 0; i < R; i++) {
+    p.push({ line: 2, kind: 'enter-row', i, msg: `<strong>i = ${i}</strong> — pick up row <strong>a[${i}]</strong> = <span class="blue">[${GRID[i].join(', ')}]</span>.` });
+    // Visit all cells of this row at once
+    let buf = '';
+    for (let j = 0; j < C; j++) {
+      buf += GRID[i][j] + ' ';
+    }
+    const total = GRID[i].reduce((a,b)=>a+b, 0);
+    p.push({ line: 3, kind: 'visit-row', i, buf: buf.trim(), order: n++, msg: `<strong>sum(a[${i}])</strong> adds up the row → <span class="ok">${total}</span>.` });
+    p.push({ line: 4, kind: 'newline', i, total, commit: true, msg: `<strong>print(row_sum)</strong> emits <span class="ok">${total}</span> on its own line.` });
+  }
+  p.push({ line: 4, kind: 'done', msg: `Three rows, three sums. No grid output this time — just the totals.` });
+  return p;
+}
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
+  h = h.replace(/('(?:[^'\\]|\\.)*')/g, '<span class="str">$1</span>');
+  h = h.replace(/(#[^<\n]*)/g, '<span class="cmt">$1</span>');
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|sum)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  return h;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  const plan = sc.plan;
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  // Code
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line === idx) {
+      if (cur.kind === 'enter-row' || cur.kind === 'enter-col') cls += ' exec-call';
+      else cls += ' exec';
+    }
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  // Build visited set
+  const visited = {};
+  let currentI = null, currentJ = null;
+  let activeRow = null, activeCol = null;
+  for (let s = 0; s < stepIdx; s++) {
+    const p = plan[s];
+    if (p.kind === 'visit' && p.order !== undefined) {
+      const k = `${p.i},${p.j}`;
+      visited[k] = p.order;
+      if (s === stepIdx - 1) { currentI = p.i; currentJ = p.j; }
+    }
+    if (p.kind === 'visit-row' && p.order !== undefined) {
+      for (let j = 0; j < C; j++) visited[`${p.i},${j}`] = p.order;
+      if (s === stepIdx - 1) { currentI = p.i; currentJ = null; }
+    }
+    if (p.kind === 'enter-row' && s === stepIdx - 1) activeRow = p.i;
+    if (p.kind === 'enter-col' && s === stepIdx - 1) activeCol = p.j;
+  }
+
+  // Render matrix
+  const matrix = document.getElementById('matrix');
+  let mh = '';
+  mh += '<div class="col-headers">';
+  for (let j = 0; j < C; j++) {
+    const cls = (activeCol === j) ? 'active' : '';
+    mh += `<div class="col-header ${cls}">j=${j}</div>`;
+  }
+  mh += '</div>';
+  for (let i = 0; i < R; i++) {
+    mh += `<div class="matrix-row">`;
+    const rowActive = (activeRow === i);
+    mh += `<div class="row-label ${rowActive ? 'active' : ''}">i=${i}</div>`;
+    for (let j = 0; j < C; j++) {
+      let cellCls = 'cell';
+      const k = `${i},${j}`;
+      const isCurrent = (currentI === i && currentJ === j) || (sc.order === 'sum' && currentI === i && currentJ === null && k in visited && cur && cur.kind === 'visit-row');
+      if (k in visited && !isCurrent) cellCls += ' visited';
+      if (isCurrent) cellCls += ' current';
+      const orderBadge = (k in visited) ? `<span class="order">${visited[k]}</span>` : '';
+      mh += `<div class="${cellCls}">${GRID[i][j]}${orderBadge}</div>`;
+    }
+    mh += `</div>`;
+  }
+  matrix.innerHTML = mh;
+
+  // Output: accumulate committed lines + current (uncommitted) buffer
+  const outputEl = document.getElementById('output');
+  let outLines = [];
+  let pendingBuf = '';
+  for (let s = 0; s < stepIdx; s++) {
+    const p = plan[s];
+    if (p.kind === 'newline' && p.commit) {
+      if (sc.order === 'sum') {
+        outLines.push(String(p.total));
+      } else {
+        outLines.push(p.buf);
+      }
+      pendingBuf = '';
+    } else if (p.kind === 'visit' || p.kind === 'visit-row') {
+      pendingBuf = p.buf;
+    }
+  }
+  // If the last step is a partial visit (not committed), show pending buffer
+  if (cur && (cur.kind === 'visit' || cur.kind === 'visit-row') && pendingBuf) {
+    let html = outLines.map(l => `<div class="output-line">${l}</div>`).join('');
+    html += `<div class="output-line" style="opacity:0.85">${pendingBuf}<span style="color:var(--accent)">▏</span></div>`;
+    outputEl.innerHTML = html;
+  } else if (outLines.length > 0) {
+    outputEl.innerHTML = outLines.map(l => `<div class="output-line">${l}</div>`).join('');
+  } else {
+    outputEl.innerHTML = `<span class="output-empty">— no output yet —</span>`;
+  }
+
+  // Commentary
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : `Pick a scenario above. Watch the cursor trace cells in the order the nested loop visits them.`;
+
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>

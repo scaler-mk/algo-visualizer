@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>map(int, input().split()) — the three-step pipeline</title>
+<style>
+  :root {
+    --bg: #1a1d23; --panel: #242830; --panel-2: #2d323c;
+    --ink: #e8e6e1; --muted: #8b8d93; --accent: #f0a04b;
+    --green: #a3d977; --red: #e57373; --blue: #5dadec; --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace; padding: 24px; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .ctl-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 6px 12px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240,160,75,0.08); }
+  .step-btn { background: var(--accent); color: #1a1d23; border: none; padding: 10px 22px; border-radius: 6px; font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .reset-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  .reset-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .iter-counter { font-size: 11px; color: var(--muted); }
+  .iter-counter .num-c { color: var(--accent); font-weight: 600; margin: 0 4px; }
+
+  .stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .scenario-head { font-family: Georgia, serif; font-style: italic; font-size: 14px; color: var(--accent); margin-bottom: 4px; font-weight: 600; }
+  .scenario-sub { font-size: 11px; color: var(--muted); font-family: Georgia, serif; font-style: italic; margin-bottom: 14px; }
+
+  .code { background: #0d1117; border-radius: 6px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; white-space: pre; }
+  .code-line { display: block; padding: 1px 6px; margin: 0 -6px; border-radius: 3px; transition: background 0.18s; }
+  .code-line.exec { background: rgba(240, 160, 75, 0.18); border-left: 3px solid var(--accent); padding-left: 9px; margin-left: -9px; }
+  .kw { color: var(--purple); }
+  .fn { color: var(--blue); }
+  .num { color: var(--green); }
+  .str { color: #d4a574; }
+  .cmt { color: var(--muted); font-style: italic; }
+
+  .pipeline { background: #0d1117; border-radius: 6px; padding: 22px 18px; min-height: 320px; }
+  .pipe-label { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .stage-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; opacity: 0.25; transition: opacity 0.3s; }
+  .stage-row.shown { opacity: 1; }
+  .stage-row.active .stage-tag { background: rgba(240,160,75,0.18); border-color: var(--accent); color: var(--accent); }
+
+  .stage-tag { width: 70px; flex-shrink: 0; padding: 4px 8px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); font-size: 10px; color: var(--muted); text-align: center; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+  .stage-arrow { color: var(--muted); font-size: 14px; }
+
+  .item-row { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+  .item { padding: 6px 12px; border-radius: 6px; background: var(--panel-2); border: 1.5px solid var(--line); font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; transition: all 0.3s; }
+  .item.str-item { color: #d4a574; }
+  .item.int-item { color: var(--green); }
+  .item.raw-input { background: rgba(212, 165, 116, 0.1); border-color: #d4a574; color: #d4a574; padding: 6px 14px; }
+  .item.appearing { animation: popIn 0.35s ease-out; }
+  @keyframes popIn { 0% { transform: translateY(-10px) scale(0.85); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+
+  .pipe-arrows { display: flex; gap: 6px; height: 22px; margin-top: -8px; margin-bottom: 6px; padding-left: 90px; flex-wrap: wrap; }
+  .pipe-arrow { padding: 6px 12px; height: 0; text-align: center; color: var(--blue); font-size: 14px; }
+
+  .convert-anno { padding-left: 92px; font-family: Georgia, serif; font-style: italic; font-size: 11px; color: var(--muted); margin-top: -4px; margin-bottom: 6px; }
+  .convert-anno strong { color: var(--blue); font-family: 'JetBrains Mono', monospace; font-style: normal; }
+
+  .commentary { font-family: Georgia, serif; font-style: italic; font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 14px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; border-left: 3px solid var(--accent); min-height: 56px; }
+  .commentary strong { color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .ok { color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .bad { color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .blue { color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .purple { color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .commentary .str { color: #d4a574; font-style: normal; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+  .insight { background: rgba(240, 160, 75, 0.08); border: 1px solid rgba(240, 160, 75, 0.4); border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: var(--accent); font-size: 11.5px; font-family: Georgia, serif; font-style: italic; display: none; }
+  .insight.show { display: block; }
+  .insight strong { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>map(int, input().split()) — the three-step pipeline</h1>
+  <div class="sub">A one-line idiom that hides three operations: read a string, break it into pieces, convert each piece. Step through to see each stage produce its output.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" data-sc="0">Standard input — "10 20 30 40"</button>
+    <button class="qb" data-sc="1">Hyphen-separated — "1-2-3-4"</button>
+    <button class="qb" data-sc="2">Why the long way works too</button>
+    <span style="flex:1"></span>
+    <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
+    <button class="step-btn" id="stepBtn">Step ▸</button>
+    <button class="reset-btn" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">SOURCE CODE</div>
+      <div class="scenario-head" id="sceneHead">—</div>
+      <div class="scenario-sub" id="sceneSub">—</div>
+      <div class="code" id="codeBlock"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">THE PIPELINE</div>
+      <div class="pipeline">
+        <div class="pipe-label" id="pipeLabel">processing input…</div>
+        <div id="pipeBody"></div>
+      </div>
+      <div class="commentary" id="commentary">Pick a scenario above. Each one walks the same pipeline: string → list of strings → list of integers.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    name: 'Standard input — "10 20 30 40"',
+    sub: 'The everyday case. Space-separated numbers on one line.',
+    code: [
+      's = input()        # "10 20 30 40"',
+      'parts = s.split()  # ["10","20","30","40"]',
+      'nums = list(map(int, parts))',
+      'print(nums)        # [10, 20, 30, 40]',
+    ],
+    raw: '10 20 30 40',
+    split: ['"10"', '"20"', '"30"', '"40"'],
+    ints: [10, 20, 30, 40],
+    splitArg: null,
+    plan: [
+      { line: 0, kind: 'input', msg: `User types <span class="str">"10 20 30 40"</span>. <strong>input()</strong> hands it back as a single <em>string</em> — note the quotes around the whole thing.` },
+      { line: 1, kind: 'split', msg: `<strong>.split()</strong> with no argument cuts the string on <em>any whitespace</em>. Each chunk is still a <span class="str">string</span> — note the quotes around each one.` },
+      { line: 2, kind: 'map', msg: `<strong>map(int, parts)</strong> applies <strong>int()</strong> to <em>every</em> item. Each <span class="str">"10"</span> becomes the integer <span class="ok">10</span>. <strong>list(...)</strong> just materialises the result.` },
+      { line: 3, kind: 'done', msg: `Final list of integers, ready for math: <span class="ok">[10, 20, 30, 40]</span>.` },
+    ],
+    insight: `<strong>map(int, x.split())</strong> is the standard Python idiom for "read a line of space-separated numbers". Memorise it — it appears in nearly every input-driven assignment.`,
+  },
+  {
+    name: 'Hyphen-separated — "1-2-3-4"',
+    sub: 'Same pipeline, but with a delimiter argument to split.',
+    code: [
+      's = "1-2-3-4"',
+      'parts = s.split("-")  # ["1","2","3","4"]',
+      'nums = list(map(int, parts))',
+      'print(nums)           # [1, 2, 3, 4]',
+    ],
+    raw: '1-2-3-4',
+    split: ['"1"', '"2"', '"3"', '"4"'],
+    ints: [1, 2, 3, 4],
+    splitArg: '"-"',
+    plan: [
+      { line: 0, kind: 'input', msg: `Starting string: <span class="str">"1-2-3-4"</span>. Items are joined by hyphens — split() needs to know that.` },
+      { line: 1, kind: 'split', msg: `<strong>.split("-")</strong> splits on the hyphen character. Result: four <em>strings</em>, no hyphens left.` },
+      { line: 2, kind: 'map', msg: `<strong>map(int, parts)</strong> converts each <span class="str">string</span> to an <span class="ok">int</span>, just like before.` },
+      { line: 3, kind: 'done', msg: `Same shape of result: <span class="ok">[1, 2, 3, 4]</span> — only the delimiter changed.` },
+    ],
+    insight: `<strong>split()</strong> defaults to whitespace, but you can hand it any delimiter — <strong>","</strong> for CSV-style input, <strong>"-"</strong> for hyphens, etc.`,
+  },
+  {
+    name: 'Why the long way works too',
+    sub: 'See how the loop-and-append version produces the exact same list.',
+    code: [
+      'items = "10 20 30".split()',
+      'numbers = []',
+      'for item in items:',
+      '    numbers.append(int(item))',
+      'print(numbers)        # [10, 20, 30]',
+    ],
+    raw: '10 20 30',
+    split: ['"10"', '"20"', '"30"'],
+    ints: [10, 20, 30],
+    splitArg: null,
+    longForm: true,
+    plan: [
+      { line: 0, kind: 'split', msg: `<strong>"10 20 30".split()</strong> directly — same as before, gives a list of three <span class="str">strings</span>.` },
+      { line: 1, kind: 'init-empty', msg: `Create an empty list <strong>numbers</strong>. We'll append converted ints to it.` },
+      { line: 3, kind: 'loop-1', msg: `First pass: <strong>item = <span class="str">"10"</span></strong>. Convert with <strong>int(item)</strong> → append <span class="ok">10</span>.` },
+      { line: 3, kind: 'loop-2', msg: `Second pass: <strong>item = <span class="str">"20"</span></strong> → append <span class="ok">20</span>.` },
+      { line: 3, kind: 'loop-3', msg: `Third pass: <strong>item = <span class="str">"30"</span></strong> → append <span class="ok">30</span>. Loop ends.` },
+      { line: 4, kind: 'done', msg: `Result: <span class="ok">[10, 20, 30]</span> — identical to the <strong>map</strong> version. Same pipeline, more lines.` },
+    ],
+    insight: `The <strong>map</strong> version isn't doing anything magical — it's the same loop, just shorter. Use whichever reads more clearly for your team.`,
+  },
+];
+
+let scenarioIdx = 0;
+let stepIdx = 0;
+
+function paint(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="str">$1</span>');
+  h = h.replace(/(#[^<\n]*)/g, '<span class="cmt">$1</span>');
+  h = h.replace(/\b(def|return|if|else|for|in|while|None|True|False)\b/g, '<span class="kw">$1</span>');
+  h = h.replace(/\b(print|input|len|range|int|map|list|split|append|sum)\b/g, '<span class="fn">$1</span>');
+  h = h.replace(/(?<![\w.\-])(-?\d+\.?\d*)(?![\w.])/g, '<span class="num">$1</span>');
+  return h;
+}
+
+function reset(newIdx) {
+  if (newIdx !== undefined) scenarioIdx = newIdx;
+  stepIdx = 0;
+  render();
+}
+
+function render() {
+  const sc = SCENARIOS[scenarioIdx];
+  const plan = sc.plan;
+  const cur = stepIdx > 0 ? plan[stepIdx - 1] : null;
+  document.getElementById('sceneHead').textContent = sc.name;
+  document.getElementById('sceneSub').textContent = sc.sub;
+  document.getElementById('iter').textContent = stepIdx;
+  document.getElementById('total').textContent = plan.length;
+
+  // Code
+  const codeBlock = document.getElementById('codeBlock');
+  let html = '';
+  sc.code.forEach((ln, idx) => {
+    let cls = 'code-line';
+    if (cur && cur.line === idx) cls += ' exec';
+    html += `<span class="${cls}">${ln === '' ? '&nbsp;' : paint(ln)}</span>`;
+  });
+  codeBlock.innerHTML = html;
+
+  // Pipeline rendering depends on scenario shape
+  const pipeBody = document.getElementById('pipeBody');
+
+  // Determine which stages have happened
+  let showInput = false, showSplit = false, showMapPartial = 0, showMapAll = false;
+  let activeStage = null;
+  for (let s = 0; s < stepIdx; s++) {
+    const p = plan[s];
+    if (p.kind === 'input') { showInput = true; activeStage = (s === stepIdx - 1) ? 'input' : null; }
+    if (p.kind === 'split') { showInput = true; showSplit = true; activeStage = (s === stepIdx - 1) ? 'split' : activeStage; }
+    if (p.kind === 'map') { showInput = true; showSplit = true; showMapAll = true; activeStage = (s === stepIdx - 1) ? 'map' : activeStage; }
+    if (p.kind === 'init-empty') { showSplit = true; activeStage = (s === stepIdx - 1) ? 'split' : activeStage; }
+    if (p.kind === 'loop-1') { showSplit = true; showMapPartial = 1; activeStage = (s === stepIdx - 1) ? 'map' : activeStage; }
+    if (p.kind === 'loop-2') { showSplit = true; showMapPartial = 2; activeStage = (s === stepIdx - 1) ? 'map' : activeStage; }
+    if (p.kind === 'loop-3') { showSplit = true; showMapPartial = 3; activeStage = (s === stepIdx - 1) ? 'map' : activeStage; }
+    if (p.kind === 'done') { showSplit = true; showMapAll = true; activeStage = (s === stepIdx - 1) ? 'done' : activeStage; }
+  }
+
+  let pipeHtml = '';
+  // Stage 1: raw string
+  pipeHtml += `<div class="stage-row ${showInput ? 'shown' : ''} ${activeStage==='input' ? 'active' : ''}">`;
+  pipeHtml += `<div class="stage-tag">${sc.longForm ? 'STRING' : 'input()'}</div>`;
+  pipeHtml += `<div class="stage-arrow">▸</div>`;
+  pipeHtml += `<div class="item-row"><div class="item raw-input ${activeStage==='input' ? 'appearing' : ''}">"${sc.raw}"</div></div>`;
+  pipeHtml += `</div>`;
+
+  // Arrow + annotation
+  if (showSplit) {
+    const splitCall = sc.splitArg ? `.split(${sc.splitArg})` : '.split()';
+    pipeHtml += `<div class="convert-anno">↓ <strong>${splitCall}</strong> — break the string into pieces</div>`;
+  }
+
+  // Stage 2: split result
+  pipeHtml += `<div class="stage-row ${showSplit ? 'shown' : ''} ${activeStage==='split' ? 'active' : ''}">`;
+  pipeHtml += `<div class="stage-tag">split</div>`;
+  pipeHtml += `<div class="stage-arrow">▸</div>`;
+  pipeHtml += `<div class="item-row">`;
+  sc.split.forEach((s, i) => {
+    pipeHtml += `<div class="item str-item ${activeStage==='split' ? 'appearing' : ''}">${s}</div>`;
+  });
+  pipeHtml += `</div></div>`;
+
+  // Arrow + annotation
+  if (showMapAll || showMapPartial > 0) {
+    const conv = sc.longForm ? 'int(item) inside a for loop' : 'map(int, ...) applies int() to each item';
+    pipeHtml += `<div class="convert-anno">↓ <strong>${conv}</strong> — convert each string to an int</div>`;
+  }
+
+  // Stage 3: ints
+  pipeHtml += `<div class="stage-row ${(showMapAll || showMapPartial > 0) ? 'shown' : ''} ${activeStage==='map' || activeStage==='done' ? 'active' : ''}">`;
+  pipeHtml += `<div class="stage-tag">${sc.longForm ? 'append' : 'list'}</div>`;
+  pipeHtml += `<div class="stage-arrow">▸</div>`;
+  pipeHtml += `<div class="item-row">`;
+  const showCount = showMapAll ? sc.ints.length : showMapPartial;
+  sc.ints.forEach((n, i) => {
+    if (i < showCount) {
+      const isJustAdded = sc.longForm && (i === showMapPartial - 1) && activeStage === 'map';
+      const isAppearing = (!sc.longForm && activeStage === 'map') || isJustAdded;
+      pipeHtml += `<div class="item int-item ${isAppearing ? 'appearing' : ''}">${n}</div>`;
+    }
+  });
+  if (showCount === 0 && cur && cur.kind === 'init-empty') {
+    pipeHtml += `<div class="item" style="opacity:0.5;font-style:italic">empty list</div>`;
+  }
+  pipeHtml += `</div></div>`;
+
+  pipeBody.innerHTML = pipeHtml;
+
+  // Pipe label
+  let pipeLabelText = '— press Step ▸ to begin —';
+  if (cur) {
+    if (cur.kind === 'input') pipeLabelText = 'reading input as a string…';
+    else if (cur.kind === 'split') pipeLabelText = 'splitting into pieces…';
+    else if (cur.kind === 'map') pipeLabelText = 'converting each piece to an int…';
+    else if (cur.kind === 'init-empty') pipeLabelText = 'starting with an empty list…';
+    else if (cur.kind === 'loop-1' || cur.kind === 'loop-2' || cur.kind === 'loop-3') pipeLabelText = `loop iteration ${cur.kind.split('-')[1]} of ${sc.ints.length}…`;
+    else if (cur.kind === 'done') pipeLabelText = 'pipeline complete';
+  }
+  document.getElementById('pipeLabel').textContent = pipeLabelText;
+
+  // Commentary
+  document.getElementById('commentary').innerHTML = cur ? cur.msg : `Pick a scenario above. Each one walks the same pipeline: string → list of strings → list of integers.`;
+
+  // Insight
+  const insightEl = document.getElementById('insight');
+  if (sc.insight && stepIdx === plan.length) {
+    insightEl.innerHTML = `<strong>Lesson →</strong> ${sc.insight}`;
+    insightEl.classList.add('show');
+  } else {
+    insightEl.classList.remove('show');
+  }
+
+  document.getElementById('stepBtn').disabled = stepIdx >= plan.length;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (stepIdx < SCENARIOS[scenarioIdx].plan.length) { stepIdx++; render(); }
+});
+document.getElementById('resetBtn').addEventListener('click', () => reset());
+document.querySelectorAll('.qb').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.qb').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    reset(parseInt(b.dataset.sc));
+  });
+});
+
+reset(0);
+</script>
+</body>
+</html>
