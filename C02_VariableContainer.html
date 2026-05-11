@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Variables: The Container Story</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #eaf4f4;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 32px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 28px;
+    max-width: 700px;
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 1000px;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 760px) { .stage { grid-template-columns: 1fr; } }
+
+  .code-pane {
+    background: #1a1a1a;
+    border-radius: 10px;
+    border: 2px solid #1a1a1a;
+    box-shadow: 8px 8px 0 #d62828;
+    overflow: hidden;
+  }
+  .code-header {
+    background: #2a2a2a;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #333;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot.r { background: #ff5f56; }
+  .dot.y { background: #ffbd2e; }
+  .dot.g { background: #27c93f; }
+  .code-filename {
+    margin-left: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+  .code {
+    padding: 22px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    line-height: 2;
+    color: #e6edf3;
+    min-height: 240px;
+  }
+  .code .line {
+    opacity: 0.3;
+    transition: all 0.4s;
+  }
+  .code .line.active {
+    opacity: 1;
+    background: rgba(255, 217, 92, 0.1);
+    border-left: 3px solid #ffd95c;
+    padding-left: 10px;
+    margin-left: -13px;
+  }
+  .code .line.done { opacity: 0.7; }
+  .code .keyword { color: #ff7b72; }
+  .code .type { color: #56d364; font-weight: 700; }
+  .code .var { color: #d2a8ff; }
+  .code .num { color: #ffa657; }
+  .code .punct { color: #ffd95c; }
+  .code .comment { color: #888; font-style: italic; }
+
+  .container-pane {
+    background: #fff;
+    border-radius: 10px;
+    border: 2px solid #1a1a1a;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 26px 22px;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .container-pane .empty-msg {
+    font-style: italic;
+    color: #aaa;
+    text-align: center;
+  }
+
+  .container {
+    width: 220px;
+    transform: scale(0);
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .container.show { transform: scale(1); }
+
+  .container .label {
+    background: #ffd95c;
+    border: 2px solid #1a1a1a;
+    padding: 6px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    border-radius: 6px 6px 0 0;
+    border-bottom: none;
+    position: relative;
+    z-index: 2;
+  }
+  .container .body {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 0 0 10px 10px;
+    padding: 10px;
+    box-shadow: 0 4px 0 #1a1a1a;
+  }
+  .container .type-tag {
+    display: inline-block;
+    background: #56d364;
+    color: #1a1a1a;
+    padding: 3px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 100px;
+    margin-bottom: 8px;
+  }
+  .container .value {
+    background: #1a1a1a;
+    color: #ffd95c;
+    text-align: center;
+    padding: 22px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    border-radius: 4px;
+    transition: all 0.4s;
+  }
+  .container .value.changing {
+    animation: pulse 0.6s ease;
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); background: #d62828; color: #fff; }
+    100% { transform: scale(1); }
+  }
+  .container .value.empty { color: #555; font-size: 22px; }
+
+  /* Three-factor labels around the container */
+  .factor {
+    position: absolute;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #555;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .factor.show { opacity: 1; }
+  .factor::before {
+    content: '←';
+    margin-right: 6px;
+    color: #d62828;
+    font-size: 14px;
+  }
+  .factor.right::before { content: ''; }
+  .factor.right::after {
+    content: '→';
+    margin-left: 6px;
+    color: #d62828;
+    font-size: 14px;
+  }
+
+  /* Output panel */
+  .output-pane {
+    max-width: 1000px;
+    width: 100%;
+    background: #050608;
+    border-radius: 10px;
+    padding: 18px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #56d364;
+    font-size: 18px;
+    min-height: 60px;
+    border: 2px solid #1a1a1a;
+    margin-bottom: 18px;
+  }
+  .output-pane .prompt { color: #888; margin-right: 8px; }
+  .output-pane .empty { color: #555; font-style: italic; font-size: 14px; }
+
+  .commentary {
+    max-width: 1000px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 60px;
+    border-left: 4px solid #ffd95c;
+    font-family: 'Fraunces', serif;
+  }
+  .commentary strong { color: #ffd95c; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-counter {
+    align-self: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+  <h1>Variables: containers with a <span class="accent">type</span>, <span class="accent">name</span>, and <span class="accent">value</span></h1>
+  <p class="subtitle">A variable is just a labeled box. Step through and watch what each line of code <em>does</em> to the box.</p>
+
+  <div class="stage">
+    <div class="code-pane">
+      <div class="code-header">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="code-filename">Main.java</span>
+      </div>
+      <div class="code" id="code">
+        <div class="line" data-step="1"><span class="type">int</span> <span class="var">num</span> <span class="punct">=</span> <span class="num">34</span><span class="punct">;</span></div>
+        <div class="line" data-step="2"><span class="keyword">System</span>.out.println(<span class="var">num</span>)<span class="punct">;</span>     <span class="comment">// uses the value</span></div>
+        <div class="line" data-step="3"><span class="var">num</span> <span class="punct">=</span> <span class="num">99</span><span class="punct">;</span>            <span class="comment">// reassign</span></div>
+        <div class="line" data-step="4"><span class="keyword">System</span>.out.println(<span class="var">num</span>)<span class="punct">;</span></div>
+        <div class="line" data-step="5"><span class="type">int</span> <span class="var">b</span><span class="punct">;</span>               <span class="comment">// declare, no value yet</span></div>
+        <div class="line" data-step="6"><span class="var">b</span> <span class="punct">=</span> <span class="num">40</span><span class="punct">;</span>             <span class="comment">// assign later</span></div>
+        <div class="line" data-step="7"><span class="keyword">System</span>.out.println(<span class="var">num</span> <span class="punct">+</span> <span class="var">b</span>)<span class="punct">;</span></div>
+      </div>
+    </div>
+
+    <div class="container-pane" id="containerPane">
+      <div class="empty-msg" id="emptyMsg">Press <b>Next step</b> →<br><span style="font-size:13px">A container will appear when we create one.</span></div>
+
+      <div id="containers" style="display: flex; flex-direction: column; gap: 24px; align-items: center;"></div>
+    </div>
+  </div>
+
+  <div class="output-pane" id="output"><span class="empty">// console output will appear here as we go</span></div>
+
+  <div class="commentary" id="commentary">Each line of code maps to something physical happening in memory. Watch the boxes.</div>
+
+  <div class="controls">
+    <button class="btn secondary" onclick="reset()">↻ Reset</button>
+    <button class="btn" id="nextBtn" onclick="nextStep()">Next step →</button>
+    <button class="btn" id="playBtn" onclick="playAll()">▶ Play all</button>
+    <span class="step-counter" id="counter">Step 0 / 7</span>
+  </div>
+
+<script>
+  const steps = [
+    {
+      // step 0 - intro
+      activate: null,
+      commentary: 'Each line of code maps to something physical happening in memory. Hit <strong>Next step</strong> to begin.',
+      action: null
+    },
+    {
+      // step 1: int num = 34;
+      activate: 1,
+      commentary: '<strong>Declaration + Assignment.</strong> Three parts: <strong>type</strong> (<code>int</code>), <strong>name</strong> (<code>num</code>), <strong>value</strong> (<code>34</code>). A box is created, labeled, and filled — all in one shot.',
+      action: () => createContainer('num', 'int', 34)
+    },
+    {
+      // step 2: print num
+      activate: 2,
+      commentary: '<strong>Using the variable name pulls out the value.</strong> Java sees <code>num</code> and replaces it with <code>34</code>.',
+      action: () => print('34')
+    },
+    {
+      // step 3: num = 99;
+      activate: 3,
+      commentary: '<strong>Reassignment.</strong> The box keeps its label and type — only the value inside changes. The old 34 is gone.',
+      action: () => updateContainer('num', 99)
+    },
+    {
+      // step 4: print num
+      activate: 4,
+      commentary: 'Same line of code as before, but the value has changed. Output now: <strong>99</strong>.',
+      action: () => print('99')
+    },
+    {
+      // step 5: int b;
+      activate: 5,
+      commentary: '<strong>Declaration only.</strong> A new labeled box is created — but no value is put in yet. (Java technically gives a default of 0 for ints — we are showing the "empty" intent.)',
+      action: () => createContainer('b', 'int', null)
+    },
+    {
+      // step 6: b = 40;
+      activate: 6,
+      commentary: '<strong>Assignment without declaration.</strong> The existing <code>b</code> box now gets a value.',
+      action: () => updateContainer('b', 40)
+    },
+    {
+      // step 7: print num + b
+      activate: 7,
+      commentary: '<strong>Both names get replaced by their values.</strong> <code>num + b</code> becomes <code>99 + 40</code>, which is <strong>139</strong>.',
+      action: () => print('139')
+    }
+  ];
+
+  let cursor = 0;
+  let playing = false;
+  let containers = {}; // name -> { el, valueEl, type }
+
+  function createContainer(name, type, value) {
+    document.getElementById('emptyMsg').style.display = 'none';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'container';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'label';
+    labelEl.textContent = 'name: ' + name;
+    wrap.appendChild(labelEl);
+
+    const body = document.createElement('div');
+    body.className = 'body';
+    const typeTag = document.createElement('div');
+    typeTag.className = 'type-tag';
+    typeTag.textContent = 'type: ' + type;
+    body.appendChild(typeTag);
+
+    const valueEl = document.createElement('div');
+    valueEl.className = 'value';
+    if (value === null) {
+      valueEl.classList.add('empty');
+      valueEl.textContent = '(no value yet)';
+    } else {
+      valueEl.textContent = value;
+    }
+    body.appendChild(valueEl);
+
+    wrap.appendChild(body);
+    document.getElementById('containers').appendChild(wrap);
+
+    requestAnimationFrame(() => wrap.classList.add('show'));
+    containers[name] = { el: wrap, valueEl, type };
+  }
+
+  function updateContainer(name, value) {
+    const c = containers[name];
+    if (!c) return;
+    c.valueEl.classList.add('changing');
+    c.valueEl.classList.remove('empty');
+    setTimeout(() => {
+      c.valueEl.textContent = value;
+    }, 300);
+    setTimeout(() => c.valueEl.classList.remove('changing'), 600);
+  }
+
+  function print(text) {
+    const out = document.getElementById('output');
+    out.querySelector('.empty')?.remove();
+    const line = document.createElement('div');
+    line.innerHTML = '<span class="prompt">›</span>' + text;
+    out.appendChild(line);
+  }
+
+  function highlight(stepNum) {
+    document.querySelectorAll('.code .line').forEach(l => {
+      l.classList.remove('active');
+      const s = parseInt(l.dataset.step, 10);
+      if (s < stepNum) l.classList.add('done');
+      else l.classList.remove('done');
+    });
+    if (stepNum > 0 && stepNum <= 7) {
+      const target = document.querySelector('.code .line[data-step="' + stepNum + '"]');
+      if (target) target.classList.add('active');
+    }
+  }
+
+  function render() {
+    const step = steps[cursor];
+    if (step.activate) highlight(step.activate);
+    else highlight(0);
+    document.getElementById('commentary').innerHTML = step.commentary;
+    document.getElementById('counter').textContent = 'Step ' + cursor + ' / ' + (steps.length - 1);
+    document.getElementById('nextBtn').disabled = cursor >= steps.length - 1;
+    document.getElementById('playBtn').disabled = cursor >= steps.length - 1 || playing;
+  }
+
+  function nextStep() {
+    if (cursor >= steps.length - 1) return;
+    cursor++;
+    const step = steps[cursor];
+    if (step.action) step.action();
+    render();
+  }
+
+  function reset() {
+    cursor = 0;
+    playing = false;
+    containers = {};
+    document.getElementById('containers').innerHTML = '';
+    document.getElementById('emptyMsg').style.display = '';
+    document.getElementById('output').innerHTML = '<span class="empty">// console output will appear here as we go</span>';
+    document.querySelectorAll('.code .line').forEach(l => l.classList.remove('active', 'done'));
+    render();
+  }
+
+  function playAll() {
+    if (playing) return;
+    playing = true;
+    function tick() {
+      if (cursor < steps.length - 1) {
+        nextStep();
+        setTimeout(tick, 1800);
+      } else {
+        playing = false;
+        render();
+      }
+    }
+    tick();
+  }
+
+  render();
+</script>
+</body>
+</html>

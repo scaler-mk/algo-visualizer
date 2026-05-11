@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Integer Division: Calculator vs Java</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #eef2f5;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(28px, 4vw, 42px);
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    margin-bottom: 28px;
+    text-align: center;
+    max-width: 700px;
+  }
+  .arena {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    max-width: 1000px;
+    width: 100%;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 760px) { .arena { grid-template-columns: 1fr; } }
+
+  .device {
+    border: 2px solid #1a1a1a;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 8px 8px 0 #1a1a1a;
+  }
+  .device-header {
+    padding: 12px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    border-bottom: 2px solid #1a1a1a;
+  }
+  .calc { background: #fffbf3; }
+  .calc .device-header { background: #f4d35e; color: #1a1a1a; }
+  .calc-screen {
+    background: #232826;
+    color: #b3e6b3;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 22px;
+    font-size: 32px;
+    text-align: right;
+    min-height: 80px;
+    border-bottom: 1px solid #444;
+    word-break: break-all;
+  }
+  .calc-screen .small { font-size: 16px; color: #888; display: block; margin-bottom: 6px; text-align: right; }
+  .calc-body {
+    padding: 14px;
+    background: #f5edd7;
+  }
+  .calc-keys {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .calc-key {
+    aspect-ratio: 1.4;
+    background: #fff;
+    border: 1.5px solid #aaa;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    color: #333;
+  }
+  .calc-key.op { background: #f4a261; color: #fff; }
+  .calc-key.eq { background: #2a9d8f; color: #fff; grid-row: span 2; aspect-ratio: 1.4 / 2.4; }
+  .calc-key.highlight { background: #ffd95c; transform: scale(1.05); transition: all 0.2s; }
+
+  .java { background: #0d1117; color: #e6edf3; }
+  .java .device-header { background: #ff7b72; color: #1a1a1a; }
+  .java-window {
+    background: #0d1117;
+  }
+  .java-titlebar {
+    background: #2a2a2a;
+    padding: 8px 14px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    border-bottom: 1px solid #333;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot.r { background: #ff5f56; }
+  .dot.y { background: #ffbd2e; }
+  .dot.g { background: #27c93f; }
+  .java-titlebar .name { margin-left: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #999; }
+  .java-code {
+    padding: 18px 22px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    line-height: 1.7;
+    color: #e6edf3;
+    min-height: 80px;
+    border-bottom: 1px solid #333;
+  }
+  .java-code .keyword { color: #ff7b72; }
+  .java-code .num { color: #ffa657; }
+  .java-output {
+    padding: 18px 22px;
+    background: #050608;
+    font-family: 'JetBrains Mono', monospace;
+    color: #56d364;
+    font-size: 22px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .java-output .prompt { color: #888; font-size: 14px; }
+  .java-output .answer { font-size: 32px; font-weight: 700; }
+
+  .controls {
+    margin-bottom: 22px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+  }
+  .input-control {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 6px 10px;
+    box-shadow: 4px 4px 0 #1a1a1a;
+  }
+  .input-control input {
+    width: 60px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    border: none;
+    background: transparent;
+    color: #1a1a1a;
+  }
+  .input-control input:focus { outline: none; background: #fff8d6; }
+  .input-control .op-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    color: #d62828;
+    font-weight: 700;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .preset:hover { background: #ffd95c; }
+
+  .verdict {
+    max-width: 1000px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #ffd95c;
+    padding: 22px 28px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 18px;
+    line-height: 1.5;
+    margin-top: 14px;
+  }
+  .verdict .big {
+    font-weight: 900;
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    display: block;
+    margin-bottom: 6px;
+    color: #fff;
+  }
+  .verdict em { color: #ffd95c; font-style: italic; }
+
+  /* The "decimal falls off" animation */
+  .decimal-part {
+    color: #ff7b72;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.6, 1);
+    display: inline-block;
+  }
+  .decimal-part.falling {
+    transform: translateY(120px) rotate(15deg);
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+  <h1>Integer Division: same numbers, <span class="accent">different worlds</span></h1>
+  <p class="subtitle">A calculator gives you the precise answer. Java with integers throws away the decimal. This trips up almost every beginner.</p>
+
+  <div class="controls">
+    <div class="input-control">
+      <input type="number" id="a" value="10" min="0" max="9999">
+      <span class="op-display">÷</span>
+      <input type="number" id="b" value="3" min="0" max="9999">
+    </div>
+    <button class="btn" onclick="run()">▶ Divide</button>
+
+    <div class="presets">
+      <span class="preset" onclick="setPair(10, 3)">10 ÷ 3</span>
+      <span class="preset" onclick="setPair(8, 2)">8 ÷ 2</span>
+      <span class="preset" onclick="setPair(24, 9)">24 ÷ 9</span>
+      <span class="preset" onclick="setPair(3, 6)">3 ÷ 6</span>
+      <span class="preset" onclick="setPair(7, 2)">7 ÷ 2</span>
+      <span class="preset" onclick="setPair(24, 0)">24 ÷ 0</span>
+    </div>
+  </div>
+
+  <div class="arena">
+    <div class="device calc">
+      <div class="device-header">🧮 Calculator</div>
+      <div class="calc-screen" id="calcScreen">
+        <span class="small">10 ÷ 3 =</span>
+        <span id="calcAnswer">3.3333...</span>
+      </div>
+      <div class="calc-body">
+        <div class="calc-keys">
+          <div class="calc-key">7</div>
+          <div class="calc-key">8</div>
+          <div class="calc-key">9</div>
+          <div class="calc-key op">÷</div>
+          <div class="calc-key">4</div>
+          <div class="calc-key">5</div>
+          <div class="calc-key">6</div>
+          <div class="calc-key op">×</div>
+          <div class="calc-key">1</div>
+          <div class="calc-key">2</div>
+          <div class="calc-key">3</div>
+          <div class="calc-key op">−</div>
+          <div class="calc-key">0</div>
+          <div class="calc-key">.</div>
+          <div class="calc-key op eq" id="eqKey">=</div>
+          <div class="calc-key op">+</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="device java">
+      <div class="device-header">☕ Java</div>
+      <div class="java-window">
+        <div class="java-titlebar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="name">Main.java</span>
+        </div>
+        <div class="java-code" id="javaCode">
+          <span class="keyword">System</span>.out.<span class="keyword">print</span>(<span class="num">10</span> / <span class="num">3</span>);
+        </div>
+        <div class="java-output" id="javaOutput">
+          <span class="prompt">$</span> <span class="answer" id="javaAnswer">3</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict" id="verdict">
+    <span class="big">10 ÷ 3 in a calculator is 3.3333…</span>
+    In Java with integers, the <em>decimal part falls off</em>. Only the quotient survives. You get <em>3</em>.
+  </div>
+
+<script>
+  function setPair(a, b) {
+    document.getElementById('a').value = a;
+    document.getElementById('b').value = b;
+    run();
+  }
+
+  function run() {
+    const a = parseInt(document.getElementById('a').value, 10);
+    const b = parseInt(document.getElementById('b').value, 10);
+
+    const calcScreen = document.getElementById('calcScreen');
+    const calcAnswer = document.getElementById('calcAnswer');
+    const javaCode = document.getElementById('javaCode');
+    const javaOutput = document.getElementById('javaOutput');
+    const javaAnswer = document.getElementById('javaAnswer');
+    const verdict = document.getElementById('verdict');
+
+    // Update Java code display
+    javaCode.innerHTML =
+      '<span class="keyword">System</span>.out.<span class="keyword">print</span>(' +
+      '<span class="num">' + a + '</span> / <span class="num">' + b + '</span>);';
+
+    // Reset calculator screen header
+    calcScreen.querySelector('.small').textContent = a + ' ÷ ' + b + ' =';
+
+    if (b === 0) {
+      calcAnswer.innerHTML = '<span style="color:#ff7b72">Cannot divide by 0</span>';
+      javaAnswer.innerHTML = '<span style="color:#ff7b72; font-size:18px;">ArithmeticException:<br>/ by zero</span>';
+      verdict.innerHTML =
+        '<span class="big">Both agree: dividing by 0 is impossible.</span>' +
+        'In Java, this <em>crashes</em> your program with an ArithmeticException.';
+      return;
+    }
+
+    const exact = a / b;
+    const intDiv = Math.trunc(exact);
+    const decimal = exact - intDiv;
+    const exactStr = exact.toString();
+    const dotIdx = exactStr.indexOf('.');
+
+    // Show calculator answer with decimal part visually separable
+    if (dotIdx === -1) {
+      calcAnswer.innerHTML = String(intDiv);
+    } else {
+      const intPart = exactStr.slice(0, dotIdx);
+      const decPart = exactStr.slice(dotIdx);
+      // Cap length so it stays readable
+      const shownDec = decPart.length > 9 ? decPart.slice(0, 8) + '…' : decPart;
+      calcAnswer.innerHTML = intPart + '<span class="decimal-part" id="decPart">' + shownDec + '</span>';
+    }
+
+    // Java output: initially blank, then result drops in
+    javaAnswer.textContent = '...';
+
+    setTimeout(() => {
+      // Animate decimal part "falling off"
+      const dec = document.getElementById('decPart');
+      if (dec) dec.classList.add('falling');
+
+      setTimeout(() => {
+        javaAnswer.textContent = String(intDiv);
+
+        // Update verdict
+        if (dotIdx === -1) {
+          // Clean division
+          verdict.innerHTML =
+            '<span class="big">' + a + ' ÷ ' + b + ' = ' + intDiv + ' exactly.</span>' +
+            'No decimal to lose. Calculator and Java <em>agree</em> here.';
+        } else {
+          verdict.innerHTML =
+            '<span class="big">' + a + ' ÷ ' + b + ' on a calculator: ' + (exactStr.length > 12 ? exactStr.slice(0, 11) + '…' : exactStr) + '</span>' +
+            'In Java with integers, the <em>decimal part falls off</em>. Only the quotient survives. You get <em>' + intDiv + '</em>.';
+        }
+      }, 850);
+    }, 600);
+  }
+
+  run();
+</script>
+</body>
+</html>

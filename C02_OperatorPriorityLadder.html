@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Operator Priority Ladder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fcf3e3;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 32px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 28px;
+    max-width: 700px;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 28px;
+    max-width: 1050px;
+    width: 100%;
+  }
+  @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } }
+
+  /* Ladder */
+  .ladder {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 12px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+  }
+  .ladder-arrow {
+    position: absolute;
+    left: -16px;
+    top: 50%;
+    transform: translateY(-50%) rotate(180deg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #d62828;
+    writing-mode: vertical-rl;
+  }
+  .rung {
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: #fff;
+    transition: all 0.35s;
+    position: relative;
+  }
+  .rung.r1 { background: #ffd95c; }
+  .rung.r2 { background: #f4a261; }
+  .rung.r3 { background: #e76f51; color: #fff; }
+  .rung.lit {
+    transform: scale(1.04) translateX(8px);
+    box-shadow: 4px 4px 0 #1a1a1a;
+    z-index: 5;
+  }
+  .rung .rank {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+    opacity: 0.7;
+  }
+  .rung .ops {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .rung .desc {
+    font-size: 13px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+
+  /* Right side */
+  .demo {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 12px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+  }
+  .demo h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #555;
+    margin-bottom: 10px;
+    border-bottom: 2px dashed #1a1a1a;
+    padding-bottom: 8px;
+  }
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: #fff8d6;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .preset:hover { background: #ffd95c; }
+  .preset.active { background: #ffd95c; transform: scale(1.05); }
+
+  .expr-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    text-align: center;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 26px 18px;
+    border-radius: 8px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .expr-display .token {
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: all 0.4s;
+  }
+  .expr-display .token.op-r1 {
+    background: rgba(255, 217, 92, 0.25);
+    color: #ffd95c;
+    font-weight: 700;
+  }
+  .expr-display .token.op-r2 {
+    background: rgba(244, 162, 97, 0.25);
+    color: #f4a261;
+    font-weight: 700;
+  }
+  .expr-display .token.op-r3 {
+    background: rgba(231, 111, 81, 0.25);
+    color: #e76f51;
+    font-weight: 700;
+  }
+  .expr-display .token.next {
+    box-shadow: 0 0 0 2px #ffd95c;
+    transform: scale(1.2);
+  }
+
+  .order-list {
+    margin-top: 16px;
+    border-top: 2px dashed #ddd;
+    padding-top: 14px;
+  }
+  .order-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #888;
+    margin-bottom: 8px;
+  }
+  .order-list ol {
+    list-style: none;
+    counter-reset: step;
+    padding: 0;
+  }
+  .order-list li {
+    counter-increment: step;
+    padding: 8px 12px 8px 36px;
+    background: #f5efe2;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    position: relative;
+  }
+  .order-list li::before {
+    content: counter(step);
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+  }
+  .order-list .empty {
+    font-style: italic;
+    color: #888;
+    padding: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <h1>The Priority Ladder: which operator goes <span class="accent">first</span>?</h1>
+  <p class="subtitle">Three ranks. When in doubt, climb the ladder. Pick an expression on the right — watch the operators light up in evaluation order.</p>
+
+  <div class="wrap">
+    <div class="ladder">
+      <span class="ladder-arrow">Higher priority ↑</span>
+      <div class="rung r1" id="rung1">
+        <div class="rank">Rank 1 — top</div>
+        <div class="ops">( )</div>
+        <div class="desc">Parentheses always win. Whatever's inside is evaluated first.</div>
+      </div>
+      <div class="rung r2" id="rung2">
+        <div class="rank">Rank 2 — middle</div>
+        <div class="ops">*  /</div>
+        <div class="desc">Multiply and divide. Same priority — tie goes left-to-right.</div>
+      </div>
+      <div class="rung r3" id="rung3">
+        <div class="rank">Rank 3 — bottom</div>
+        <div class="ops">+  −</div>
+        <div class="desc">Add and subtract. Lowest priority — done last.</div>
+      </div>
+    </div>
+
+    <div class="demo">
+      <h3>Try an expression</h3>
+      <div class="presets" id="presets">
+        <span class="preset" data-expr="6 * 7 / 6">6 * 7 / 6</span>
+        <span class="preset active" data-expr="4 + 3 * 6 - 7 / 2">4 + 3 * 6 - 7 / 2</span>
+        <span class="preset" data-expr="5 + 15 / 5 + 6 * 3">5 + 15 / 5 + 6 * 3</span>
+        <span class="preset" data-expr="(5 + 2) * 3">(5 + 2) * 3</span>
+        <span class="preset" data-expr="7 - 2 * 4 + 18 / 3">7 - 2 * 4 + 18 / 3</span>
+      </div>
+
+      <div class="expr-display" id="exprDisplay"></div>
+
+      <div class="order-list">
+        <div class="order-label">Evaluation order:</div>
+        <ol id="orderList"><li class="empty">Loading…</li></ol>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // For each preset, we'll compute the evaluation order of its operators.
+  // Approach: tokenize, then repeatedly find the next operator to apply (parens first, then */, then +-).
+
+  function tokenize(s) {
+    const out = [];
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (c === ' ') { i++; continue; }
+      if ('+-*/()'.includes(c)) { out.push({ type: 'op', value: c, idx: i }); i++; }
+      else if (/[0-9]/.test(c)) {
+        let j = i;
+        while (j < s.length && /[0-9]/.test(s[j])) j++;
+        out.push({ type: 'num', value: parseInt(s.slice(i, j), 10), idx: i });
+        i = j;
+      } else { i++; }
+    }
+    return out;
+  }
+
+  function priorityRank(op) {
+    if (op === '*' || op === '/') return 2;
+    if (op === '+' || op === '-') return 3;
+    return null;
+  }
+
+  function computeOrder(expr) {
+    // Returns array of { stepNum, operator, leftVal, rightVal, result, rank, originalIdx }
+    // where originalIdx is the position in the original string for highlighting.
+    let tokens = tokenize(expr);
+    const events = [];
+    let step = 0;
+
+    function reduce(tokens) {
+      // Innermost parens first
+      let lastOpen = -1;
+      for (let i = 0; i < tokens.length; i++) {
+        if (tokens[i].type === 'op' && tokens[i].value === '(') lastOpen = i;
+        if (tokens[i].type === 'op' && tokens[i].value === ')') {
+          if (lastOpen === -1) return null;
+          // Reduce inside this paren
+          const inner = tokens.slice(lastOpen + 1, i);
+          // Record paren as a sub-pass
+          let innerReduced = inner;
+          let subStep;
+          while ((subStep = doOne(innerReduced)) !== null) {
+            innerReduced = subStep;
+          }
+          // After fully reducing inside parens, remove them
+          // We don't generate an explicit "step" for parens themselves — the inner ops carry rank 1
+          return tokens.slice(0, lastOpen).concat(innerReduced).concat(tokens.slice(i + 1));
+        }
+      }
+      return doOne(tokens);
+    }
+
+    function doOne(tokens) {
+      // Find highest-priority operator left to right
+      for (let i = 0; i < tokens.length; i++) {
+        if (tokens[i].type === 'op' && (tokens[i].value === '*' || tokens[i].value === '/')) {
+          return applyOp(tokens, i, 2);
+        }
+      }
+      for (let i = 0; i < tokens.length; i++) {
+        if (tokens[i].type === 'op' && (tokens[i].value === '+' || tokens[i].value === '-')) {
+          return applyOp(tokens, i, 3);
+        }
+      }
+      return null;
+    }
+
+    function applyOp(tokens, i, rank) {
+      const left = tokens[i - 1];
+      const op = tokens[i];
+      const right = tokens[i + 1];
+      let result;
+      if (op.value === '+') result = left.value + right.value;
+      else if (op.value === '-') result = left.value - right.value;
+      else if (op.value === '*') result = left.value * right.value;
+      else if (op.value === '/') result = Math.trunc(left.value / right.value);
+      step++;
+      events.push({
+        step,
+        operator: op.value,
+        leftVal: left.value,
+        rightVal: right.value,
+        result,
+        rank: tokens[i].insideParen ? 1 : rank,  // not actually tagged; we'll re-detect below
+        originalIdx: op.idx
+      });
+      const newTok = tokens.slice(0, i - 1).concat([{ type: 'num', value: result, idx: left.idx }]).concat(tokens.slice(i + 2));
+      return newTok;
+    }
+
+    // Mark which operators are inside parens for rank tagging
+    let depth = 0;
+    const parenDepth = {};
+    for (const t of tokens) {
+      if (t.type === 'op' && t.value === '(') { depth++; continue; }
+      if (t.type === 'op' && t.value === ')') { depth--; continue; }
+      if (t.type === 'op') parenDepth[t.idx] = depth;
+    }
+
+    let next = tokens;
+    while (true) {
+      const r = reduce(next);
+      if (r === null || r.length === next.length) break;
+      next = r;
+      if (next.length <= 1) break;
+    }
+
+    // Patch up rank: anything inside parens is rank 1 for highlighting purposes
+    for (const e of events) {
+      if (parenDepth[e.originalIdx] > 0) e.rank = 1;
+    }
+
+    return events;
+  }
+
+  // --- Rendering ---
+  let currentExpr = '';
+  let currentEvents = [];
+  let timer = null;
+
+  function loadExpr(expr) {
+    if (timer) clearTimeout(timer);
+    currentExpr = expr;
+    currentEvents = computeOrder(expr);
+
+    // Render the expression with each operator wrapped in a span
+    const display = document.getElementById('exprDisplay');
+    display.innerHTML = '';
+    let i = 0;
+    while (i < expr.length) {
+      const c = expr[i];
+      if (c === ' ') { i++; display.appendChild(document.createTextNode(' ')); continue; }
+      if ('+-*/()'.includes(c)) {
+        const span = document.createElement('span');
+        span.className = 'token op';
+        span.dataset.idx = i;
+        span.textContent = c;
+        // Tag rank
+        if (c === '(' || c === ')') span.classList.add('op-r1');
+        else {
+          // Check paren depth at this position
+          let depth = 0;
+          for (let k = 0; k < i; k++) {
+            if (expr[k] === '(') depth++;
+            if (expr[k] === ')') depth--;
+          }
+          if (depth > 0) span.classList.add('op-r1');
+          else if (c === '*' || c === '/') span.classList.add('op-r2');
+          else span.classList.add('op-r3');
+        }
+        display.appendChild(span);
+        i++;
+      } else if (/[0-9]/.test(c)) {
+        let j = i;
+        while (j < expr.length && /[0-9]/.test(expr[j])) j++;
+        const span = document.createElement('span');
+        span.className = 'token num';
+        span.textContent = expr.slice(i, j);
+        display.appendChild(span);
+        i = j;
+      } else { i++; }
+    }
+
+    // Build order list
+    const list = document.getElementById('orderList');
+    list.innerHTML = '';
+    if (currentEvents.length === 0) {
+      list.innerHTML = '<li class="empty">No operators to evaluate.</li>';
+      return;
+    }
+    currentEvents.forEach((e, idx) => {
+      const li = document.createElement('li');
+      li.textContent = e.leftVal + ' ' + e.operator + ' ' + e.rightVal + '  =  ' + e.result;
+      li.dataset.step = idx;
+      list.appendChild(li);
+    });
+
+    // Start the highlight loop
+    runHighlightLoop();
+  }
+
+  function runHighlightLoop() {
+    let idx = 0;
+    function tick() {
+      // Reset highlight on all operators
+      document.querySelectorAll('.expr-display .token').forEach(t => t.classList.remove('next'));
+      document.querySelectorAll('.order-list li').forEach(li => li.style.background = '');
+      // Also flash the right rung
+      document.querySelectorAll('.rung').forEach(r => r.classList.remove('lit'));
+
+      if (idx >= currentEvents.length) {
+        idx = 0;
+        timer = setTimeout(tick, 1200);
+        return;
+      }
+
+      const e = currentEvents[idx];
+      // Highlight the operator at originalIdx
+      const opEl = document.querySelector('.expr-display .token[data-idx="' + e.originalIdx + '"]');
+      if (opEl) opEl.classList.add('next');
+      // Highlight the corresponding order list item
+      const li = document.querySelector('.order-list li[data-step="' + idx + '"]');
+      if (li) li.style.background = '#ffd95c';
+      // Light up the matching rung
+      const rung = document.getElementById('rung' + e.rank);
+      if (rung) rung.classList.add('lit');
+
+      idx++;
+      timer = setTimeout(tick, 1400);
+    }
+    tick();
+  }
+
+  // Wire presets
+  document.querySelectorAll('.preset').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.preset').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      loadExpr(el.dataset.expr);
+    });
+  });
+
+  // Initial
+  loadExpr('4 + 3 * 6 - 7 / 2');
+</script>
+</body>
+</html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Concatenation Conveyor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fef6e7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 32px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 28px;
+    max-width: 700px;
+  }
+
+  .panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px;
+    max-width: 1000px;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 8px 14px;
+    background: #fff8d6;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .preset:hover { background: #ffd95c; }
+  .preset.active { background: #ffd95c; }
+
+  .stage {
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 28px 24px;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', monospace;
+    overflow-x: auto;
+  }
+
+  .belt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    min-height: 60px;
+  }
+  .chip {
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 18px;
+    font-weight: 700;
+    border: 2px solid transparent;
+    transition: all 0.5s ease;
+    position: relative;
+    white-space: nowrap;
+  }
+  .chip.num {
+    background: #15293b;
+    color: #79c0ff;
+    border-color: #1f3a52;
+  }
+  .chip.str {
+    background: #3a2a15;
+    color: #ffd95c;
+    border-color: #5a4220;
+  }
+  .chip.op {
+    background: #2a1530;
+    color: #d2a8ff;
+    border-color: #3a1f45;
+    font-size: 22px;
+    padding: 8px 12px;
+  }
+  .chip.active {
+    transform: scale(1.15) translateY(-4px);
+    box-shadow: 0 6px 16px rgba(255, 217, 92, 0.5);
+    border-color: #ffd95c;
+  }
+  .chip.consumed {
+    opacity: 0.25;
+    text-decoration: line-through;
+    transform: scale(0.9);
+  }
+  .chip.result {
+    animation: pop 0.5s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(0); }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  .mode-indicator {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+    transition: all 0.5s ease;
+    border: 2px solid;
+  }
+  .mode-indicator.arithmetic {
+    background: rgba(121, 192, 255, 0.15);
+    color: #79c0ff;
+    border-color: #79c0ff;
+  }
+  .mode-indicator.concat {
+    background: rgba(255, 217, 92, 0.15);
+    color: #ffd95c;
+    border-color: #ffd95c;
+  }
+
+  .commentary {
+    background: rgba(255,255,255,0.05);
+    border-left: 4px solid #ffd95c;
+    padding: 14px 18px;
+    margin-top: 16px;
+    border-radius: 0 6px 6px 0;
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 60px;
+    color: #c9d1d9;
+  }
+  .commentary strong { color: #ffd95c; font-weight: 700; }
+  .commentary .flip {
+    background: rgba(255, 107, 107, 0.15);
+    color: #ff9999;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+    margin-left: 12px;
+  }
+</style>
+</head>
+<body>
+  <h1>The Concatenation Conveyor: when does <span class="accent">+</span> flip?</h1>
+  <p class="subtitle">Java reads left to right. As soon as one side of a <code style="background:#fff8d6;padding:2px 6px;border-radius:3px;">+</code> is text, the rest of the line stays as text. Watch the moment it flips.</p>
+
+  <div class="panel">
+    <div class="presets" id="presets">
+      <span class="preset active" data-expr='10+20+"WakeUp"+3+2'>10 + 20 + "WakeUp" + 3 + 2</span>
+      <span class="preset" data-expr='10+20+"WakeUp"+3*2'>10 + 20 + "WakeUp" + 3 * 2</span>
+      <span class="preset" data-expr='"Hello"+3+4'>"Hello" + 3 + 4</span>
+      <span class="preset" data-expr='"Hello"+10+"World"'>"Hello" + 10 + "World"</span>
+      <span class="preset" data-expr='10+"Welcome"'>10 + "Welcome"</span>
+      <span class="preset" data-expr='10+20+"Hello"'>10 + 20 + "Hello"</span>
+      <span class="preset" data-expr='"Hi"+"Students"+"Namaste"'>"Hi" + "Students" + "Namaste"</span>
+    </div>
+
+    <div class="stage">
+      <div class="mode-indicator arithmetic" id="mode">Arithmetic Mode</div>
+      <div class="belt" id="belt"></div>
+      <div class="commentary" id="commentary">Click <b>Next step</b> to begin →</div>
+    </div>
+
+    <div class="controls">
+      <button class="btn secondary" onclick="reset()">↻ Reset</button>
+      <button class="btn" id="nextBtn" onclick="nextStep()">Next step →</button>
+      <button class="btn" id="allBtn" onclick="playAll()">▶ Play all</button>
+      <span class="step-counter" id="counter"></span>
+    </div>
+  </div>
+
+<script>
+  // --- Tokenizer (same as evaluator, simplified) ---
+  function tokenize(s) {
+    const out = [];
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (c === ' ') { i++; continue; }
+      if (c === '"') {
+        const e = s.indexOf('"', i + 1);
+        out.push({ type: 'str', value: s.slice(i + 1, e) });
+        i = e + 1;
+      } else if ('+-*/'.includes(c)) {
+        out.push({ type: 'op', value: c });
+        i++;
+      } else if (/[0-9]/.test(c)) {
+        let j = i;
+        while (j < s.length && /[0-9]/.test(s[j])) j++;
+        out.push({ type: 'num', value: parseInt(s.slice(i, j), 10) });
+        i = j;
+      } else { i++; }
+    }
+    return out;
+  }
+
+  // --- State ---
+  let tokens = [];
+  let steps = []; // history snapshots
+  let cursor = 0; // which step we're at
+  let modeFlipped = false;
+  let playing = false;
+
+  function loadExpr(expr) {
+    tokens = tokenize(expr);
+    steps = [{ tokens: deepCopy(tokens), highlight: null, commentary: 'Starting expression. <strong>Highest priority operator wins, ties go left-to-right.</strong>', mode: 'arithmetic' }];
+    cursor = 0;
+    modeFlipped = false;
+    precomputeSteps();
+    render();
+  }
+
+  function deepCopy(t) { return t.map(x => ({ ...x })); }
+
+  // --- Pre-compute every reduction step ---
+  function precomputeSteps() {
+    let cur = deepCopy(tokens);
+    let everHadStringMode = false;
+
+    while (true) {
+      // Find next operator to evaluate: priority * /, then + -, left-to-right
+      let idx = -1;
+      for (let i = 0; i < cur.length; i++) {
+        if (cur[i].type === 'op' && (cur[i].value === '*' || cur[i].value === '/')) { idx = i; break; }
+      }
+      if (idx === -1) {
+        for (let i = 0; i < cur.length; i++) {
+          if (cur[i].type === 'op' && (cur[i].value === '+' || cur[i].value === '-')) { idx = i; break; }
+        }
+      }
+      if (idx === -1) break;
+
+      const left = cur[idx - 1];
+      const op = cur[idx].value;
+      const right = cur[idx + 1];
+      const leftIsStr = left.type === 'str';
+      const rightIsStr = right.type === 'str';
+      const eitherStr = leftIsStr || rightIsStr;
+
+      // Compute result
+      let result, commentary, modeForStep, flipNow = false;
+
+      if (eitherStr && op !== '+') {
+        // Error
+        steps.push({
+          tokens: deepCopy(cur),
+          highlight: [idx - 1, idx + 1],
+          commentary: '✗ <span class="flip">Error:</span> cannot use <strong>' + op + '</strong> with text. With text operands, <strong>only +</strong> works.',
+          mode: everHadStringMode ? 'concat' : 'arithmetic',
+          isError: true
+        });
+        return;
+      }
+
+      if (op === '+' && eitherStr) {
+        const lv = leftIsStr ? left.value : String(left.value);
+        const rv = rightIsStr ? right.value : String(right.value);
+        result = { type: 'str', value: lv + rv };
+        if (!everHadStringMode) {
+          flipNow = true;
+          everHadStringMode = true;
+          commentary = '<span class="flip">⚡ Mode flips to concatenation.</span> One side is text, so <strong>+</strong> joins them: <strong>"' + result.value + '"</strong>. Everything from here on will concatenate.';
+          modeForStep = 'concat';
+        } else {
+          commentary = 'Still concatenating: <strong>"' + result.value + '"</strong>';
+          modeForStep = 'concat';
+        }
+      } else if (op === '+') {
+        result = { type: 'num', value: left.value + right.value };
+        commentary = 'Add: <strong>' + left.value + ' + ' + right.value + ' = ' + result.value + '</strong>';
+        modeForStep = everHadStringMode ? 'concat' : 'arithmetic';
+      } else if (op === '-') {
+        result = { type: 'num', value: left.value - right.value };
+        commentary = 'Subtract: <strong>' + left.value + ' − ' + right.value + ' = ' + result.value + '</strong>';
+        modeForStep = everHadStringMode ? 'concat' : 'arithmetic';
+      } else if (op === '*') {
+        result = { type: 'num', value: left.value * right.value };
+        commentary = '<strong>×</strong> has higher priority — evaluate first: <strong>' + left.value + ' × ' + right.value + ' = ' + result.value + '</strong>';
+        modeForStep = everHadStringMode ? 'concat' : 'arithmetic';
+      } else if (op === '/') {
+        if (right.value === 0) {
+          steps.push({ tokens: deepCopy(cur), commentary: '✗ <span class="flip">Division by 0 is not allowed.</span>', mode: 'arithmetic', isError: true });
+          return;
+        }
+        result = { type: 'num', value: Math.trunc(left.value / right.value) };
+        commentary = '<strong>÷</strong> has higher priority — integer division: <strong>' + left.value + ' / ' + right.value + ' = ' + result.value + '</strong>';
+        modeForStep = everHadStringMode ? 'concat' : 'arithmetic';
+      }
+
+      // Record this step
+      const newCur = cur.slice(0, idx - 1).concat([result]).concat(cur.slice(idx + 2));
+      steps.push({
+        tokens: deepCopy(newCur),
+        highlight: [idx - 1],  // result chip index
+        commentary,
+        mode: modeForStep,
+        flipNow
+      });
+      cur = newCur;
+    }
+
+    // Final
+    if (cur.length === 1) {
+      steps.push({
+        tokens: deepCopy(cur),
+        commentary: '✓ <strong>Final answer:</strong> ' + (cur[0].type === 'str' ? '"' + cur[0].value + '"' : cur[0].value),
+        mode: everHadStringMode ? 'concat' : 'arithmetic',
+        final: true
+      });
+    }
+  }
+
+  // --- Render ---
+  function render() {
+    const step = steps[cursor];
+    const beltEl = document.getElementById('belt');
+    beltEl.innerHTML = '';
+
+    step.tokens.forEach((t, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'chip ' + t.type;
+      if (step.highlight && step.highlight.includes(i)) {
+        chip.classList.add('active');
+        if (cursor > 0) chip.classList.add('result');
+      }
+      if (t.type === 'str') chip.textContent = '"' + t.value + '"';
+      else chip.textContent = String(t.value);
+      beltEl.appendChild(chip);
+    });
+
+    const modeEl = document.getElementById('mode');
+    modeEl.className = 'mode-indicator ' + step.mode;
+    modeEl.textContent = step.mode === 'concat' ? 'Concatenation Mode' : 'Arithmetic Mode';
+
+    document.getElementById('commentary').innerHTML = step.commentary;
+    document.getElementById('counter').textContent = 'Step ' + cursor + ' / ' + (steps.length - 1);
+
+    document.getElementById('nextBtn').disabled = cursor >= steps.length - 1;
+    document.getElementById('allBtn').disabled = cursor >= steps.length - 1 || playing;
+  }
+
+  function nextStep() {
+    if (cursor < steps.length - 1) {
+      cursor++;
+      render();
+    }
+  }
+
+  function reset() {
+    cursor = 0;
+    playing = false;
+    render();
+  }
+
+  function playAll() {
+    if (playing) return;
+    playing = true;
+    function tick() {
+      if (cursor < steps.length - 1) {
+        nextStep();
+        setTimeout(tick, 1400);
+      } else {
+        playing = false;
+        render();
+      }
+    }
+    tick();
+  }
+
+  // Preset wiring
+  document.querySelectorAll('.preset').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.preset').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      loadExpr(el.dataset.expr);
+    });
+  });
+
+  // Initial load
+  loadExpr('10+20+"WakeUp"+3+2');
+</script>
+</body>
+</html>

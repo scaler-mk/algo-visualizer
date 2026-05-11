@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Step-by-Step Expression Evaluator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #f5efe2;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 32px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 24px;
+    max-width: 700px;
+  }
+  .panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 24px;
+    max-width: 900px;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .input-row input {
+    flex: 1;
+    min-width: 220px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    padding: 14px 16px;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    background: #fffbf3;
+    color: #1a1a1a;
+  }
+  .input-row input:focus {
+    outline: none;
+    background: #fff8d6;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+    transition: transform 0.1s;
+  }
+  .btn:hover { background: #333; }
+  .btn:active { transform: scale(0.97); }
+  .btn.secondary {
+    background: #fff;
+    color: #1a1a1a;
+    border: 2px solid #1a1a1a;
+  }
+  .btn.secondary:hover { background: #ffd95c; }
+  .presets {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: #fff8d6;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .preset:hover {
+    background: #ffd95c;
+    transform: translateY(-1px);
+  }
+  .preset-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #888;
+    margin-top: 14px;
+    margin-bottom: 6px;
+  }
+  .legend {
+    margin-top: 12px;
+    font-size: 13px;
+    color: #555;
+    font-style: italic;
+  }
+  .legend code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #fff8d6;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #1a1a1a;
+    font-style: normal;
+  }
+
+  .steps-panel {
+    background: #1a1a1a;
+    color: #e6edf3;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #d62828;
+    padding: 24px 28px;
+    max-width: 900px;
+    width: 100%;
+    min-height: 220px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+    font-size: 20px;
+    opacity: 0;
+    animation: slideIn 0.4s forwards;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-15px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .step .arrow {
+    color: #ffd95c;
+    font-weight: 700;
+  }
+  .step .expr {
+    color: #e6edf3;
+  }
+  .step .highlight {
+    background: rgba(255, 217, 92, 0.25);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+  .step .replace {
+    background: rgba(86, 211, 100, 0.2);
+    color: #56d364;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+  .step .reason {
+    font-size: 13px;
+    color: #888;
+    font-style: italic;
+    margin-left: 10px;
+    font-family: 'Fraunces', serif;
+  }
+  .step.final {
+    background: rgba(86, 211, 100, 0.1);
+    border-left: 4px solid #56d364;
+    padding: 10px 14px;
+    margin-top: 16px;
+    border-radius: 0 6px 6px 0;
+  }
+  .step.final .expr { color: #56d364; font-weight: 700; font-size: 22px; }
+  .step.error {
+    background: rgba(230, 57, 70, 0.15);
+    border-left: 4px solid #ff6b6b;
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+  }
+  .step.error .expr { color: #ff6b6b; font-weight: 700; }
+  .placeholder {
+    color: #555;
+    font-size: 16px;
+    text-align: center;
+    padding: 60px 20px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+
+  .controls-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .speed-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    color: #888;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .speed-control select {
+    font-family: 'JetBrains Mono', monospace;
+    padding: 6px 10px;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 4px;
+    background: #fff;
+  }
+</style>
+</head>
+<body>
+  <h1>Expression Evaluator: <span class="accent">step by step</span></h1>
+  <p class="subtitle">Type any expression. Watch how Java evaluates it — operator by operator, left to right, following priority rules.</p>
+
+  <div class="panel">
+    <div class="input-row">
+      <input type="text" id="exprInput" value="4 + 3 * 6 - 7 / 2" placeholder='e.g.  10 + 20 + "WakeUp" + 3 * 2'>
+      <button class="btn" onclick="evaluate()">▶ Evaluate</button>
+      <button class="btn secondary" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div class="preset-label">Quick examples from the class:</div>
+    <div class="presets">
+      <span class="preset" onclick="loadPreset(this)">6 * 7 / 6</span>
+      <span class="preset" onclick="loadPreset(this)">4 + 3 * 6 - 7 / 2</span>
+      <span class="preset" onclick="loadPreset(this)">5 + 15 / 5 + 6 * 3</span>
+      <span class="preset" onclick="loadPreset(this)">(5 + 2) * 3</span>
+      <span class="preset" onclick="loadPreset(this)">10 / 3</span>
+      <span class="preset" onclick="loadPreset(this)">"Hello" + 3 + 4</span>
+      <span class="preset" onclick="loadPreset(this)">"Hello" + 10 + "World"</span>
+      <span class="preset" onclick="loadPreset(this)">10 + 20 + "WakeUp" + 3 * 2</span>
+      <span class="preset" onclick="loadPreset(this)">10 + "Hello" * "World" + 3</span>
+    </div>
+
+    <div class="legend">
+      Use <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>(</code> <code>)</code> with integers, and <code>"text"</code> for strings.
+    </div>
+
+    <div class="controls-row">
+      <div class="speed-control">
+        Speed
+        <select id="speed">
+          <option value="1200">Slow</option>
+          <option value="800" selected>Normal</option>
+          <option value="400">Fast</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps-panel" id="steps">
+    <div class="placeholder">Hit <b>Evaluate</b> to see the steps appear here ↓</div>
+  </div>
+
+<script>
+  function loadPreset(el) {
+    document.getElementById('exprInput').value = el.textContent;
+    evaluate();
+  }
+
+  function clearAll() {
+    document.getElementById('exprInput').value = '';
+    document.getElementById('steps').innerHTML = '<div class="placeholder">Hit <b>Evaluate</b> to see the steps appear here ↓</div>';
+  }
+
+  // ---------- Tokenizer ----------
+  function tokenize(input) {
+    const tokens = [];
+    let i = 0;
+    while (i < input.length) {
+      const c = input[i];
+      if (c === ' ' || c === '\t') { i++; continue; }
+      if (c === '"') {
+        let end = input.indexOf('"', i + 1);
+        if (end === -1) throw new Error('Unmatched quote');
+        tokens.push({ type: 'str', value: input.slice(i + 1, end) });
+        i = end + 1;
+      } else if ('+-*/()'.includes(c)) {
+        tokens.push({ type: 'op', value: c });
+        i++;
+      } else if (/[0-9]/.test(c)) {
+        let j = i;
+        while (j < input.length && /[0-9]/.test(input[j])) j++;
+        tokens.push({ type: 'num', value: parseInt(input.slice(i, j), 10) });
+        i = j;
+      } else {
+        throw new Error('Unexpected character: ' + c);
+      }
+    }
+    return tokens;
+  }
+
+  // ---------- Pretty-print tokens back to string ----------
+  function render(tokens, highlightRange) {
+    let out = '';
+    tokens.forEach((t, idx) => {
+      const inH = highlightRange &&
+                  idx >= highlightRange[0] && idx <= highlightRange[1];
+      let piece;
+      if (t.type === 'str') piece = '"' + t.value + '"';
+      else piece = String(t.value);
+      if (inH) {
+        out += '<span class="' + (highlightRange[2] || 'highlight') + '">' + piece + '</span>';
+      } else {
+        out += piece;
+      }
+      if (idx < tokens.length - 1) out += ' ';
+    });
+    return out;
+  }
+
+  // ---------- One reduction step ----------
+  // Returns { newTokens, hlBefore: [s,e], hlAfter: [s,e], reason } or null if done.
+  function reduceOnce(tokens) {
+    // 1. Find innermost parenthesised sub-expression
+    let openIdx = -1;
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].type === 'op' && tokens[i].value === '(') openIdx = i;
+      if (tokens[i].type === 'op' && tokens[i].value === ')') {
+        if (openIdx === -1) throw new Error('Unmatched )');
+        // Reduce inside this pair.
+        const inner = tokens.slice(openIdx + 1, i);
+        const innerReduced = reduceOnce(inner);
+        if (innerReduced) {
+          // Map the inner highlights back to global indices.
+          const offset = openIdx + 1;
+          const before = [innerReduced.hlBefore[0] + offset, innerReduced.hlBefore[1] + offset];
+          const newTokens = tokens.slice(0, openIdx + 1)
+                              .concat(innerReduced.newTokens)
+                              .concat(tokens.slice(i));
+          const afterStart = openIdx + 1 + innerReduced.hlAfter[0];
+          const afterEnd   = openIdx + 1 + innerReduced.hlAfter[1];
+          return {
+            newTokens,
+            hlBefore: before,
+            hlAfter: [afterStart, afterEnd],
+            reason: innerReduced.reason + ' (inside parentheses)'
+          };
+        } else {
+          // Inner fully reduced to a single value: drop the parens.
+          if (inner.length === 1) {
+            const newTokens = tokens.slice(0, openIdx).concat([inner[0]]).concat(tokens.slice(i + 1));
+            return {
+              newTokens,
+              hlBefore: [openIdx, i],
+              hlAfter: [openIdx, openIdx],
+              reason: 'remove parentheses'
+            };
+          }
+          // Otherwise (shouldn't happen for valid input) — just drop parens
+          throw new Error('Empty parentheses');
+        }
+      }
+    }
+
+    // 2. No parentheses left. Find highest-priority operator (left to right).
+    // Priority: * / > + -
+    // Pass 1: look for * or /
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.type === 'op' && (t.value === '*' || t.value === '/')) {
+        return applyOp(tokens, i);
+      }
+    }
+    // Pass 2: + or -
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.type === 'op' && (t.value === '+' || t.value === '-')) {
+        return applyOp(tokens, i);
+      }
+    }
+
+    return null; // fully reduced
+  }
+
+  function applyOp(tokens, i) {
+    const left = tokens[i - 1];
+    const op = tokens[i].value;
+    const right = tokens[i + 1];
+    if (!left || !right) throw new Error('Missing operand for ' + op);
+
+    let result, reason;
+
+    const leftIsStr = left.type === 'str';
+    const rightIsStr = right.type === 'str';
+    const eitherIsStr = leftIsStr || rightIsStr;
+
+    if (eitherIsStr && op !== '+') {
+      throw new Error('Cannot use ' + op + ' with text operand');
+    }
+
+    if (op === '+') {
+      if (eitherIsStr) {
+        const lv = leftIsStr ? left.value : String(left.value);
+        const rv = rightIsStr ? right.value : String(right.value);
+        result = { type: 'str', value: lv + rv };
+        reason = 'concatenate (one side is text)';
+      } else {
+        result = { type: 'num', value: left.value + right.value };
+        reason = 'add';
+      }
+    } else if (op === '-') {
+      result = { type: 'num', value: left.value - right.value };
+      reason = 'subtract';
+    } else if (op === '*') {
+      result = { type: 'num', value: left.value * right.value };
+      reason = 'multiply';
+    } else if (op === '/') {
+      if (right.value === 0) throw new Error('Division by zero is not possible in Java');
+      // Integer division (truncate toward zero)
+      const q = Math.trunc(left.value / right.value);
+      result = { type: 'num', value: q };
+      reason = 'integer division (quotient only)';
+    }
+
+    const newTokens = tokens.slice(0, i - 1).concat([result]).concat(tokens.slice(i + 2));
+    return {
+      newTokens,
+      hlBefore: [i - 1, i + 1],
+      hlAfter: [i - 1, i - 1, 'replace'],
+      reason
+    };
+  }
+
+  // ---------- Driver ----------
+  let timer = null;
+
+  function evaluate() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    const input = document.getElementById('exprInput').value.trim();
+    const stepsEl = document.getElementById('steps');
+    stepsEl.innerHTML = '';
+    if (!input) {
+      stepsEl.innerHTML = '<div class="placeholder">Type an expression first.</div>';
+      return;
+    }
+
+    let tokens;
+    try {
+      tokens = tokenize(input);
+    } catch (e) {
+      addError(stepsEl, e.message);
+      return;
+    }
+
+    const speed = parseInt(document.getElementById('speed').value, 10);
+
+    // Show original
+    appendStep(stepsEl, '=', render(tokens), null, 0);
+
+    function nextStep() {
+      let red;
+      try {
+        red = reduceOnce(tokens);
+      } catch (e) {
+        addError(stepsEl, e.message);
+        return;
+      }
+      if (!red) {
+        // Final answer
+        appendFinal(stepsEl, render(tokens));
+        return;
+      }
+      // Show the "before" with highlight
+      // (we already have the previous step rendered; show the new state next)
+      tokens = red.newTokens;
+      appendStep(stepsEl, '⇒', render(tokens, red.hlAfter), red.reason);
+      timer = setTimeout(nextStep, speed);
+    }
+
+    timer = setTimeout(nextStep, speed);
+  }
+
+  function appendStep(parent, arrow, html, reason, delay = 0) {
+    const div = document.createElement('div');
+    div.className = 'step';
+    div.style.animationDelay = delay + 'ms';
+    div.innerHTML = '<span class="arrow">' + arrow + '</span>' +
+                    '<span class="expr">' + html + '</span>' +
+                    (reason ? '<span class="reason">// ' + reason + '</span>' : '');
+    parent.appendChild(div);
+    parent.scrollTop = parent.scrollHeight;
+  }
+
+  function appendFinal(parent, html) {
+    const div = document.createElement('div');
+    div.className = 'step final';
+    div.innerHTML = '<span class="arrow">✓</span>' +
+                    '<span class="expr">' + html + '</span>' +
+                    '<span class="reason" style="color:#56d364">final answer</span>';
+    parent.appendChild(div);
+  }
+
+  function addError(parent, msg) {
+    const div = document.createElement('div');
+    div.className = 'step error';
+    div.innerHTML = '<span class="arrow">✗</span>' +
+                    '<span class="expr">Error: ' + msg + '</span>';
+    parent.appendChild(div);
+  }
+
+  // Run default on load
+  evaluate();
+</script>
+</body>
+</html>
