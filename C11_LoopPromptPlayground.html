@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Loop Prompt Playground — See what AI gives you for loop analysis</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #1a1a2e; color: #e6e6ed; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; color: #fff; }
+  h1 .accent { color: #ffd95c; font-style: italic; }
+  .subtitle { color: #aaa; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 820px; }
+  .prompt-picker { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #ffd95c; border-radius: 10px; box-shadow: 6px 6px 0 #ffd95c; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+  .prompt-btn { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 9px 14px; background: #1a1a2e; color: #d2a8ff; border: 1.5px solid #d2a8ff; border-radius: 5px; cursor: pointer; transition: all 0.15s; line-height: 1.3; text-align: left; min-width: 200px; }
+  .prompt-btn:hover { background: #2e2e4a; }
+  .prompt-btn.active { background: #d2a8ff; color: #1a1a2e; }
+  .prompt-btn .preview { display: block; font-size: 9.5px; opacity: 0.75; margin-top: 2px; font-style: italic; }
+  .prompt-box { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #d2a8ff; border-radius: 10px; box-shadow: 6px 6px 0 #d2a8ff; padding: 18px 22px; margin-bottom: 18px; }
+  .prompt-box h3 { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #d2a8ff; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .prompt-box h3::before { content: '🤖'; font-size: 16px; }
+  .prompt-text { background: #1a1a2e; border-radius: 6px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; color: #d2a8ff; border-left: 4px solid #d2a8ff; }
+  .prompt-text em { color: #ffd95c; font-style: italic; }
+  .panels-grid { max-width: 1100px; width: 100%; display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .panels-grid { grid-template-columns: 1fr; } }
+  .panel { background: #25253d; border: 2px solid #444; border-radius: 10px; box-shadow: 6px 6px 0 #444; padding: 22px 24px; }
+  .panel.code-panel { border-color: #ffd95c; box-shadow: 6px 6px 0 #ffd95c; }
+  .panel.response-panel { border-color: #56d364; box-shadow: 6px 6px 0 #56d364; }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .panel.code-panel .panel-title { color: #ffd95c; }
+  .panel.response-panel .panel-title { color: #b0e0b8; }
+  .badge-you { padding: 2px 8px; background: #ffd95c; color: #1a1a2e; border-radius: 3px; font-weight: 700; font-size: 9px; }
+  .badge-ai { padding: 2px 8px; background: #56d364; color: #1a3a23; border-radius: 3px; font-weight: 700; font-size: 9px; }
+  .code-block { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; color: #e6edf3; background: #0d1117; border-radius: 6px; padding: 14px 16px; overflow-x: auto; }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .comment { color: #6e7681; font-style: italic; }
+  .code-block .indent { display: inline-block; width: 1.3em; }
+  .code-block .highlight-line { background: rgba(255, 217, 92, 0.15); padding: 2px 6px; margin: 0 -6px; border-radius: 3px; border-left: 3px solid #ffd95c; }
+  .code-block .bug-line { background: rgba(255, 107, 107, 0.18); padding: 2px 6px; margin: 0 -6px; border-radius: 3px; border-left: 3px solid #ff6b6b; }
+  .input-row { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .input-row label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #aaa; }
+  .input-row input { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; width: 70px; padding: 5px 8px; background: #1a1a2e; color: #fff; border: 1.5px solid #d2a8ff; border-radius: 4px; text-align: center; }
+  .preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .preset-chip { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 4px 10px; background: #1a1a2e; color: #ffd95c; border: 1.5px solid #ffd95c; border-radius: 12px; cursor: pointer; font-weight: 700; transition: all 0.15s; }
+  .preset-chip:hover { background: #ffd95c; color: #1a1a2e; }
+  .preset-chip.active { background: #ffd95c; color: #1a1a2e; }
+  .response-content { font-family: 'Fraunces', serif; font-size: 13.5px; line-height: 1.6; color: #e6edf3; }
+  .response-content h4 { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #b0e0b8; text-transform: uppercase; letter-spacing: 0.1em; margin: 12px 0 6px; }
+  .response-content h4:first-child { margin-top: 0; }
+  .response-content p { margin-bottom: 8px; }
+  .response-content code { background: #0d1117; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #ffd95c; }
+  .response-content strong { color: #ffd95c; }
+  .response-content ul { margin: 6px 0 8px 18px; padding: 0; }
+  .response-content li { margin-bottom: 5px; }
+  .response-content .ai-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+  .response-content .ai-table th { background: #1a1a2e; color: #ffd95c; padding: 6px 10px; text-align: left; border-bottom: 2px solid #444; }
+  .response-content .ai-table td { padding: 5px 10px; border-bottom: 1px solid #333; color: #e6edf3; }
+  .response-content .ai-table tr.iter-row.break-row { background: rgba(255, 107, 107, 0.12); }
+  .response-content .ai-table tr.iter-row.match-row { background: rgba(86, 211, 100, 0.12); }
+  .response-content .iter-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 10.5px; font-weight: 700; margin-right: 6px; }
+  .response-content .iter-tag.savings { background: #56d364; color: #1a3a23; }
+  .response-content .iter-tag.warn { background: #ff6b6b; color: #fff; }
+  .response-content .iter-tag.case { background: #d2a8ff; color: #1a1a2e; }
+  .response-content .key-callout { background: #1a1a2e; border-left: 4px solid #ffd95c; padding: 10px 14px; margin: 10px 0; border-radius: 4px; }
+  .response-content .key-callout strong { color: #ffd95c; }
+  .response-content .converted-code { background: #0d1117; padding: 10px 14px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.55; color: #e6edf3; margin: 8px 0; white-space: pre; overflow-x: auto; }
+  .takeaway-card { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #ffd95c; border-radius: 10px; box-shadow: 6px 6px 0 #ffd95c; padding: 16px 22px; margin-bottom: 18px; }
+  .takeaway-card h4 { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; }
+  .takeaway-card p { font-family: 'Fraunces', serif; font-size: 14px; line-height: 1.55; color: #e6edf3; }
+  .takeaway-card p strong { color: #ffd95c; }
+</style>
+</head>
+<body>
+  <h1>Loop Prompt <span class="accent">Playground</span></h1>
+  <p class="subtitle">Pick a prompt. See the loop on the left. See what AI returns on the right. These are the four kinds of questions AI handles really well for loop analysis.</p>
+  <div class="prompt-picker">
+    <span class="picker-label">Prompt:</span>
+    <span class="prompt-btn active" data-prompt="count"><span>1 · Count iterations</span><span class="preview">"how many times does this run?"</span></span>
+    <span class="prompt-btn" data-prompt="infinite"><span>2 · Detect infinite loop</span><span class="preview">"will this ever terminate?"</span></span>
+    <span class="prompt-btn" data-prompt="refactor"><span>3 · Refactor while ↔ for</span><span class="preview">"convert and map the parts"</span></span>
+    <span class="prompt-btn" data-prompt="edges"><span>4 · Find edge cases</span><span class="preview">"what inputs could break this?"</span></span>
+  </div>
+  <div class="prompt-box">
+    <h3>The prompt you paste into AI</h3>
+    <div class="prompt-text" id="promptText">—</div>
+  </div>
+  <div class="panels-grid">
+    <div class="panel code-panel">
+      <div class="panel-title"><span class="badge-you">YOU PASTE</span> The loop</div>
+      <div class="code-block" id="codePanel"></div>
+      <div class="input-row" id="inputRow"></div>
+    </div>
+    <div class="panel response-panel">
+      <div class="panel-title"><span class="badge-ai">AI RETURNS</span> Analysis</div>
+      <div class="response-content" id="responsePanel">—</div>
+    </div>
+  </div>
+  <div class="takeaway-card" id="takeawayCard">
+    <h4>The takeaway</h4>
+    <p id="takeawayText">—</p>
+  </div>
+<script>
+const PROMPTS = {
+  count: {
+    promptText: 'For this loop, count exactly how many iterations execute when <em>N = [value]</em>. Show me the iteration where the loop exits (or which iteration the <em>break</em> fires on). Then tell me the iterations saved compared to a loop without <em>break</em>.',
+    code: '<div><span class="kw">int</span> <span class="var">divisorCount</span> = <span class="num">0</span>;</div><div><span class="kw">for</span> (<span class="kw">int</span> <span class="var">i</span> = <span class="num">1</span>; <span class="var">i</span> &lt;= <span class="var">N</span>; <span class="var">i</span><span class="op">++</span>) {</div><div><span class="indent"></span><span class="kw">if</span> (<span class="var">N</span> % <span class="var">i</span> == <span class="num">0</span>) {</div><div><span class="indent"></span><span class="indent"></span><span class="var">divisorCount</span><span class="op">++</span>;</div><div><span class="indent"></span><span class="indent"></span><span class="kw">if</span> (<span class="var">divisorCount</span> &gt; <span class="num">2</span>) <span class="kw">break</span>;</div><div><span class="indent"></span>}</div><div>}</div>',
+    inputs: [{ name: 'N', presets: [7, 12, 97, 100], default: 12 }],
+    responses: {
+      7: { iters: 7, divisorCount: 2, breakAt: null, isPrime: true, fullRun: 7,
+           summary: '<h4>Iteration trace</h4><table class="ai-table"><thead><tr><th>i</th><th>N % i == 0?</th><th>divisorCount</th><th>break?</th></tr></thead><tbody><tr class="iter-row match-row"><td>1</td><td>true</td><td>1</td><td>no</td></tr><tr class="iter-row"><td>2</td><td>false</td><td>1</td><td>no</td></tr><tr class="iter-row"><td>3</td><td>false</td><td>1</td><td>no</td></tr><tr class="iter-row"><td>4</td><td>false</td><td>1</td><td>no</td></tr><tr class="iter-row"><td>5</td><td>false</td><td>1</td><td>no</td></tr><tr class="iter-row"><td>6</td><td>false</td><td>1</td><td>no</td></tr><tr class="iter-row match-row"><td>7</td><td>true</td><td>2</td><td>no</td></tr></tbody></table><p><span class="iter-tag warn">7 iterations</span>Loop runs to completion. <code>break</code> never fires because the divisor count never exceeds 2.</p><div class="key-callout"><strong>Verdict:</strong> N = 7 has exactly 2 divisors (1 and 7) → it\u0027s prime. <strong>Iterations saved by break:</strong> 0 — for primes, break gives no speedup.</div>' },
+      12: { iters: 3, divisorCount: 3, breakAt: 3, isPrime: false, fullRun: 12,
+            summary: '<h4>Iteration trace</h4><table class="ai-table"><thead><tr><th>i</th><th>N % i == 0?</th><th>divisorCount</th><th>break?</th></tr></thead><tbody><tr class="iter-row match-row"><td>1</td><td>true</td><td>1</td><td>no</td></tr><tr class="iter-row match-row"><td>2</td><td>true</td><td>2</td><td>no</td></tr><tr class="iter-row break-row"><td>3</td><td>true</td><td>3</td><td><strong>YES</strong></td></tr></tbody></table><p><span class="iter-tag savings">9 iterations saved</span>Break fires at <code>i = 3</code> because divisorCount became 3 (exceeded 2). Without break, the loop would have run all 12 iterations.</p><div class="key-callout"><strong>Verdict:</strong> N = 12 has more than 2 divisors → NOT prime. <strong>Speedup:</strong> 12 ÷ 3 = 4× fewer iterations.</div>' },
+      97: { iters: 97, divisorCount: 2, breakAt: null, isPrime: true, fullRun: 97,
+            summary: '<h4>Summary (97 iterations is too many to trace)</h4><p>Loop runs from <code>i = 1</code> to <code>i = 97</code>. Only 2 iterations match the condition <code>N % i == 0</code>: <code>i = 1</code> and <code>i = 97</code>.</p><p>Final state: <code>divisorCount = 2</code>. <code>break</code> never fires.</p><div class="key-callout"><strong>Verdict:</strong> N = 97 is prime (only 2 divisors). <strong>Iterations saved by break:</strong> 0. <br><br>This is the worst case for this algorithm — for primes, you ALWAYS have to check every i. There\u0027s a smarter version: only check up to √N. That would cut 97 iterations to ~10.</div>' },
+      100: { iters: 4, divisorCount: 3, breakAt: 4, isPrime: false, fullRun: 100,
+             summary: '<h4>Iteration trace</h4><table class="ai-table"><thead><tr><th>i</th><th>N % i == 0?</th><th>divisorCount</th><th>break?</th></tr></thead><tbody><tr class="iter-row match-row"><td>1</td><td>true</td><td>1</td><td>no</td></tr><tr class="iter-row match-row"><td>2</td><td>true</td><td>2</td><td>no</td></tr><tr class="iter-row"><td>3</td><td>false</td><td>2</td><td>no</td></tr><tr class="iter-row break-row"><td>4</td><td>true</td><td>3</td><td><strong>YES</strong></td></tr></tbody></table><p><span class="iter-tag savings">96 iterations saved</span>Break fires at <code>i = 4</code>. Without break, the loop would have run all 100 iterations.</p><div class="key-callout"><strong>Verdict:</strong> N = 100 has more than 2 divisors → NOT prime. <strong>Speedup:</strong> 100 ÷ 4 = 25× fewer iterations.</div>' }
+    },
+    takeaway: 'Counting iterations <strong>before</strong> running the code is the root of performance thinking. For this loop, break gives huge speedups on composite numbers (25× faster for N=100) but zero benefit on primes. AI is excellent at showing you the iteration count across many inputs without you running the code.'
+  },
+  infinite: {
+    promptText: 'Will this loop ever terminate? If not, explain exactly why and tell me which line needs to change. If yes, tell me what input makes it run the longest.',
+    code: '<div><span class="kw">int</span> <span class="var">count</span> = <span class="num">1</span>;</div><div class="bug-line"><span class="kw">while</span> (<span class="var">count</span> &lt;= <span class="var">N</span>) {</div><div><span class="indent"></span><span class="method">SOPln</span>(<span class="var">count</span>);</div><div class="bug-line"><span class="indent"></span><span class="comment">// BUG: forgot count++</span></div><div>}</div>',
+    inputs: [],
+    responses: {
+      static: { summary: '<h4>Verdict: Infinite loop</h4><p>This loop will <strong>never terminate</strong> for any N ≥ 1.</p><h4>Why</h4><p>The loop condition is <code>count &lt;= N</code>, with <code>count = 1</code> and <code>N</code> some positive integer. Inside the loop body, <code>count</code> is <strong>never modified</strong>. So <code>count</code> stays at <code>1</code> forever, the condition is permanently true, and the loop runs infinitely.</p><h4>How to fix</h4><p>Add an update step inside the loop body:</p><div class="converted-code"><span style="color:#ff7b72">int</span> <span style="color:#d2a8ff">count</span> = <span style="color:#ffa657">1</span>;<br><span style="color:#ff7b72">while</span> (<span style="color:#d2a8ff">count</span> &lt;= <span style="color:#d2a8ff">N</span>) {<br>    <span style="color:#ffd95c">SOPln</span>(<span style="color:#d2a8ff">count</span>);<br>    <span style="color:#d2a8ff">count</span><span style="color:#ffd95c">++</span>;  <span style="color:#6e7681">// ← add this line</span><br>}</div><div class="key-callout"><strong>The pattern to remember:</strong> every <code>while</code> loop must have <strong>three things</strong>: an initialization, a condition, and an update that makes the condition eventually false. Miss any one of these and you get either an infinite loop or a loop that never enters.</div><h4>Two other common ways this bug appears</h4><ul><li><strong>Wrong direction:</strong> <code>count = 1</code> with <code>count--</code> → count drops to 0, -1, -2... never reaches N.</li><li><strong>Wrong comparison:</strong> <code>count &gt;= 1</code> with <code>count++</code> → condition starts true, stays true forever as count grows.</li></ul>' }
+    },
+    takeaway: 'Infinite loops are the #1 source of frustration for new programmers. AI catches them statically — without ever running the code — by checking the three-part contract: init, condition, update. Paste your loop in BEFORE running it, especially for any non-trivial update logic.'
+  },
+  refactor: {
+    promptText: 'Convert this <em>while</em> loop to a <em>for</em> loop, preserving exactly the same behavior. Then show me a side-by-side mapping of which part of the for loop corresponds to which line of the while loop.',
+    code: '<div class="comment">// Print N down to 1 using while</div><div><span class="kw">int</span> <span class="var">count</span> = <span class="var">N</span>;</div><div><span class="kw">while</span> (<span class="var">count</span> &gt;= <span class="num">1</span>) {</div><div><span class="indent"></span><span class="method">SOP</span>(<span class="var">count</span> + <span class="str">" "</span>);</div><div><span class="indent"></span><span class="var">count</span><span class="op">--</span>;</div><div>}</div>',
+    inputs: [],
+    responses: {
+      static: { summary: '<h4>For-loop version (identical behavior)</h4><div class="converted-code"><span style="color:#ff7b72">for</span> (<span style="color:#ff7b72">int</span> <span style="color:#d2a8ff">count</span> = <span style="color:#d2a8ff">N</span>; <span style="color:#d2a8ff">count</span> &gt;= <span style="color:#ffa657">1</span>; <span style="color:#d2a8ff">count</span><span style="color:#ffd95c">--</span>) {<br>    <span style="color:#ffd95c">SOP</span>(<span style="color:#d2a8ff">count</span> + <span style="color:#a5d6ff">" "</span>);<br>}</div><h4>Part-by-part mapping</h4><table class="ai-table"><thead><tr><th>For-loop slot</th><th>Comes from</th></tr></thead><tbody><tr class="iter-row"><td><span class="iter-tag case">Init</span><code>int count = N</code></td><td>The line BEFORE the while: <code>int count = N;</code></td></tr><tr class="iter-row"><td><span class="iter-tag case">Condition</span><code>count &gt;= 1</code></td><td>The while\u0027s condition: <code>count &gt;= 1</code></td></tr><tr class="iter-row"><td><span class="iter-tag case">Body</span><code>SOP(count + " ")</code></td><td>The while body (without the update line)</td></tr><tr class="iter-row"><td><span class="iter-tag case">Update</span><code>count--</code></td><td>The last line of the while body</td></tr></tbody></table><div class="key-callout"><strong>The mental model:</strong> a for loop is just a while loop with the init/condition/update <em>repackaged into one line</em>. Same semantics — initialization fires once, then condition → body → update → condition → ... until condition is false.</div><h4>When to use which</h4><ul><li><strong>for</strong> — when you know the count or have a clear init/condition/update.</li><li><strong>while</strong> — when the loop ends based on a runtime event (user input, file end, found target) and there\u0027s no natural counter.</li></ul>' }
+    },
+    takeaway: 'while and for are syntactic packaging for the same machine. AI showing the part-by-part mapping makes it concrete — the three slots in the for-loop header are literally just three lines of the while-loop, hoisted up. Use this prompt anytime you\u0027re unsure which form to use.'
+  },
+  edges: {
+    promptText: 'I\u0027m writing a loop to check if N is prime by counting divisors. Help me list all the edge cases: (1) What input makes the loop run zero times? (2) What input gives a WRONG answer? (3) What input makes it slow? (4) Boundary inputs to test.',
+    code: '<div><span class="kw">int</span> <span class="var">divisorCount</span> = <span class="num">0</span>;</div><div><span class="kw">for</span> (<span class="kw">int</span> <span class="var">i</span> = <span class="num">1</span>; <span class="var">i</span> &lt;= <span class="var">N</span>; <span class="var">i</span><span class="op">++</span>) {</div><div><span class="indent"></span><span class="kw">if</span> (<span class="var">N</span> % <span class="var">i</span> == <span class="num">0</span>) {</div><div><span class="indent"></span><span class="indent"></span><span class="var">divisorCount</span><span class="op">++</span>;</div><div><span class="indent"></span>}</div><div>}</div><div><span class="kw">if</span> (<span class="var">divisorCount</span> == <span class="num">2</span>) <span class="method">SOPln</span>(<span class="str">"prime"</span>);</div><div><span class="kw">else</span> <span class="method">SOPln</span>(<span class="str">"not prime"</span>);</div>',
+    inputs: [],
+    responses: {
+      static: { summary: '<h4>Edge cases AI returns</h4><table class="ai-table"><thead><tr><th>Input</th><th>What happens</th><th>Correct?</th></tr></thead><tbody><tr class="iter-row break-row"><td><code>N = 0</code></td><td>Loop runs 0 times. divisorCount = 0. Prints <code>"not prime"</code>.</td><td>OK (0 isn\u0027t prime)</td></tr><tr class="iter-row break-row"><td><code>N = 1</code></td><td>Loop runs 1 time. divisorCount = 1. Prints <code>"not prime"</code>.</td><td>OK (1 isn\u0027t prime by definition)</td></tr><tr class="iter-row match-row"><td><code>N = 2</code></td><td>Loop runs 2 times. divisorCount = 2. Prints <code>"prime"</code>.</td><td>OK (smallest prime)</td></tr><tr class="iter-row break-row"><td><code>N = -7</code></td><td>Loop runs 0 times (since <code>1 &gt; -7</code>). divisorCount = 0. Prints <code>"not prime"</code>.</td><td>BUG: prime is undefined for negatives, but code silently says "not prime" rather than rejecting.</td></tr><tr class="iter-row warn-row"><td><code>N = 2,147,483,647</code></td><td>Loop runs 2.1 billion times. Will take minutes to finish.</td><td>OK but very slow</td></tr></tbody></table><h4>Failure modes</h4><ul><li><span class="iter-tag warn">Zero iterations</span> When <code>N &lt; 1</code>, the loop body never executes. Without explicit handling, the code falls through to <code>divisorCount == 2</code> check (false) and prints "not prime" — which may or may not be the right answer.</li><li><span class="iter-tag warn">Slow input</span> For very large N, this loop has no early termination. Adding <code>break</code> once divisorCount &gt; 2 helps for composites but not primes. The real fix is checking only up to √N.</li><li><span class="iter-tag case">Boundary tests</span> Always test N = 0, 1, 2, 3, and one large prime + one large composite.</li></ul><div class="key-callout"><strong>The discipline:</strong> for any loop, ask "what input makes this run zero times?" and "what input makes it run forever / very long?" before shipping.</div>' }
+    },
+    takeaway: 'This is the same edge-case-thinking discipline from the if-else class, now applied to loops. The two questions that catch most loop bugs: <strong>"What input makes the loop run zero times?"</strong> and <strong>"What input makes it slow or infinite?"</strong> Paste your loop into AI with this prompt before declaring the code "done".'
+  }
+};
+let currentPrompt = 'count';
+let currentN = 12;
+function renderPicker() { document.querySelectorAll('.prompt-btn').forEach(el => el.classList.toggle('active', el.dataset.prompt === currentPrompt)); }
+function renderPromptText() { document.getElementById('promptText').innerHTML = PROMPTS[currentPrompt].promptText.replace('[value]', currentN); }
+function renderCode() { document.getElementById('codePanel').innerHTML = PROMPTS[currentPrompt].code; }
+function renderInputs() {
+  const p = PROMPTS[currentPrompt];
+  const wrap = document.getElementById('inputRow');
+  if (!p.inputs || p.inputs.length === 0) { wrap.innerHTML = ''; return; }
+  let html = '';
+  p.inputs.forEach(inp => {
+    html += '<label>' + inp.name + ' =</label><input type="number" id="in_' + inp.name + '" value="' + currentN + '">';
+    html += '<div class="preset-row">';
+    inp.presets.forEach(v => { html += '<span class="preset-chip' + (v === currentN ? ' active' : '') + '" data-preset="' + v + '">' + v + '</span>'; });
+    html += '</div>';
+  });
+  wrap.innerHTML = html;
+  document.getElementById('in_N').addEventListener('change', (e) => {
+    let v = parseInt(e.target.value, 10);
+    if (!isNaN(v) && [7,12,97,100].indexOf(v) >= 0) { currentN = v; renderAll(); }
+    else { e.target.value = currentN; }
+  });
+  wrap.querySelectorAll('.preset-chip').forEach(chip => {
+    chip.addEventListener('click', () => { currentN = parseInt(chip.dataset.preset, 10); renderAll(); });
+  });
+}
+function renderResponse() {
+  const p = PROMPTS[currentPrompt];
+  let resp;
+  if (p.responses.static) resp = p.responses.static;
+  else resp = p.responses[currentN] || p.responses[12];
+  document.getElementById('responsePanel').innerHTML = resp.summary;
+}
+function renderTakeaway() { document.getElementById('takeawayText').innerHTML = PROMPTS[currentPrompt].takeaway; }
+function renderAll() { renderPicker(); renderPromptText(); renderCode(); renderInputs(); renderResponse(); renderTakeaway(); }
+document.querySelectorAll('.prompt-btn').forEach(el => el.addEventListener('click', () => {
+  currentPrompt = el.dataset.prompt;
+  if (currentPrompt === 'count') currentN = 12;
+  renderAll();
+}));
+renderAll();
+</script>
+</body>
+</html>
