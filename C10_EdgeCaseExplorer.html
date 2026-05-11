@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Edge Case Explorer — Where naïve code breaks</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #1a1a2e; color: #e6e6ed; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; color: #fff; }
+  h1 .accent { color: #ffd95c; font-style: italic; }
+  .subtitle { color: #aaa; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 820px; }
+  .controls-bar { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #ffd95c; border-radius: 10px; box-shadow: 6px 6px 0 #ffd95c; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .controls-bar label { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #ffd95c; font-weight: 700; }
+  .toggle-row { display: flex; align-items: center; gap: 10px; }
+  .toggle-switch { position: relative; width: 56px; height: 28px; background: #444; border-radius: 14px; cursor: pointer; transition: background 0.2s; }
+  .toggle-switch.on { background: #56d364; }
+  .toggle-switch .knob { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; background: #fff; border-radius: 50%; transition: left 0.2s; }
+  .toggle-switch.on .knob { left: 31px; }
+  .toggle-label { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #ddd; font-weight: 700; }
+  .panels-grid { max-width: 1100px; width: 100%; display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .panels-grid { grid-template-columns: 1fr; } }
+  .panel { background: #25253d; border: 2px solid #444; border-radius: 10px; box-shadow: 6px 6px 0 #444; padding: 22px 24px; }
+  .panel.naive { border-color: #ff6b6b; box-shadow: 6px 6px 0 #ff6b6b; }
+  .panel.fixed { border-color: #56d364; box-shadow: 6px 6px 0 #56d364; }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+  .panel.naive .panel-title { color: #ff9999; }
+  .panel.fixed .panel-title { color: #b0e0b8; }
+  .code-block { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .new-line { background: rgba(86, 211, 100, 0.18); border-left: 3px solid #56d364; padding: 2px 6px; margin: 2px -6px; border-radius: 3px; }
+  .code-block .indent { display: inline-block; width: 1.3em; }
+  .results-section { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #ffd95c; border-radius: 10px; box-shadow: 8px 8px 0 #ffd95c; padding: 24px; margin-bottom: 18px; }
+  .results-title { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; }
+  .test-grid { display: grid; grid-template-columns: 90px 1fr 1fr 80px; gap: 0; border: 1.5px solid #444; border-radius: 6px; overflow: hidden; }
+  .test-cell { padding: 10px 14px; border-bottom: 1px solid #333; border-right: 1px solid #333; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; display: flex; align-items: center; }
+  .test-cell:nth-last-child(-n+4) { border-bottom: none; }
+  .test-cell.header { background: #1a1a2e; color: #ffd95c; font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 2px solid #444; }
+  .test-cell.input-val { background: #2e2e4a; font-weight: 700; color: #d2a8ff; justify-content: center; font-size: 14px; }
+  .test-cell.input-val.edge { background: #4a2e2e; color: #ffd95c; }
+  .test-cell.output { color: #e6e6ed; }
+  .test-cell.output.correct { color: #b0e0b8; }
+  .test-cell.output.wrong { color: #ff9999; }
+  .test-cell.expected { color: #aaa; font-style: italic; font-size: 11.5px; }
+  .test-cell.verdict { justify-content: center; }
+  .test-cell.verdict .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .test-cell.verdict .badge.pass { background: #56d364; color: #1a3a23; }
+  .test-cell.verdict .badge.fail { background: #ff6b6b; color: #fff; }
+  .test-cell.label-edge { color: #ffd95c; font-style: italic; font-size: 10.5px; margin-left: 8px; }
+  .summary { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .summary-card { padding: 12px 16px; border-radius: 6px; text-align: center; font-family: 'JetBrains Mono', monospace; }
+  .summary-card.naive { background: rgba(255, 107, 107, 0.18); border: 1.5px solid #ff6b6b; }
+  .summary-card.fixed { background: rgba(86, 211, 100, 0.18); border: 1.5px solid #56d364; }
+  .summary-card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.8; margin-bottom: 4px; }
+  .summary-card .score { font-size: 22px; font-weight: 900; font-family: 'Fraunces', serif; font-style: italic; }
+  .summary-card.naive .score { color: #ff9999; }
+  .summary-card.fixed .score { color: #b0e0b8; }
+  .ai-prompt-card { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #d2a8ff; border-radius: 10px; box-shadow: 6px 6px 0 #d2a8ff; padding: 20px 24px; margin-bottom: 18px; }
+  .ai-prompt-card h3 { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #d2a8ff; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+  .ai-prompt-card h3::before { content: '🤖'; font-size: 18px; }
+  .prompt-box { background: #1a1a2e; border-radius: 6px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; color: #d2a8ff; border-left: 4px solid #d2a8ff; margin-bottom: 12px; }
+  .prompt-box em { color: #ffd95c; font-style: italic; }
+  .ai-response { background: #1f1f30; border-radius: 6px; padding: 12px 16px; font-family: 'Fraunces', serif; font-size: 13.5px; line-height: 1.55; color: #ddd; }
+  .ai-response strong { color: #d2a8ff; }
+  .ai-response code { background: #0d0d18; padding: 1px 5px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #ffd95c; }
+  .ai-response ul { margin: 8px 0 0 18px; padding: 0; }
+  .ai-response li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <h1>Edge Case <span class="accent">Explorer</span></h1>
+  <p class="subtitle">"Classify n as positive/negative and even/odd" sounds easy. The naïve code works on normal numbers — but where does it break? The AI-suggested fix is just one <code style="font-family:monospace">if</code> away.</p>
+  <div class="controls-bar">
+    <div class="toggle-row">
+      <label>Show AI-suggested fix:</label>
+      <div class="toggle-switch" id="toggleFix"><div class="knob"></div></div>
+      <span class="toggle-label" id="toggleStatus">OFF — naïve code only</span>
+    </div>
+  </div>
+  <div class="panels-grid">
+    <div class="panel naive">
+      <div class="panel-title">Naïve code (from script)</div>
+      <div class="code-block">
+        <div><span class="kw">if</span> (<span class="var">n</span> &gt; <span class="num">0</span>) {</div>
+        <div><span class="indent"></span><span class="kw">if</span> (<span class="var">n</span> % <span class="num">2</span> == <span class="num">0</span>) <span class="method">SOPln</span>(<span class="str">"Positive and even"</span>);</div>
+        <div><span class="indent"></span><span class="kw">else</span> <span class="method">SOPln</span>(<span class="str">"Positive and odd"</span>);</div>
+        <div>} <span class="kw">else</span> {</div>
+        <div><span class="indent"></span><span class="kw">if</span> (<span class="var">n</span> % <span class="num">2</span> == <span class="num">0</span>) <span class="method">SOPln</span>(<span class="str">"Negative and even"</span>);</div>
+        <div><span class="indent"></span><span class="kw">else</span> <span class="method">SOPln</span>(<span class="str">"Negative and odd"</span>);</div>
+        <div>}</div>
+      </div>
+    </div>
+    <div class="panel fixed" id="fixedPanel">
+      <div class="panel-title">AI-suggested fix</div>
+      <div class="code-block">
+        <div class="new-line"><span class="kw">if</span> (<span class="var">n</span> == <span class="num">0</span>) <span class="method">SOPln</span>(<span class="str">"Zero (neither pos nor neg)"</span>);</div>
+        <div class="new-line"><span class="kw">else if</span> (<span class="var">n</span> &gt; <span class="num">0</span>) {</div>
+        <div><span class="indent"></span><span class="kw">if</span> (<span class="var">n</span> % <span class="num">2</span> == <span class="num">0</span>) <span class="method">SOPln</span>(<span class="str">"Positive and even"</span>);</div>
+        <div><span class="indent"></span><span class="kw">else</span> <span class="method">SOPln</span>(<span class="str">"Positive and odd"</span>);</div>
+        <div>} <span class="kw">else</span> {</div>
+        <div><span class="indent"></span><span class="kw">if</span> (<span class="var">n</span> % <span class="num">2</span> == <span class="num">0</span>) <span class="method">SOPln</span>(<span class="str">"Negative and even"</span>);</div>
+        <div><span class="indent"></span><span class="kw">else</span> <span class="method">SOPln</span>(<span class="str">"Negative and odd"</span>);</div>
+        <div>}</div>
+      </div>
+    </div>
+  </div>
+  <div class="results-section">
+    <div class="results-title">Test runs — green pass, red fail vs expected output</div>
+    <div class="test-grid" id="testGrid"></div>
+    <div class="summary">
+      <div class="summary-card naive"><div class="lbl">Naïve code</div><div class="score" id="naiveScore">— / —</div></div>
+      <div class="summary-card fixed"><div class="lbl">AI-suggested fix</div><div class="score" id="fixedScore">— / —</div></div>
+    </div>
+  </div>
+  <div class="ai-prompt-card">
+    <h3>The prompt this came from</h3>
+    <div class="prompt-box">"I'm writing Java code to classify a number as positive even, positive odd, negative even, or negative odd. Help me list <em>all the edge cases</em> I should handle. For each, tell me (1) what input triggers it, (2) what should happen, (3) how my naïve code might fail."</div>
+    <div class="ai-response">
+      <strong>AI returns (abridged):</strong>
+      <ul>
+        <li><strong>Zero (n == 0):</strong> Trigger: <code>n = 0</code>. Should: print "Zero" or similar. Failure: <code>0 % 2 == 0</code> is true and <code>0 &gt; 0</code> is false, so naïve code falls into the negative branch and prints "Negative and even" — <strong>wrong</strong>.</li>
+        <li><strong>INT_MIN (n == -2147483648):</strong> Trigger: extreme negative. Still classifiable, but <code>Math.abs(n)</code> would overflow if used. The mod-based code happens to work here.</li>
+        <li><strong>Non-integer input:</strong> Trigger: user types "abc". Should: handle gracefully. Failure: <code>scn.nextInt()</code> throws an <code>InputMismatchException</code>.</li>
+      </ul>
+    </div>
+  </div>
+<script>
+const TEST_CASES = [
+  { input: 4, expected: 'Positive and even', edge: false },
+  { input: 7, expected: 'Positive and odd', edge: false },
+  { input: -4, expected: 'Negative and even', edge: false },
+  { input: -3, expected: 'Negative and odd', edge: false },
+  { input: 1, expected: 'Positive and odd', edge: false },
+  { input: 0, expected: 'Zero (neither pos nor neg)', edge: true, edgeLabel: 'edge case' },
+  { input: 100, expected: 'Positive and even', edge: false },
+  { input: -1, expected: 'Negative and odd', edge: false }
+];
+function naiveOutput(n) {
+  if (n > 0) {
+    if (n % 2 === 0) return 'Positive and even';
+    else return 'Positive and odd';
+  } else {
+    if (n % 2 === 0) return 'Negative and even';
+    else return 'Negative and odd';
+  }
+}
+function fixedOutput(n) {
+  if (n === 0) return 'Zero (neither pos nor neg)';
+  else if (n > 0) {
+    if (n % 2 === 0) return 'Positive and even';
+    else return 'Positive and odd';
+  } else {
+    if (n % 2 === 0) return 'Negative and even';
+    else return 'Negative and odd';
+  }
+}
+let showFix = false;
+function renderTests() {
+  const grid = document.getElementById('testGrid');
+  let html = '';
+  html += '<div class="test-cell header">n =</div>';
+  html += '<div class="test-cell header">' + (showFix ? 'Naïve  vs  Fixed output' : 'Naïve output') + '</div>';
+  html += '<div class="test-cell header">Expected</div>';
+  html += '<div class="test-cell header" style="border-right:none;">Verdict</div>';
+  let naivePass = 0, fixedPass = 0;
+  TEST_CASES.forEach((tc, i) => {
+    const nOut = naiveOutput(tc.input);
+    const fOut = fixedOutput(tc.input);
+    const nPass = nOut === tc.expected;
+    const fPass = fOut === tc.expected;
+    if (nPass) naivePass++;
+    if (fPass) fixedPass++;
+    const isLast = (i === TEST_CASES.length - 1);
+    html += '<div class="test-cell input-val' + (tc.edge ? ' edge' : '') + '"' + (isLast ? ' style="border-bottom:none;"' : '') + '>' + tc.input + (tc.edge ? '<span class="label-edge">edge</span>' : '') + '</div>';
+    if (showFix) {
+      html += '<div class="test-cell output"' + (isLast ? ' style="border-bottom:none;"' : '') + '>';
+      html += '<span class="' + (nPass ? 'correct' : 'wrong') + '" style="margin-right:6px;">' + (nPass ? '✓' : '✗') + ' ' + nOut + '</span><br>';
+      html += '<span class="' + (fPass ? 'correct' : 'wrong') + '" style="font-size:11px;opacity:0.8;">' + (fPass ? '✓' : '✗') + ' ' + fOut + '</span>';
+      html += '</div>';
+    } else {
+      html += '<div class="test-cell output ' + (nPass ? 'correct' : 'wrong') + '"' + (isLast ? ' style="border-bottom:none;"' : '') + '>' + (nPass ? '✓ ' : '✗ ') + nOut + '</div>';
+    }
+    html += '<div class="test-cell expected"' + (isLast ? ' style="border-bottom:none;"' : '') + '>' + tc.expected + '</div>';
+    const verdictKey = showFix ? fPass : nPass;
+    html += '<div class="test-cell verdict"' + (isLast ? ' style="border-bottom:none;border-right:none;"' : ' style="border-right:none;"') + '><span class="badge ' + (verdictKey ? 'pass' : 'fail') + '">' + (verdictKey ? 'PASS' : 'FAIL') + '</span></div>';
+  });
+  grid.innerHTML = html;
+  document.getElementById('naiveScore').textContent = naivePass + ' / ' + TEST_CASES.length;
+  document.getElementById('fixedScore').textContent = fixedPass + ' / ' + TEST_CASES.length;
+}
+document.getElementById('toggleFix').addEventListener('click', () => {
+  showFix = !showFix;
+  document.getElementById('toggleFix').classList.toggle('on', showFix);
+  document.getElementById('toggleStatus').textContent = showFix ? 'ON — both codes shown' : 'OFF — naïve code only';
+  document.getElementById('fixedPanel').style.opacity = showFix ? '1' : '0.4';
+  renderTests();
+});
+document.getElementById('fixedPanel').style.opacity = '0.4';
+renderTests();
+</script>
+</body>
+</html>

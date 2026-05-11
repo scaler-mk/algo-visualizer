@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nested If Tracer — Watch the path through the tree</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #ede8f5; color: #1a1a1a; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; }
+  h1 .accent { color: #6a3eb5; font-style: italic; }
+  .subtitle { color: #555; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 820px; }
+  .controls-bar { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+  .scenario-btn { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 9px 13px; background: #fff; border: 1.5px solid #1a1a1a; border-radius: 5px; cursor: pointer; transition: all 0.15s; line-height: 1.3; }
+  .scenario-btn:hover { background: #fff8d6; }
+  .scenario-btn.active { background: #1a1a1a; color: #ffd95c; }
+  .scenario-btn .preview { display: block; font-size: 9.5px; opacity: 0.7; margin-top: 2px; }
+  .scenario-btn.active .preview { color: #ffd95c; opacity: 0.85; }
+  .input-row { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .input-group { display: flex; align-items: center; gap: 6px; background: #fff8d6; padding: 5px 10px; border-radius: 5px; border: 1.5px solid #1a1a1a; }
+  .input-group label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555; font-weight: 700; }
+  .input-group input { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; width: 60px; padding: 4px 8px; border: 1.5px solid #1a1a1a; border-radius: 4px; text-align: center; background: #fff; }
+  .stage { max-width: 1100px; width: 100%; display: grid; grid-template-columns: 1fr 1.05fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 8px 8px 0 #1a1a1a; padding: 22px 24px; }
+  .panel.dark { background: #0d1117; color: #e6edf3; }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; }
+  .code-block { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.65; }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .indent { display: inline-block; width: 1.4em; }
+  .code-block div { padding: 3px 8px; margin: 0 -8px; border-radius: 4px; transition: all 0.3s; border-left: 3px solid transparent; }
+  .code-block div.active { background: rgba(255, 217, 92, 0.2); border-left-color: #ffd95c; }
+  .code-block div.eval-true { background: rgba(86, 211, 100, 0.18); border-left-color: #56d364; }
+  .code-block div.eval-false { background: rgba(255, 107, 107, 0.18); border-left-color: #ff6b6b; }
+  .code-block div.skipped { opacity: 0.35; }
+  .tree-wrap { padding: 4px; min-height: 380px; }
+  .tree-node { background: #fff8d6; border: 2.5px solid #1a1a1a; border-radius: 8px; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; text-align: center; box-shadow: 3px 3px 0 #1a1a1a; transition: all 0.3s; min-width: 140px; }
+  .tree-node.cond.active { background: #ffd95c; box-shadow: 3px 3px 0 #c4541e, 0 0 0 3px rgba(196, 84, 30, 0.3); }
+  .tree-node.cond.eval-true { background: #56d364; color: #1a3a23; box-shadow: 3px 3px 0 #2d6e3e; }
+  .tree-node.cond.eval-false { background: #ff6b6b; color: #fff; box-shadow: 3px 3px 0 #c41e3a; }
+  .tree-node.leaf { background: #1a1a1a; color: #ffd95c; border-color: #1a1a1a; }
+  .tree-node.leaf.active { background: #c4541e; color: #fff; box-shadow: 3px 3px 0 #1a1a1a, 0 0 0 3px rgba(255, 217, 92, 0.5); }
+  .tree-node.leaf.skipped { opacity: 0.3; }
+  .tree-node.skipped { opacity: 0.3; }
+  .tree-row { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tree-connector { width: 100%; display: flex; justify-content: center; align-items: center; height: 22px; position: relative; margin-bottom: 4px; }
+  .tree-connector .stem { width: 2px; height: 100%; background: #1a1a1a; }
+  .tree-connector.split { gap: 100px; }
+  .tree-connector .branch-lbl { position: absolute; top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+  .tree-connector .branch-lbl.t { background: #56d364; color: #1a3a23; }
+  .tree-connector .branch-lbl.f { background: #ff6b6b; color: #fff; }
+  .output-card { margin-top: 14px; background: #161b22; border-radius: 6px; padding: 12px 14px; min-height: 50px; }
+  .output-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 6px; }
+  .output-text { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #ffd95c; line-height: 1.5; min-height: 22px; }
+  .output-text.empty { color: #555; font-style: italic; font-family: 'Fraunces', serif; }
+  .narration { max-width: 1100px; width: 100%; background: #1a1a1a; color: #e6edf3; padding: 18px 22px; border-radius: 10px; border-left: 5px solid #ffd95c; margin-bottom: 18px; line-height: 1.55; font-size: 14.5px; min-height: 70px; }
+  .narration-tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; padding: 3px 9px; border-radius: 3px; background: #ffd95c; color: #1a1a1a; margin-right: 10px; }
+  .narration-tag.eval { background: #ffd95c; color: #1a1a1a; }
+  .narration-tag.true { background: #56d364; color: #1a3a23; }
+  .narration-tag.false { background: #ff6b6b; color: #fff; }
+  .narration-tag.print { background: #c4541e; color: #fff; }
+  .narration-tag.done { background: #56d364; color: #1a3a23; }
+  .narration strong { color: #ffd95c; }
+  .narration code { background: rgba(255, 217, 92, 0.12); color: #ffd95c; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .actions { max-width: 1100px; width: 100%; display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+  .btn { font-family: 'JetBrains Mono', monospace; background: #1a1a1a; color: #ffd95c; border: none; padding: 12px 22px; cursor: pointer; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 6px; }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .btn.fast { background: #fff8d6; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+  <h1>Nested If <span class="accent">Tracer</span></h1>
+  <p class="subtitle">Nested conditions branch like a tree. Each diamond evaluates true/false; the path through the tree picks which leaf (print statement) fires. Set the inputs and step through.</p>
+  <div class="controls-bar">
+    <span class="picker-label">Scenario:</span>
+    <span class="scenario-btn active" data-scenario="q13"><span>Quiz 13</span><span class="preview">if(a&gt;8){if(a&lt;b || b==9)}</span></span>
+    <span class="scenario-btn" data-scenario="q14"><span>Quiz 14</span><span class="preview">if(a&gt;8){if(a==b || b&lt;a)}</span></span>
+    <span class="scenario-btn" data-scenario="categorise"><span>Categorise number</span><span class="preview">+ve/-ve · even/odd</span></span>
+    <div class="input-row" id="inputRow"></div>
+  </div>
+  <div class="stage">
+    <div class="panel dark">
+      <div class="panel-title">Source code</div>
+      <div class="code-block" id="codeBlock"></div>
+      <div class="output-card">
+        <div class="output-label">stdout</div>
+        <div class="output-text empty" id="output">No output yet…</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Decision tree</div>
+      <div class="tree-wrap" id="treeWrap"></div>
+    </div>
+  </div>
+  <div class="narration" id="narration"><span class="narration-tag">Ready</span>Pick a scenario, set inputs, and step through the tree.</div>
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <button class="btn fast" id="runBtn">⏩ Run all</button>
+    <span class="step-info" id="stepInfo">—</span>
+  </div>
+<script>
+const SCENARIOS = {
+  q13: {
+    name: 'Quiz 13',
+    inputs: [{name:'a', default:10}, {name:'b', default:15}],
+    code: [
+      ['decl', '<span class="kw">int</span> <span class="var">a</span> = A_VAL, <span class="var">b</span> = B_VAL;'],
+      ['outer', '<span class="kw">if</span> (<span class="var">a</span> &gt; <span class="num">8</span>) {'],
+      ['inner', '<span class="indent"></span><span class="kw">if</span> (<span class="var">a</span> &lt; <span class="var">b</span> || <span class="var">b</span> == <span class="num">9</span>) {'],
+      ['hi', '<span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Hi"</span>);'],
+      ['inner-else', '<span class="indent"></span>} <span class="kw">else</span> {'],
+      ['bye', '<span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Bye"</span>);'],
+      ['inner-close', '<span class="indent"></span>}'],
+      ['outer-else', '} <span class="kw">else</span> {'],
+      ['goodbye', '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Good Bye"</span>);'],
+      ['close', '}']
+    ],
+    evalOuter: (a, b) => a > 8,
+    outerExpr: 'a > 8',
+    evalInner: (a, b) => (a < b || b === 9),
+    innerExpr: 'a < b || b == 9',
+    trueLeaf: 'Hi', falseLeaf: 'Bye', outerFalseLeaf: 'Good Bye'
+  },
+  q14: {
+    name: 'Quiz 14',
+    inputs: [{name:'a', default:10}, {name:'b', default:15}],
+    code: [
+      ['decl', '<span class="kw">int</span> <span class="var">a</span> = A_VAL, <span class="var">b</span> = B_VAL;'],
+      ['outer', '<span class="kw">if</span> (<span class="var">a</span> &gt; <span class="num">8</span>) {'],
+      ['inner', '<span class="indent"></span><span class="kw">if</span> (<span class="var">a</span> == <span class="var">b</span> || <span class="var">b</span> &lt; <span class="var">a</span>) {'],
+      ['hi', '<span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Hi"</span>);'],
+      ['inner-else', '<span class="indent"></span>} <span class="kw">else</span> {'],
+      ['bye', '<span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Bye"</span>);'],
+      ['inner-close', '<span class="indent"></span>}'],
+      ['outer-else', '} <span class="kw">else</span> {'],
+      ['gotit', '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Got it"</span>);'],
+      ['close', '}']
+    ],
+    evalOuter: (a, b) => a > 8,
+    outerExpr: 'a > 8',
+    evalInner: (a, b) => (a === b || b < a),
+    innerExpr: 'a == b || b < a',
+    trueLeaf: 'Hi', falseLeaf: 'Bye', outerFalseLeaf: 'Got it'
+  },
+  categorise: {
+    name: 'Categorise number',
+    inputs: [{name:'n', default:5}],
+    code: [
+      ['decl', '<span class="kw">int</span> <span class="var">n</span> = N_VAL;'],
+      ['outer', '<span class="kw">if</span> (<span class="var">n</span> &gt; <span class="num">0</span>) {'],
+      ['inner', '<span class="indent"></span><span class="kw">if</span> (<span class="var">n</span> % <span class="num">2</span> == <span class="num">0</span>) {'],
+      ['hi', '<span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Positive and even"</span>);'],
+      ['inner-else', '<span class="indent"></span>} <span class="kw">else</span> {'],
+      ['bye', '<span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Positive and odd"</span>);'],
+      ['inner-close', '<span class="indent"></span>}'],
+      ['outer-else', '} <span class="kw">else</span> {'],
+      ['oe-inner', '<span class="indent"></span><span class="kw">if</span> (<span class="var">n</span> % <span class="num">2</span> == <span class="num">0</span>) {'],
+      ['ne-print', '<span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Negative and even"</span>);'],
+      ['oe-else', '<span class="indent"></span>} <span class="kw">else</span> {'],
+      ['no-print', '<span class="indent"></span><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Negative and odd"</span>);'],
+      ['oe-close', '<span class="indent"></span>}'],
+      ['close', '}']
+    ],
+    isCategorise: true,
+    evalOuter: (n) => n > 0,
+    outerExpr: 'n > 0',
+    evalInner: (n) => (n % 2 === 0),
+    innerExpr: 'n % 2 == 0',
+    leaves: { tt: 'Positive and even', tf: 'Positive and odd', ft: 'Negative and even', ff: 'Negative and odd' }
+  }
+};
+let currentScenario = 'q13', stepPhase = 'ready', stepIdx = 0;
+function getInputs() {
+  const s = SCENARIOS[currentScenario];
+  return s.inputs.map(spec => {
+    const el = document.getElementById('in_' + spec.name);
+    return parseInt(el.value, 10) || spec.default;
+  });
+}
+function renderInputs() {
+  const s = SCENARIOS[currentScenario];
+  const html = s.inputs.map(spec => '<div class="input-group"><label>' + spec.name + ' =</label><input type="number" id="in_' + spec.name + '" value="' + spec.default + '"></div>').join('');
+  document.getElementById('inputRow').innerHTML = html;
+  s.inputs.forEach(spec => document.getElementById('in_' + spec.name).addEventListener('change', loadScenario));
+}
+function renderPicker() { document.querySelectorAll('.scenario-btn').forEach(el => el.classList.toggle('active', el.dataset.scenario === currentScenario)); }
+function renderCode() {
+  const s = SCENARIOS[currentScenario];
+  const vals = getInputs();
+  const lines = s.code.map(([tag, html]) => {
+    let out = html;
+    if (s.inputs[0]) out = out.replace((s.inputs[0].name === 'n' ? 'N_VAL' : 'A_VAL'), vals[0]);
+    if (s.inputs[1]) out = out.replace('B_VAL', vals[1]);
+    return '<div data-tag="' + tag + '">' + out + '</div>';
+  });
+  document.getElementById('codeBlock').innerHTML = lines.join('');
+}
+function highlightCode(tag, cls) {
+  if (!cls) cls = 'active';
+  document.querySelectorAll('.code-block div').forEach(el => el.classList.remove('active', 'eval-true', 'eval-false'));
+  if (tag) { const el = document.querySelector('.code-block div[data-tag="' + tag + '"]'); if (el) el.classList.add(cls); }
+}
+function markSkipped(tags) {
+  document.querySelectorAll('.code-block div').forEach(el => el.classList.toggle('skipped', tags.indexOf(el.dataset.tag) >= 0));
+}
+function renderTree() {
+  const s = SCENARIOS[currentScenario];
+  let html = '';
+  if (s.isCategorise) {
+    html += '<div class="tree-row"><div class="tree-node cond" data-tag="outer">' + s.outerExpr + '</div></div>';
+    html += '<div class="tree-connector split"><span class="branch-lbl t" style="left:25%;">TRUE</span><span class="branch-lbl f" style="right:25%;">FALSE</span></div>';
+    html += '<div class="tree-row" style="gap:80px;"><div class="tree-node cond" data-tag="inner">' + s.innerExpr + ' (pos)</div><div class="tree-node cond" data-tag="oe-inner">' + s.innerExpr + ' (neg)</div></div>';
+    html += '<div class="tree-connector"><span style="font-family:monospace;font-size:9.5px;color:#666;">T/F under each diamond</span></div>';
+    html += '<div class="tree-row" style="gap:14px;">';
+    html += '<div class="tree-node leaf" data-leaf="tt">' + s.leaves.tt + '</div>';
+    html += '<div class="tree-node leaf" data-leaf="tf">' + s.leaves.tf + '</div>';
+    html += '<div class="tree-node leaf" data-leaf="ft">' + s.leaves.ft + '</div>';
+    html += '<div class="tree-node leaf" data-leaf="ff">' + s.leaves.ff + '</div>';
+    html += '</div>';
+  } else {
+    html += '<div class="tree-row"><div class="tree-node cond" data-tag="outer">' + s.outerExpr + '</div></div>';
+    html += '<div class="tree-connector split"><span class="branch-lbl t" style="left:30%;">TRUE</span><span class="branch-lbl f" style="right:30%;">FALSE</span></div>';
+    html += '<div class="tree-row" style="gap:60px;"><div class="tree-node cond" data-tag="inner">' + s.innerExpr + '</div><div class="tree-node leaf" data-leaf="outerFalse">' + s.outerFalseLeaf + '</div></div>';
+    html += '<div class="tree-connector split"><span class="branch-lbl t" style="left:10%;">TRUE</span><span class="branch-lbl f" style="left:35%;">FALSE</span></div>';
+    html += '<div class="tree-row" style="gap:30px;justify-content:flex-start;padding-left:20px;">';
+    html += '<div class="tree-node leaf" data-leaf="trueT">' + s.trueLeaf + '</div>';
+    html += '<div class="tree-node leaf" data-leaf="trueF">' + s.falseLeaf + '</div>';
+    html += '</div>';
+  }
+  document.getElementById('treeWrap').innerHTML = html;
+}
+function loadScenario() {
+  stepPhase = 'ready'; stepIdx = 0;
+  renderPicker(); renderInputs(); renderCode(); renderTree();
+  highlightCode(null);
+  document.getElementById('output').textContent = 'No output yet…';
+  document.getElementById('output').className = 'output-text empty';
+  document.getElementById('stepBtn').disabled = false; document.getElementById('stepBtn').textContent = '▶ Next step';
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('stepInfo').textContent = 'step 0';
+  document.getElementById('narration').innerHTML = '<span class="narration-tag">Ready</span>' + SCENARIOS[currentScenario].name + '. Click <strong>Next step</strong>.';
+}
+function refreshFromInput() {
+  stepPhase = 'ready'; stepIdx = 0;
+  renderCode(); renderTree();
+  highlightCode(null);
+  document.getElementById('output').textContent = 'No output yet…';
+  document.getElementById('output').className = 'output-text empty';
+  document.getElementById('stepBtn').disabled = false; document.getElementById('stepBtn').textContent = '▶ Next step';
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('stepInfo').textContent = 'step 0';
+  document.getElementById('narration').innerHTML = '<span class="narration-tag">Ready</span>Inputs updated. Click <strong>Next step</strong>.';
+}
+function doStep() {
+  const s = SCENARIOS[currentScenario];
+  const vals = getInputs();
+  stepIdx++;
+  if (stepPhase === 'ready') {
+    highlightCode('decl');
+    document.getElementById('narration').innerHTML = '<span class="narration-tag">Init</span>Declare variables. ' + s.inputs.map((spec, i) => '<code>' + spec.name + ' = ' + vals[i] + '</code>').join(', ') + '.';
+    stepPhase = 'outer-eval';
+  } else if (stepPhase === 'outer-eval') {
+    document.querySelector('.tree-node[data-tag="outer"]').classList.add('active');
+    highlightCode('outer');
+    document.getElementById('narration').innerHTML = '<span class="narration-tag eval">Evaluate</span>Outer condition: <code>' + s.outerExpr + '</code>.';
+    stepPhase = 'outer-result';
+  } else if (stepPhase === 'outer-result') {
+    const outer = s.evalOuter(...vals);
+    const ot = document.querySelector('.tree-node[data-tag="outer"]');
+    ot.classList.remove('active');
+    ot.classList.add(outer ? 'eval-true' : 'eval-false');
+    if (outer) {
+      highlightCode('outer', 'eval-true');
+      if (s.isCategorise) markSkipped(['outer-else','oe-inner','ne-print','oe-else','no-print','oe-close']);
+      else markSkipped(['outer-else','goodbye','gotit']);
+      const tn = document.querySelector('.tree-node[data-leaf="outerFalse"]');
+      if (tn) tn.classList.add('skipped');
+      if (s.isCategorise) {
+        const oeNode = document.querySelector('.tree-node[data-tag="oe-inner"]');
+        if (oeNode) oeNode.classList.add('skipped');
+        document.querySelectorAll('.tree-node.leaf[data-leaf^="f"]').forEach(el => el.classList.add('skipped'));
+      }
+      document.getElementById('narration').innerHTML = '<span class="narration-tag true">TRUE</span><code>' + s.outerExpr + '</code> is <strong>true</strong>. Enter the if-body, evaluate the nested condition.';
+      stepPhase = 'inner-eval';
+    } else {
+      highlightCode('outer', 'eval-false');
+      if (s.isCategorise) {
+        markSkipped(['inner','hi','inner-else','bye','inner-close']);
+        document.querySelector('.tree-node[data-tag="inner"]').classList.add('skipped');
+        document.querySelectorAll('.tree-node.leaf[data-leaf^="t"]').forEach(el => el.classList.add('skipped'));
+        document.getElementById('narration').innerHTML = '<span class="narration-tag false">FALSE</span><code>' + s.outerExpr + '</code> is <strong>false</strong>. Jump to the outer else, evaluate the negative-side condition.';
+        stepPhase = 'oe-inner-eval';
+      } else {
+        markSkipped(['inner','hi','inner-else','bye','inner-close']);
+        document.querySelector('.tree-node[data-tag="inner"]').classList.add('skipped');
+        document.querySelectorAll('.tree-node.leaf[data-leaf^="true"]').forEach(el => el.classList.add('skipped'));
+        document.getElementById('narration').innerHTML = '<span class="narration-tag false">FALSE</span><code>' + s.outerExpr + '</code> is <strong>false</strong>. Jump to the outer else.';
+        stepPhase = 'outer-false-print';
+      }
+    }
+  } else if (stepPhase === 'inner-eval') {
+    document.querySelector('.tree-node[data-tag="inner"]').classList.add('active');
+    highlightCode('inner');
+    document.getElementById('narration').innerHTML = '<span class="narration-tag eval">Evaluate</span>Inner condition: <code>' + s.innerExpr + '</code>.';
+    stepPhase = 'inner-result';
+  } else if (stepPhase === 'inner-result') {
+    const inner = s.evalInner(...vals);
+    const it = document.querySelector('.tree-node[data-tag="inner"]');
+    it.classList.remove('active');
+    it.classList.add(inner ? 'eval-true' : 'eval-false');
+    if (s.isCategorise) {
+      const leafKey = inner ? 'tt' : 'tf';
+      const leafText = s.leaves[leafKey];
+      document.querySelector('.tree-node.leaf[data-leaf="' + leafKey + '"]').classList.add('active');
+      document.querySelector('.tree-node.leaf[data-leaf="' + (inner ? 'tf' : 'tt') + '"]').classList.add('skipped');
+      highlightCode(inner ? 'hi' : 'bye', 'eval-true');
+      document.getElementById('output').textContent = leafText;
+      document.getElementById('output').className = 'output-text';
+      document.getElementById('narration').innerHTML = '<span class="narration-tag ' + (inner ? 'true' : 'false') + '">' + (inner ? 'TRUE' : 'FALSE') + '</span><code>' + s.innerExpr + '</code> is <strong>' + inner + '</strong>. Print "<code>' + leafText + '</code>".';
+    } else {
+      if (inner) {
+        highlightCode('hi', 'eval-true');
+        document.querySelector('.tree-node.leaf[data-leaf="trueT"]').classList.add('active');
+        document.querySelector('.tree-node.leaf[data-leaf="trueF"]').classList.add('skipped');
+        markSkipped(['inner-else','bye']);
+        document.getElementById('output').textContent = s.trueLeaf;
+        document.getElementById('output').className = 'output-text';
+        document.getElementById('narration').innerHTML = '<span class="narration-tag true">TRUE</span><code>' + s.innerExpr + '</code> is <strong>true</strong>. Print "<code>' + s.trueLeaf + '</code>".';
+      } else {
+        highlightCode('bye', 'eval-true');
+        document.querySelector('.tree-node.leaf[data-leaf="trueF"]').classList.add('active');
+        document.querySelector('.tree-node.leaf[data-leaf="trueT"]').classList.add('skipped');
+        markSkipped(['hi']);
+        document.getElementById('output').textContent = s.falseLeaf;
+        document.getElementById('output').className = 'output-text';
+        document.getElementById('narration').innerHTML = '<span class="narration-tag false">FALSE</span><code>' + s.innerExpr + '</code> is <strong>false</strong>. Print "<code>' + s.falseLeaf + '</code>".';
+      }
+    }
+    stepPhase = 'done';
+  } else if (stepPhase === 'oe-inner-eval') {
+    document.querySelector('.tree-node[data-tag="oe-inner"]').classList.add('active');
+    highlightCode('oe-inner');
+    document.getElementById('narration').innerHTML = '<span class="narration-tag eval">Evaluate</span>Inner condition on negative side: <code>' + s.innerExpr + '</code>.';
+    stepPhase = 'oe-inner-result';
+  } else if (stepPhase === 'oe-inner-result') {
+    const inner = s.evalInner(...vals);
+    const it = document.querySelector('.tree-node[data-tag="oe-inner"]');
+    it.classList.remove('active');
+    it.classList.add(inner ? 'eval-true' : 'eval-false');
+    const leafKey = inner ? 'ft' : 'ff';
+    const leafText = s.leaves[leafKey];
+    document.querySelector('.tree-node.leaf[data-leaf="' + leafKey + '"]').classList.add('active');
+    document.querySelector('.tree-node.leaf[data-leaf="' + (inner ? 'ff' : 'ft') + '"]').classList.add('skipped');
+    highlightCode(inner ? 'ne-print' : 'no-print', 'eval-true');
+    document.getElementById('output').textContent = leafText;
+    document.getElementById('output').className = 'output-text';
+    document.getElementById('narration').innerHTML = '<span class="narration-tag ' + (inner ? 'true' : 'false') + '">' + (inner ? 'TRUE' : 'FALSE') + '</span><code>' + s.innerExpr + '</code> is <strong>' + inner + '</strong>. Print "<code>' + leafText + '</code>".';
+    stepPhase = 'done';
+  } else if (stepPhase === 'outer-false-print') {
+    highlightCode('goodbye', 'eval-true');
+    let tag = s.code.find(c => c[0] === 'goodbye') ? 'goodbye' : 'gotit';
+    highlightCode(tag, 'eval-true');
+    document.querySelector('.tree-node.leaf[data-leaf="outerFalse"]').classList.add('active');
+    document.getElementById('output').textContent = s.outerFalseLeaf;
+    document.getElementById('output').className = 'output-text';
+    document.getElementById('narration').innerHTML = '<span class="narration-tag print">Print</span>Print "<code>' + s.outerFalseLeaf + '</code>".';
+    stepPhase = 'done';
+  } else if (stepPhase === 'done') {
+    finishUp();
+  }
+  document.getElementById('stepInfo').textContent = 'step ' + stepIdx;
+}
+function finishUp() {
+  document.getElementById('stepBtn').disabled = true; document.getElementById('stepBtn').textContent = '✓ done';
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('narration').innerHTML = '<span class="narration-tag done">Done</span>Trace complete. Change inputs to see a different path through the tree.';
+}
+function runAll() { function loop() { if (stepPhase === 'done') { finishUp(); return; } doStep(); setTimeout(loop, 700); } loop(); }
+document.querySelectorAll('.scenario-btn').forEach(el => el.addEventListener('click', () => { currentScenario = el.dataset.scenario; loadScenario(); }));
+document.getElementById('stepBtn').addEventListener('click', doStep);
+document.getElementById('runBtn').addEventListener('click', runAll);
+document.getElementById('resetBtn').addEventListener('click', loadScenario);
+loadScenario();
+</script>
+</body>
+</html>

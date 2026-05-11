@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scope Lifetime — Variables live and die with their blocks</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #e8f0f5; color: #1a1a1a; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; }
+  h1 .accent { color: #1f5a8a; font-style: italic; }
+  .subtitle { color: #555; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 820px; }
+  .controls-bar { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+  .scenario-btn { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 9px 13px; background: #fff; border: 1.5px solid #1a1a1a; border-radius: 5px; cursor: pointer; transition: all 0.15s; line-height: 1.3; }
+  .scenario-btn:hover { background: #fff8d6; }
+  .scenario-btn.active { background: #1a1a1a; color: #ffd95c; }
+  .scenario-btn .preview { display: block; font-size: 9.5px; opacity: 0.7; margin-top: 2px; }
+  .scenario-btn.active .preview { color: #ffd95c; opacity: 0.85; }
+  .stage { max-width: 1100px; width: 100%; display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 8px 8px 0 #1a1a1a; padding: 22px 24px; }
+  .panel.dark { background: #0d1117; color: #e6edf3; }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+  .code-with-lines { display: grid; grid-template-columns: 30px 1fr; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .code-line-num { color: #555; text-align: right; padding: 3px 0; user-select: none; }
+  .code-line { padding: 3px 8px; margin: 0 -8px; border-radius: 4px; transition: all 0.3s; border-left: 3px solid transparent; line-height: 1.5; white-space: pre; }
+  .code-line.active { background: rgba(255, 217, 92, 0.2); border-left-color: #ffd95c; }
+  .code-line.error-line { background: rgba(255, 99, 99, 0.18); border-left-color: #ff6b6b; }
+  .code-line .kw { color: #ff7b72; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .num { color: #ffa657; }
+  .code-line .op { color: #ffd95c; }
+  .code-line .str { color: #a5d6ff; }
+  .code-line .method { color: #ffd95c; }
+  .code-line .block-marker { color: #6e7681; font-weight: 700; }
+  .lifetimes-wrap { padding: 6px 0; }
+  .lifetime-grid { display: grid; gap: 4px; }
+  .lifetime-header { display: grid; grid-template-columns: 90px 1fr; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1.5px dashed #1a1a1a; }
+  .lifetime-row { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: center; min-height: 32px; }
+  .var-label { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #1a1a1a; padding: 4px 8px; background: #fff8d6; border-radius: 4px; border: 1.5px solid #1a1a1a; text-align: center; }
+  .var-label.dead { background: #ddd; color: #888; border-color: #888; opacity: 0.5; }
+  .lifetime-bar-container { position: relative; height: 30px; background: #f5efe2; border-radius: 4px; overflow: hidden; }
+  .lifetime-bar { position: absolute; top: 0; height: 100%; border-radius: 3px; transition: all 0.4s; opacity: 0; }
+  .lifetime-bar.visible { opacity: 1; }
+  .lifetime-bar.color-x { background: rgba(31, 90, 138, 0.85); }
+  .lifetime-bar.color-y { background: rgba(106, 62, 181, 0.85); }
+  .lifetime-bar.color-z { background: rgba(45, 110, 62, 0.85); }
+  .lifetime-bar.color-a { background: rgba(196, 84, 30, 0.85); }
+  .lifetime-bar.color-b { background: rgba(196, 30, 58, 0.85); }
+  .lifetime-bar.color-c { background: rgba(255, 165, 0, 0.85); }
+  .lifetime-bar.color-a-shadow { background: rgba(196, 84, 30, 0.5); border: 1.5px dashed #c4541e; }
+  .lifetime-bar.dead { opacity: 0.25; background: #999 !important; }
+  .lifetime-bar .value-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .line-markers { position: relative; height: 18px; margin-bottom: 4px; }
+  .line-marker-cursor { position: absolute; top: 0; width: 3px; height: 100%; background: #c4541e; transition: left 0.3s; box-shadow: 0 0 0 2px rgba(255,255,255,0.5); }
+  .line-marker-label { position: absolute; top: -4px; transform: translateX(-50%); background: #c4541e; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; transition: left 0.3s; }
+  .narration { max-width: 1100px; width: 100%; background: #1a1a1a; color: #e6edf3; padding: 18px 22px; border-radius: 10px; border-left: 5px solid #ffd95c; margin-bottom: 18px; line-height: 1.55; font-size: 14.5px; min-height: 70px; }
+  .narration-tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; padding: 3px 9px; border-radius: 3px; background: #ffd95c; color: #1a1a1a; margin-right: 10px; }
+  .narration-tag.birth { background: #56d364; color: #1a3a23; }
+  .narration-tag.death { background: #c41e3a; color: #fff; }
+  .narration-tag.shadow { background: #c4541e; color: #fff; }
+  .narration-tag.error { background: #c41e3a; color: #fff; }
+  .narration-tag.done { background: #56d364; color: #1a3a23; }
+  .narration strong { color: #ffd95c; }
+  .narration code { background: rgba(255, 217, 92, 0.12); color: #ffd95c; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .actions { max-width: 1100px; width: 100%; display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+  .btn { font-family: 'JetBrains Mono', monospace; background: #1a1a1a; color: #ffd95c; border: none; padding: 12px 22px; cursor: pointer; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 6px; }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .btn.fast { background: #fff8d6; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #888; }
+  .insight-rule { background: #fff8d6; border-left: 4px solid #1a1a1a; padding: 12px 16px; margin-top: 14px; border-radius: 4px; font-family: 'Fraunces', serif; font-size: 13.5px; line-height: 1.55; }
+  .insight-rule strong { color: #1f5a8a; }
+  .insight-rule code { background: #fff; padding: 1px 5px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Scope <span class="accent">Lifetime</span></h1>
+  <p class="subtitle">Every variable has a birth (declaration) and a death (closing brace of its block). Step through the code and watch variables come alive, light up when used, and disappear at the closing <code style="font-family:monospace">}</code>.</p>
+  <div class="controls-bar">
+    <span class="picker-label">Example:</span>
+    <span class="scenario-btn active" data-scenario="ex2"><span>Example 2 (if-block)</span><span class="preview">int x, y in if, z</span></span>
+    <span class="scenario-btn" data-scenario="ex3"><span>Example 3 (modify)</span><span class="preview">change a inside {} </span></span>
+    <span class="scenario-btn" data-scenario="ex5"><span>Example 5 (shadow)</span><span class="preview">same name in nested</span></span>
+    <span class="scenario-btn" data-scenario="q16"><span>Quiz 16 (error)</span><span class="preview">y out of scope</span></span>
+    <span class="scenario-btn" data-scenario="q20"><span>Quiz 20 (error)</span><span class="preview">c declared in if</span></span>
+  </div>
+  <div class="stage">
+    <div class="panel dark">
+      <div class="panel-title">Source code</div>
+      <div class="code-with-lines" id="codeWithLines"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Variable lifetimes</div>
+      <div class="lifetimes-wrap">
+        <div class="lifetime-header"><div>Variable</div><div>Lines alive →</div></div>
+        <div class="line-markers" id="lineMarkers"></div>
+        <div class="lifetime-grid" id="lifetimeGrid"></div>
+      </div>
+      <div class="insight-rule" id="insightRule">Click <strong>Next step</strong> to begin.</div>
+    </div>
+  </div>
+  <div class="narration" id="narration"><span class="narration-tag">Ready</span>Pick an example and step through to see when each variable lives and dies.</div>
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <button class="btn fast" id="runBtn">⏩ Run all</button>
+    <span class="step-info" id="stepInfo">—</span>
+  </div>
+<script>
+const SCENARIOS = {
+  ex2: {
+    name: 'Example 2',
+    lines: [
+      '<span class="block-marker">1</span>  <span class="method">main</span>() {',
+      '<span class="block-marker">2</span>      <span class="kw">int</span> <span class="var">x</span> = <span class="num">10</span>;',
+      '<span class="block-marker">3</span>      <span class="kw">if</span> (<span class="var">x</span> == <span class="num">10</span>) {',
+      '<span class="block-marker">4</span>          <span class="kw">int</span> <span class="var">y</span> = <span class="num">5</span>;',
+      '<span class="block-marker">5</span>          <span class="method">SOP</span>(<span class="var">y</span>);',
+      '<span class="block-marker">6</span>      }',
+      '<span class="block-marker">7</span>      <span class="kw">int</span> <span class="var">z</span> = <span class="num">9</span>;',
+      '<span class="block-marker">8</span>  }'
+    ],
+    variables: [
+      { name: 'x', color: 'x', birthLine: 2, deathLine: 8 },
+      { name: 'y', color: 'y', birthLine: 4, deathLine: 6 },
+      { name: 'z', color: 'z', birthLine: 7, deathLine: 8 }
+    ],
+    steps: [
+      { line: 2, action: 'birth', varName: 'x', narr: 'Declare <code>int x = 10</code>. <strong>x</strong> is born — it lives until the closing <code>}</code> of <code>main</code> (line 8).' },
+      { line: 3, action: 'enter-if', narr: 'Enter the if-block. A new inner scope opens.' },
+      { line: 4, action: 'birth', varName: 'y', narr: 'Declare <code>int y = 5</code> inside the if-block. <strong>y</strong> is born — it will die at the if-block\u0027s closing <code>}</code> on line 6.' },
+      { line: 5, action: 'use', narr: 'Print <code>y</code>. y is still alive — output: <strong>5</strong>.' },
+      { line: 6, action: 'death', varName: 'y', narr: 'Closing <code>}</code> of the if-block. <strong>y dies</strong>. From this point on, y cannot be used.' },
+      { line: 7, action: 'birth', varName: 'z', narr: 'Declare <code>int z = 9</code>. <strong>z</strong> is born. x is also still alive (declared in the outer scope).' },
+      { line: 8, action: 'death-all', narr: 'Closing <code>}</code> of <code>main</code>. <strong>x and z both die</strong>. Program ends.' }
+    ],
+    rule: '<strong>Rule:</strong> a variable lives from its <code>int X = ...</code> line until the closing <code>}</code> of the block it was declared in.'
+  },
+  ex3: {
+    name: 'Example 3',
+    lines: [
+      '<span class="block-marker">1</span>  <span class="method">main</span>() {',
+      '<span class="block-marker">2</span>      <span class="kw">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+      '<span class="block-marker">3</span>      {',
+      '<span class="block-marker">4</span>          <span class="var">a</span> = <span class="num">20</span>;',
+      '<span class="block-marker">5</span>      }',
+      '<span class="block-marker">6</span>      <span class="method">SOP</span>(<span class="var">a</span>);',
+      '<span class="block-marker">7</span>  }'
+    ],
+    variables: [{ name: 'a', color: 'a', birthLine: 2, deathLine: 7, displayValue: 'a' }],
+    steps: [
+      { line: 2, action: 'birth', varName: 'a', val: 10, narr: 'Declare <code>int a = 10</code>. <strong>a</strong> is born in the outer scope.' },
+      { line: 3, action: 'enter-block', narr: 'Enter an inner block (no <code>if</code> needed — just <code>{ }</code>).' },
+      { line: 4, action: 'modify', varName: 'a', val: 20, narr: 'Reassign <code>a = 20</code>. We are MODIFYING the outer <code>a</code> — not creating a new variable. The inner block can see and change outer variables.' },
+      { line: 5, action: 'leave-block', narr: 'Closing <code>}</code> of inner block. No new variables existed inside — nothing dies here.' },
+      { line: 6, action: 'use', val: 20, narr: 'Print <code>a</code>. Outputs <strong>20</strong> — the change from inside the block persists.' },
+      { line: 7, action: 'death-all', narr: 'Program ends. <strong>a dies</strong>.' }
+    ],
+    rule: '<strong>Rule:</strong> the inner block can SEE and MODIFY outer variables. Changes survive the block ending.'
+  },
+  ex5: {
+    name: 'Example 5',
+    lines: [
+      '<span class="block-marker">1</span>  <span class="method">main</span>() {',
+      '<span class="block-marker">2</span>      <span class="kw">int</span> <span class="var">a</span> = <span class="num">90</span>;',
+      '<span class="block-marker">3</span>      {',
+      '<span class="block-marker">4</span>          <span class="kw">int</span> <span class="var">a</span> = <span class="num">7</span>;',
+      '<span class="block-marker">5</span>          <span class="method">SOPln</span>(<span class="var">a</span>);',
+      '<span class="block-marker">6</span>      }',
+      '<span class="block-marker">7</span>  }'
+    ],
+    variables: [
+      { name: 'a (outer)', color: 'a', birthLine: 2, deathLine: 7 },
+      { name: 'a (inner)', color: 'a-shadow', birthLine: 4, deathLine: 6 }
+    ],
+    steps: [
+      { line: 2, action: 'birth', varName: 'a (outer)', val: 90, narr: 'Declare outer <code>int a = 90</code>.' },
+      { line: 3, action: 'enter-block', narr: 'Enter inner block.' },
+      { line: 4, action: 'birth', varName: 'a (inner)', val: 7, narr: 'Declare ANOTHER <code>int a = 7</code> inside the inner block. This is a NEW variable that "shadows" the outer one. Inside this block, the name <code>a</code> refers to the inner.' },
+      { line: 5, action: 'use', val: 7, narr: 'Print <code>a</code>. Inside the inner block, <code>a</code> is the inner one — outputs <strong>7</strong>.' },
+      { line: 6, action: 'death', varName: 'a (inner)', narr: 'Closing <code>}</code> of inner block. The <strong>inner a dies</strong>. The outer a (= 90) is still alive.' },
+      { line: 7, action: 'death-all', narr: 'Program ends. <strong>Outer a dies</strong>.' }
+    ],
+    rule: '<strong>Rule (shadowing):</strong> declaring a new variable with the same name in an inner block creates a separate variable. The outer one is hidden but unchanged.'
+  },
+  q16: {
+    name: 'Quiz 16 — error',
+    lines: [
+      '<span class="block-marker">1</span>  <span class="method">main</span>() {',
+      '<span class="block-marker">2</span>      <span class="kw">int</span> <span class="var">x</span> = <span class="num">10</span>;',
+      '<span class="block-marker">3</span>      {',
+      '<span class="block-marker">4</span>          <span class="kw">int</span> <span class="var">y</span> = <span class="num">20</span>;',
+      '<span class="block-marker">5</span>          <span class="method">SOP</span>(<span class="var">x</span> + <span class="var">y</span>);',
+      '<span class="block-marker">6</span>      }',
+      '<span class="block-marker">7</span>      {',
+      '<span class="block-marker">8</span>          <span class="method">SOP</span>(<span class="var">x</span> + <span class="var">y</span>);',
+      '<span class="block-marker">9</span>      }',
+      '<span class="block-marker">10</span>  }'
+    ],
+    variables: [
+      { name: 'x', color: 'x', birthLine: 2, deathLine: 10 },
+      { name: 'y', color: 'y', birthLine: 4, deathLine: 6 }
+    ],
+    steps: [
+      { line: 2, action: 'birth', varName: 'x', val: 10, narr: 'Declare <code>x = 10</code>.' },
+      { line: 3, action: 'enter-block', narr: 'Enter first inner block.' },
+      { line: 4, action: 'birth', varName: 'y', val: 20, narr: 'Declare <code>y = 20</code> in first inner block.' },
+      { line: 5, action: 'use', narr: 'Print <code>x + y</code>. Both alive — outputs <strong>30</strong>.' },
+      { line: 6, action: 'death', varName: 'y', narr: 'Closing <code>}</code> of first block. <strong>y dies</strong>.' },
+      { line: 7, action: 'enter-block', narr: 'Enter second inner block.' },
+      { line: 8, action: 'error', narr: 'Reference <code>y</code> — but <strong>y is dead</strong> (it died on line 6). <span style="color:#ff9b9b;">Compile ERROR: cannot find symbol y</span>.' }
+    ],
+    rule: '<strong>Rule:</strong> a variable from a sibling block is OUT OF SCOPE — it doesn\u0027t survive across separate <code>{ }</code> blocks.'
+  },
+  q20: {
+    name: 'Quiz 20 — error',
+    lines: [
+      '<span class="block-marker">1</span>  <span class="kw">int</span> <span class="var">a</span> = <span class="num">10</span>, <span class="var">b</span> = <span class="num">5</span>;',
+      '<span class="block-marker">2</span>  <span class="kw">if</span>(<span class="kw">true</span>) {',
+      '<span class="block-marker">3</span>      <span class="kw">int</span> <span class="var">c</span> = <span class="var">a</span> * <span class="var">b</span>;',
+      '<span class="block-marker">4</span>  }',
+      '<span class="block-marker">5</span>  <span class="method">SOPln</span>(<span class="var">c</span>);'
+    ],
+    variables: [
+      { name: 'a', color: 'a', birthLine: 1, deathLine: 5 },
+      { name: 'b', color: 'b', birthLine: 1, deathLine: 5 },
+      { name: 'c', color: 'c', birthLine: 3, deathLine: 4 }
+    ],
+    steps: [
+      { line: 1, action: 'birth-two', vars: ['a', 'b'], narr: 'Declare <code>a = 10, b = 5</code>. Both live until the outer scope ends (line 5).' },
+      { line: 2, action: 'enter-if', narr: 'Enter <code>if(true)</code> block.' },
+      { line: 3, action: 'birth', varName: 'c', val: 50, narr: 'Declare <code>int c = a * b = 50</code>. <strong>c</strong> is born — but only lives inside this if-block.' },
+      { line: 4, action: 'death', varName: 'c', narr: 'Closing <code>}</code> of if-block. <strong>c dies</strong>. From this point on, c cannot be used.' },
+      { line: 5, action: 'error', narr: 'Try to print <code>c</code> — but <strong>c is dead</strong>. <span style="color:#ff9b9b;">Compile ERROR: cannot find symbol c</span>.' }
+    ],
+    rule: '<strong>Rule:</strong> a variable declared inside an <code>if</code> block dies at the if\u0027s closing <code>}</code> — even if you only want to use it once outside.'
+  }
+};
+let currentScenario = 'ex2', stepIdx = 0;
+function renderPicker() { document.querySelectorAll('.scenario-btn').forEach(el => el.classList.toggle('active', el.dataset.scenario === currentScenario)); }
+function renderCode() {
+  const s = SCENARIOS[currentScenario];
+  let html = '';
+  s.lines.forEach((line, i) => {
+    html += '<div class="code-line-num">' + (i + 1) + '</div>';
+    html += '<div class="code-line" data-line="' + (i + 1) + '">' + line + '</div>';
+  });
+  document.getElementById('codeWithLines').innerHTML = html;
+}
+function renderLifetimes() {
+  const s = SCENARIOS[currentScenario];
+  const nLines = s.lines.length;
+  let html = '';
+  s.variables.forEach(v => {
+    const startPct = ((v.birthLine - 1) / (nLines - 1)) * 100;
+    const endPct = ((v.deathLine - 1) / (nLines - 1)) * 100;
+    const widthPct = endPct - startPct;
+    html += '<div class="lifetime-row">';
+    html += '<div class="var-label" data-varlabel="' + v.name + '">' + v.name + '</div>';
+    html += '<div class="lifetime-bar-container">';
+    html += '<div class="lifetime-bar color-' + v.color + '" data-varbar="' + v.name + '" style="left:' + startPct + '%; width:' + widthPct + '%;"><span class="value-text" data-vartext="' + v.name + '"></span></div>';
+    html += '</div>';
+    html += '</div>';
+  });
+  document.getElementById('lifetimeGrid').innerHTML = html;
+  const lm = document.getElementById('lineMarkers');
+  lm.innerHTML = '<div class="line-marker-cursor" id="lineCursor" style="left:0%;"></div><div class="line-marker-label" id="lineCursorLabel" style="left:0%;">line 1</div>';
+}
+function highlightLine(lineNum, errorMode) {
+  document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active', 'error-line'));
+  if (lineNum) {
+    const el = document.querySelector('.code-line[data-line="' + lineNum + '"]');
+    if (el) el.classList.add(errorMode ? 'error-line' : 'active');
+  }
+  const s = SCENARIOS[currentScenario];
+  const pct = ((lineNum - 1) / (s.lines.length - 1)) * 100;
+  document.getElementById('lineCursor').style.left = pct + '%';
+  document.getElementById('lineCursorLabel').style.left = pct + '%';
+  document.getElementById('lineCursorLabel').textContent = 'line ' + lineNum;
+}
+function birthVar(name, val) {
+  const bar = document.querySelector('.lifetime-bar[data-varbar="' + name + '"]');
+  if (bar) bar.classList.add('visible');
+  const text = document.querySelector('.value-text[data-vartext="' + name + '"]');
+  if (text && val !== undefined) text.textContent = name.split(' ')[0] + ' = ' + val;
+}
+function deathVar(name) {
+  const bar = document.querySelector('.lifetime-bar[data-varbar="' + name + '"]');
+  if (bar) bar.classList.add('dead');
+  const label = document.querySelector('.var-label[data-varlabel="' + name + '"]');
+  if (label) label.classList.add('dead');
+}
+function updateVar(name, val) {
+  const text = document.querySelector('.value-text[data-vartext="' + name + '"]');
+  if (text) text.textContent = name.split(' ')[0] + ' = ' + val;
+}
+function loadScenario() {
+  stepIdx = 0;
+  renderPicker(); renderCode(); renderLifetimes();
+  document.getElementById('insightRule').innerHTML = SCENARIOS[currentScenario].rule;
+  document.getElementById('stepBtn').disabled = false; document.getElementById('stepBtn').textContent = '▶ Next step';
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('stepInfo').textContent = 'step 0 / ' + SCENARIOS[currentScenario].steps.length;
+  document.getElementById('narration').innerHTML = '<span class="narration-tag">Ready</span>' + SCENARIOS[currentScenario].name + '. Click <strong>Next step</strong>.';
+}
+function doStep() {
+  const s = SCENARIOS[currentScenario];
+  if (stepIdx >= s.steps.length) { finishUp(); return; }
+  const step = s.steps[stepIdx];
+  const isErrorStep = step.action === 'error';
+  highlightLine(step.line, isErrorStep);
+  if (step.action === 'birth') birthVar(step.varName, step.val);
+  else if (step.action === 'birth-two') step.vars.forEach(v => birthVar(v, v === 'a' ? 10 : 5));
+  else if (step.action === 'death') deathVar(step.varName);
+  else if (step.action === 'death-all') s.variables.forEach(v => deathVar(v.name));
+  else if (step.action === 'modify') updateVar(step.varName, step.val);
+  let tag = '<span class="narration-tag">Step</span>';
+  if (step.action === 'birth' || step.action === 'birth-two') tag = '<span class="narration-tag birth">Birth</span>';
+  else if (step.action === 'death' || step.action === 'death-all') tag = '<span class="narration-tag death">Death</span>';
+  else if (step.action === 'modify') tag = '<span class="narration-tag shadow">Modify</span>';
+  else if (step.action === 'error') tag = '<span class="narration-tag error">Compile error</span>';
+  document.getElementById('narration').innerHTML = tag + step.narr;
+  stepIdx++;
+  document.getElementById('stepInfo').textContent = 'step ' + stepIdx + ' / ' + s.steps.length;
+  if (stepIdx >= s.steps.length) finishUp();
+}
+function finishUp() {
+  document.getElementById('stepBtn').disabled = true; document.getElementById('stepBtn').textContent = '✓ done';
+  document.getElementById('runBtn').disabled = true;
+}
+function runAll() { function loop() { if (stepIdx >= SCENARIOS[currentScenario].steps.length) { finishUp(); return; } doStep(); setTimeout(loop, 900); } loop(); }
+document.querySelectorAll('.scenario-btn').forEach(el => el.addEventListener('click', () => { currentScenario = el.dataset.scenario; loadScenario(); }));
+document.getElementById('stepBtn').addEventListener('click', doStep);
+document.getElementById('runBtn').addEventListener('click', runAll);
+document.getElementById('resetBtn').addEventListener('click', loadScenario);
+loadScenario();
+</script>
+</body>
+</html>

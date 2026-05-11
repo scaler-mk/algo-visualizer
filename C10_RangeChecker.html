@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Range Checker — Why 98.0 <= temp <= 98.9 is wrong</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #fef0e8; color: #1a1a1a; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; }
+  h1 .accent { color: #c4541e; font-style: italic; }
+  .subtitle { color: #555; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 820px; }
+  .compare-row { max-width: 1100px; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+  @media (max-width: 700px) { .compare-row { grid-template-columns: 1fr; } }
+  .compare-card { background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 18px 22px; }
+  .compare-card.wrong { border-left: 6px solid #c41e3a; }
+  .compare-card.right { border-left: 6px solid #2d6e3e; }
+  .compare-card h3 { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; }
+  .compare-card.wrong h3 { color: #c41e3a; }
+  .compare-card.right h3 { color: #2d6e3e; }
+  .compare-code { background: #0d1117; border-radius: 6px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #e6edf3; line-height: 1.55; overflow-x: auto; }
+  .compare-code .kw { color: #ff7b72; }
+  .compare-code .var { color: #d2a8ff; }
+  .compare-code .num { color: #ffa657; }
+  .compare-code .op { color: #ffd95c; }
+  .compare-code .str { color: #a5d6ff; }
+  .compare-code .err { background: rgba(196, 30, 58, 0.4); padding: 0 4px; border-radius: 3px; color: #ff9999; }
+  .compare-code .good { background: rgba(86, 211, 100, 0.18); padding: 0 4px; border-radius: 3px; color: #d4edda; }
+  .compare-note { margin-top: 10px; font-family: 'Fraunces', serif; font-size: 13px; color: #555; font-style: italic; }
+  .controls-bar { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 16px 18px; margin-bottom: 18px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; }
+  .temp-input { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 280px; }
+  .temp-input input[type="range"] { flex: 1; height: 8px; }
+  .temp-input input[type="number"] { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; width: 90px; padding: 6px 10px; border: 1.5px solid #1a1a1a; border-radius: 5px; text-align: center; }
+  .preset-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .preset-chip { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 5px 10px; background: #fff8d6; border: 1.5px solid #1a1a1a; border-radius: 14px; cursor: pointer; font-weight: 700; }
+  .preset-chip:hover { background: #ffd95c; }
+  .preset-chip.active { background: #1a1a1a; color: #ffd95c; }
+  .stage { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 8px 8px 0 #1a1a1a; padding: 24px; margin-bottom: 18px; }
+  .number-line-wrap { padding: 30px 20px 20px; position: relative; margin-bottom: 22px; }
+  .number-line { position: relative; height: 6px; background: #1a1a1a; border-radius: 3px; }
+  .nl-marker { position: absolute; top: -10px; width: 3px; height: 26px; background: #1a1a1a; }
+  .nl-marker.range-start { left: calc((98.0 - 96.5) / (101 - 96.5) * 100%); background: #2d6e3e; }
+  .nl-marker.range-end { left: calc((98.9 - 96.5) / (101 - 96.5) * 100%); background: #2d6e3e; }
+  .nl-range { position: absolute; top: -3px; height: 12px; background: rgba(45, 110, 62, 0.25); border-radius: 4px; left: calc((98.0 - 96.5) / (101 - 96.5) * 100%); width: calc((98.9 - 98.0) / (101 - 96.5) * 100%); }
+  .nl-tick { position: absolute; top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #555; transform: translateX(-50%); }
+  .nl-tick.label-strong { font-weight: 700; color: #2d6e3e; font-size: 11px; }
+  .nl-cursor { position: absolute; top: -22px; width: 4px; height: 50px; background: #c4541e; transition: left 0.25s; z-index: 3; box-shadow: 0 0 0 2px rgba(255,255,255,0.8); }
+  .nl-cursor::before { content: ''; position: absolute; top: -10px; left: -10px; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 14px solid #c4541e; }
+  .nl-value-label { position: absolute; top: -42px; transform: translateX(-50%); background: #c4541e; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 4px; white-space: nowrap; transition: left 0.25s; }
+  .nl-value-label::after { content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #c4541e; }
+  .verdict-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+  .verdict-card { padding: 14px 16px; border-radius: 8px; border: 2px solid #1a1a1a; box-shadow: 3px 3px 0 #1a1a1a; }
+  .verdict-card.wrong-verdict { background: #fff5f5; border-color: #c41e3a; box-shadow: 3px 3px 0 #c41e3a; }
+  .verdict-card.right-verdict { background: #f0fff5; border-color: #2d6e3e; box-shadow: 3px 3px 0 #2d6e3e; }
+  .verdict-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 6px; }
+  .verdict-card.wrong-verdict .verdict-title { color: #c41e3a; }
+  .verdict-card.right-verdict .verdict-title { color: #2d6e3e; }
+  .verdict-eval { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; }
+  .verdict-final { margin-top: 8px; font-family: 'Fraunces', serif; font-size: 18px; font-weight: 900; font-style: italic; }
+  .verdict-card.wrong-verdict .verdict-final { color: #c41e3a; }
+  .verdict-card.right-verdict .verdict-final { color: #2d6e3e; }
+  .verdict-tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+  .verdict-tag.true { background: #56d364; color: #1a3a23; }
+  .verdict-tag.false { background: #ff6b6b; color: #fff; }
+  .verdict-tag.compile-err { background: #1a1a1a; color: #ff9999; }
+  .insight-callout { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #c4541e; padding: 18px 22px; margin-bottom: 18px; }
+  .insight-callout h3 { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #c4541e; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px; }
+  .insight-callout p { font-family: 'Fraunces', serif; font-size: 14px; line-height: 1.6; margin-bottom: 8px; }
+  .insight-callout p:last-child { margin-bottom: 0; }
+  .insight-callout code { background: #f5efe2; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .insight-callout strong { color: #c4541e; }
+</style>
+</head>
+<body>
+  <h1>Range <span class="accent">Checker</span></h1>
+  <p class="subtitle">"Normal temp is 98.0 to 98.9" — sounds simple, but a beginner-favourite mistake is writing it as <code style="font-family:monospace">98.0 &lt;= temp &lt;= 98.9</code>. That doesn't work in Java. Here's why, and what to write instead.</p>
+  <div class="compare-row">
+    <div class="compare-card wrong">
+      <h3>✗ Wrong — chained comparison</h3>
+      <div class="compare-code"><span class="kw">if</span> (<span class="err"><span class="num">98.0</span> &lt;= <span class="var">temp</span> &lt;= <span class="num">98.9</span></span>) {<br>&nbsp;&nbsp;<span class="str">"Normal temperature"</span><br>}</div>
+      <div class="compare-note">Java <strong>won't compile</strong>. The left side <code style="font-family:monospace">98.0 &lt;= temp</code> returns a <code style="font-family:monospace">boolean</code>, then Java tries <code style="font-family:monospace">boolean &lt;= 98.9</code> — illegal.</div>
+    </div>
+    <div class="compare-card right">
+      <h3>✓ Correct — two conditions with &amp;&amp;</h3>
+      <div class="compare-code"><span class="kw">if</span> (<span class="good"><span class="var">temp</span> &gt;= <span class="num">98.0</span> &amp;&amp; <span class="var">temp</span> &lt;= <span class="num">98.9</span></span>) {<br>&nbsp;&nbsp;<span class="str">"Normal temperature"</span><br>}</div>
+      <div class="compare-note">Two separate boolean checks, joined with <code style="font-family:monospace">&amp;&amp;</code> (AND). Both must be true for the body to run.</div>
+    </div>
+  </div>
+  <div class="controls-bar">
+    <span class="picker-label">temp =</span>
+    <div class="temp-input">
+      <input type="range" id="tempRange" min="96.5" max="101" step="0.1" value="98.5">
+      <input type="number" id="tempNumber" min="96.5" max="101" step="0.1" value="98.5">
+    </div>
+    <div class="preset-chips">
+      <span class="preset-chip" data-temp="96.8">96.8</span>
+      <span class="preset-chip" data-temp="97.9">97.9</span>
+      <span class="preset-chip" data-temp="98.0">98.0</span>
+      <span class="preset-chip active" data-temp="98.5">98.5</span>
+      <span class="preset-chip" data-temp="98.9">98.9</span>
+      <span class="preset-chip" data-temp="99.5">99.5</span>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="number-line-wrap">
+      <div class="number-line">
+        <div class="nl-range"></div>
+        <div class="nl-marker range-start"></div>
+        <div class="nl-marker range-end"></div>
+        <div class="nl-cursor" id="cursor" style="left:0%;"></div>
+        <div class="nl-value-label" id="cursorLabel" style="left:0%;">temp = 98.5</div>
+        <div class="nl-tick" style="left:calc((97 - 96.5) / (101 - 96.5) * 100%);">97.0</div>
+        <div class="nl-tick label-strong" style="left:calc((98.0 - 96.5) / (101 - 96.5) * 100%);">98.0 (start)</div>
+        <div class="nl-tick label-strong" style="left:calc((98.9 - 96.5) / (101 - 96.5) * 100%);">98.9 (end)</div>
+        <div class="nl-tick" style="left:calc((100 - 96.5) / (101 - 96.5) * 100%);">100.0</div>
+      </div>
+    </div>
+    <div class="verdict-row">
+      <div class="verdict-card wrong-verdict">
+        <div class="verdict-title">Wrong code — boolean eval breakdown</div>
+        <div class="verdict-eval" id="wrongEval">—</div>
+        <div class="verdict-final" id="wrongFinal">—</div>
+      </div>
+      <div class="verdict-card right-verdict">
+        <div class="verdict-title">Correct code — boolean eval breakdown</div>
+        <div class="verdict-eval" id="rightEval">—</div>
+        <div class="verdict-final" id="rightFinal">—</div>
+      </div>
+    </div>
+  </div>
+  <div class="insight-callout">
+    <h3>The takeaway</h3>
+    <p><strong>Math notation doesn't map to code.</strong> The math expression <code>98.0 ≤ temp ≤ 98.9</code> is just shorthand for two conditions joined by AND: <code>(98.0 ≤ temp) ∧ (temp ≤ 98.9)</code>. Java forces you to write that out explicitly.</p>
+    <p>Whenever you need a range check, write it as <strong>two separate conditions joined by &amp;&amp;</strong>. Same pattern for "between X and Y," "valid age 18 to 60," "score in passing range," etc.</p>
+  </div>
+<script>
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function pctOf(v) { return ((v - 96.5) / (101 - 96.5)) * 100; }
+function updateForTemp(temp) {
+  temp = clamp(temp, 96.5, 101);
+  temp = Math.round(temp * 10) / 10;
+  document.getElementById('tempRange').value = temp;
+  document.getElementById('tempNumber').value = temp;
+  const pct = pctOf(temp);
+  document.getElementById('cursor').style.left = pct + '%';
+  document.getElementById('cursorLabel').style.left = pct + '%';
+  document.getElementById('cursorLabel').textContent = 'temp = ' + temp.toFixed(1);
+  document.querySelectorAll('.preset-chip').forEach(el => el.classList.toggle('active', parseFloat(el.dataset.temp) === temp));
+  const cmp1 = (98.0 <= temp);
+  const wrongHtml = '<div>Step 1: <code style="background:#1a1a1a;color:#ffd95c;padding:2px 6px;border-radius:3px;">98.0 &lt;= ' + temp.toFixed(1) + '</code> evaluates to <span class="verdict-tag ' + (cmp1 ? 'true' : 'false') + '">' + cmp1 + '</span></div>' +
+                    '<div style="margin-top:4px;">Step 2: <code style="background:#1a1a1a;color:#ffd95c;padding:2px 6px;border-radius:3px;">' + cmp1 + ' &lt;= 98.9</code> &nbsp;<span class="verdict-tag compile-err">won\u0027t compile</span></div>';
+  document.getElementById('wrongEval').innerHTML = wrongHtml;
+  document.getElementById('wrongFinal').textContent = 'Compile error in Java';
+  const c1 = (temp >= 98.0);
+  const c2 = (temp <= 98.9);
+  const both = c1 && c2;
+  const rightHtml = '<div>Step 1: <code style="background:#1a1a1a;color:#ffd95c;padding:2px 6px;border-radius:3px;">' + temp.toFixed(1) + ' &gt;= 98.0</code> → <span class="verdict-tag ' + (c1 ? 'true' : 'false') + '">' + c1 + '</span></div>' +
+                    '<div style="margin-top:4px;">Step 2: <code style="background:#1a1a1a;color:#ffd95c;padding:2px 6px;border-radius:3px;">' + temp.toFixed(1) + ' &lt;= 98.9</code> → <span class="verdict-tag ' + (c2 ? 'true' : 'false') + '">' + c2 + '</span></div>' +
+                    '<div style="margin-top:6px;">Step 3: <code style="background:#1a1a1a;color:#ffd95c;padding:2px 6px;border-radius:3px;">' + c1 + ' &amp;&amp; ' + c2 + '</code> → <span class="verdict-tag ' + (both ? 'true' : 'false') + '">' + both + '</span></div>';
+  document.getElementById('rightEval').innerHTML = rightHtml;
+  document.getElementById('rightFinal').textContent = both ? '"Normal temperature"' : '(no output)';
+}
+document.getElementById('tempRange').addEventListener('input', (e) => updateForTemp(parseFloat(e.target.value)));
+document.getElementById('tempNumber').addEventListener('input', (e) => updateForTemp(parseFloat(e.target.value)));
+document.querySelectorAll('.preset-chip').forEach(el => el.addEventListener('click', () => updateForTemp(parseFloat(el.dataset.temp))));
+updateForTemp(98.5);
+</script>
+</body>
+</html>
