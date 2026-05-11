@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>First non-repeating character</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+  .phase-bar {
+    display: flex;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .phase-tab {
+    flex: 1;
+    padding: 14px 18px;
+    text-align: center;
+    border-right: 1px solid var(--line);
+    transition: all 0.3s;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+  .phase-tab:last-child { border-right: none; }
+  .phase-tab.active {
+    background: rgba(240, 160, 75, 0.12);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .phase-tab.completed {
+    background: rgba(163, 217, 119, 0.08);
+    color: var(--green);
+  }
+  .phase-tab .num {
+    font-size: 18px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-right: 8px;
+  }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 11.5px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+  .str { color: #a3d977; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.r { border-left-color: var(--green); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 17px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.r .val { color: var(--green); }
+
+  .str-display, .map-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .str-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .str-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .str-name.map { color: var(--purple); }
+  .str-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .char-row {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+    min-height: 60px; align-items: center;
+  }
+  .char-cell {
+    width: 50px; height: 56px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+    position: relative;
+  }
+  .char-cell .idx {
+    position: absolute;
+    bottom: -16px;
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .char-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-6px) scale(1.1);
+    box-shadow: 0 6px 0 -2px rgba(240, 160, 75, 0.3);
+  }
+  .char-cell.scanned-1 {
+    background: rgba(192, 132, 232, 0.08);
+    border-color: rgba(192, 132, 232, 0.4);
+    color: var(--purple);
+  }
+  .char-cell.repeats {
+    background: rgba(229, 115, 115, 0.08);
+    border-color: rgba(229, 115, 115, 0.4);
+    color: var(--muted);
+    opacity: 0.6;
+  }
+  .char-cell.found {
+    background: rgba(163, 217, 119, 0.25);
+    border-color: var(--green);
+    color: var(--green);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px rgba(163, 217, 119, 0.3);
+  }
+
+  .map-rows {
+    display: flex; flex-direction: column; gap: 6px;
+    min-height: 80px;
+  }
+  .map-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border: 1.5px solid var(--line);
+    transition: all 0.3s;
+  }
+  .map-row.updated {
+    background: rgba(240, 160, 75, 0.12);
+    border-color: var(--accent);
+    animation: flash 0.5s ease-out;
+  }
+  .map-row.kept {
+    background: rgba(163, 217, 119, 0.15);
+    border-color: var(--green);
+  }
+  .map-row.skipped {
+    background: rgba(229, 115, 115, 0.04);
+    border-color: rgba(229, 115, 115, 0.3);
+    opacity: 0.65;
+  }
+  @keyframes flash {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(240, 160, 75, 0); }
+    50% { box-shadow: 0 0 0 4px rgba(240, 160, 75, 0.3); }
+  }
+
+  .map-key {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 40px;
+    text-align: center;
+  }
+  .map-arrow { color: var(--muted); font-size: 14px; }
+  .map-val {
+    background: rgba(240, 160, 75, 0.15);
+    color: var(--accent);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .verdict-box {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    text-align: center;
+    min-height: 80px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+  }
+  .verdict-text {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .verdict-result {
+    font-size: 30px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 8px;
+    color: var(--green);
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>First non-repeating character — why two passes beats one</h1>
+  <div class="sub"><strong>Phase 1:</strong> sweep the string to count each char. <strong>Phase 2:</strong> sweep the string AGAIN in order — first char with count 1 is the answer. Trying to do it in one pass is the wrong instinct.</div>
+
+  <div class="phase-bar" id="phaseBar">
+    <div class="phase-tab" id="phase1Tab"><span class="num">1</span> BUILD frequency map</div>
+    <div class="phase-tab" id="phase2Tab"><span class="num">2</span> RE-SCAN for first count = 1</div>
+  </div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="qb" onclick="loadInput('aabbcd')">"aabbcd" → 'c'</button>
+        <button class="qb" onclick="loadInput('swiss')">"swiss" → 'w'</button>
+        <button class="qb" onclick="loadInput('aabbcc')">all repeat → none</button>
+        <button class="qb" onclick="loadInput('z')">single char</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1">HashMap&lt;Character, Integer&gt; freq = <span class="kw">new</span> HashMap&lt;&gt;();</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; str.length(); i++) {</div>
+<div class="cl" id="c3">  <span class="kw">char</span> c = str.<span class="meth">charAt</span>(i);</div>
+<div class="cl" id="c4">  freq.<span class="meth">put</span>(c, freq.<span class="meth">getOrDefault</span>(c, <span class="num">0</span>) + <span class="num">1</span>);</div>
+<div class="cl" id="c5">}</div>
+<div class="cl" id="c6"><span class="com">// re-scan in original order</span></div>
+<div class="cl" id="c7"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; str.length(); i++) {</div>
+<div class="cl" id="c8">  <span class="kw">if</span> (freq.<span class="meth">get</span>(str.<span class="meth">charAt</span>(i)) == <span class="num">1</span>)</div>
+<div class="cl" id="c9">    <span class="kw">return</span> str.<span class="meth">charAt</span>(i);</div>
+<div class="cl" id="c10">}</div>
+<div class="cl" id="c11"><span class="kw">return</span> <span class="str">'_'</span>; <span class="com">// none found</span></div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i / pointer</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell r">
+          <div class="lbl">verdict</div>
+          <div class="val" id="stateR">—</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">DATA STRUCTURES</div>
+      <div class="str-display">
+        <div class="str-header">
+          <span class="str-name">str (input)</span>
+          <span class="str-size-pill" id="inSize">length = 0</span>
+        </div>
+        <div class="char-row" id="inRow"></div>
+      </div>
+
+      <div class="map-display">
+        <div class="str-header">
+          <span class="str-name map">freq (char → count)</span>
+          <span class="str-size-pill" id="mapSize">size = 0</span>
+        </div>
+        <div class="map-rows" id="mapRows"></div>
+      </div>
+
+      <div class="verdict-box" id="verdictBox">
+        <div class="verdict-text">— verdict pending —</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let input = 'aabbcd';
+  let i = -1;
+  let freq = {};
+  let freqOrder = [];
+  let recentlyUpdated = null;
+  let cellStates = [];
+  let phase = 'idle'; // idle | phase1 | phase1-done | phase2 | done
+  let phase2Idx = -1;
+  let answer = null;
+  let timer = null;
+
+  function loadInput(s) {
+    input = s;
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = -1;
+    freq = {};
+    freqOrder = [];
+    recentlyUpdated = null;
+    cellStates = input.split('').map(() => null);
+    phase = 'idle';
+    phase2Idx = -1;
+    answer = null;
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateR').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('verdictBox').innerHTML = '<div class="verdict-text">— verdict pending —</div>';
+    for (let n = 1; n <= 11; n++) {
+      const el = document.getElementById('c' + n);
+      if (el) el.className = 'cl';
+    }
+    document.getElementById('c1').className = 'cl taken';
+    document.getElementById('phase1Tab').className = 'phase-tab';
+    document.getElementById('phase2Tab').className = 'phase-tab';
+    renderInput();
+    renderMap();
+    document.getElementById('stepLbl').textContent = `Phase 1: scan ${input.length} chars → Phase 2: find first count=1`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderInput() {
+    const r = document.getElementById('inRow');
+    document.getElementById('inSize').textContent = `length = ${input.length}`;
+    let h = '';
+    for (let k = 0; k < input.length; k++) {
+      let cls = 'char-cell';
+      if (phase === 'phase1' && k === i) cls += ' current';
+      else if (phase === 'phase2' && k === phase2Idx) cls += ' current';
+      else if (cellStates[k] === 'scanned-1') cls += ' scanned-1';
+      else if (cellStates[k] === 'repeats') cls += ' repeats';
+      else if (cellStates[k] === 'found') cls += ' found';
+      h += `<div class="${cls}">${input[k]}<span class="idx">${k}</span></div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function renderMap() {
+    const m = document.getElementById('mapRows');
+    document.getElementById('mapSize').textContent = `size = ${freqOrder.length}`;
+    if (freqOrder.length === 0) {
+      m.innerHTML = '<span style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px;">— empty map, building —</span>';
+      return;
+    }
+    let h = '';
+    for (const key of freqOrder) {
+      let cls = 'map-row';
+      if (phase === 'phase1' && key === recentlyUpdated) cls += ' updated';
+      h += `<div class="${cls}">
+        <span class="map-key">'${key}'</span>
+        <span class="map-arrow">→</span>
+        <span class="map-val">${freq[key]}</span>
+      </div>`;
+    }
+    m.innerHTML = h;
+  }
+
+  function highlightCode(arr) {
+    for (let n = 1; n <= 11; n++) {
+      const el = document.getElementById('c' + n);
+      if (el) el.className = 'cl';
+    }
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    // PHASE 1
+    if (phase === 'idle' || phase === 'phase1') {
+      if (i + 1 >= input.length) {
+        phase = 'phase1-done';
+        document.getElementById('phase1Tab').className = 'phase-tab completed';
+        document.getElementById('phase2Tab').className = 'phase-tab active';
+        highlightCode([['c7', 'taken']]);
+        cellStates = input.split('').map(() => 'scanned-1');
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">Phase 1 done — frequency map built.</span> Now re-scan the string in order.`;
+        document.getElementById('stepLbl').textContent = `Phase 1 complete → Phase 2 starting`;
+        document.getElementById('stateI').textContent = '—';
+        recentlyUpdated = null;
+        renderInput();
+        renderMap();
+        return;
+      }
+      i++;
+      phase = 'phase1';
+      document.getElementById('phase1Tab').className = 'phase-tab active';
+      const ch = input[i];
+      const exists = freq[ch] !== undefined;
+      if (exists) {
+        freq[ch]++;
+      } else {
+        freq[ch] = 1;
+        freqOrder.push(ch);
+      }
+      recentlyUpdated = ch;
+      highlightCode([['c2', 'eval'], ['c3', 'taken'], ['c4', 'taken']]);
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('traceText').innerHTML =
+        `i = <span class="formula-piece fp purple">${i}</span>, char <span class="formula-piece fp orange">'${ch}'</span> — ${exists ? 'bump count to ' + freq[ch] : 'new key, count = 1'}`;
+      document.getElementById('stepLbl').textContent = `Phase 1: i = ${i}, char '${ch}' → freq['${ch}'] = ${freq[ch]}`;
+      renderInput();
+      renderMap();
+      return;
+    }
+
+    // PHASE 2
+    if (phase === 'phase1-done' || phase === 'phase2') {
+      if (phase2Idx + 1 >= input.length) {
+        // No char found with count 1
+        phase = 'done';
+        document.getElementById('phase2Tab').className = 'phase-tab completed';
+        highlightCode([['c11', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp red">No char with count = 1 — return '_'</span>`;
+        document.getElementById('stepLbl').textContent = `complete — no non-repeating char`;
+        document.getElementById('stateR').textContent = '_';
+        document.getElementById('verdictBox').innerHTML = `
+          <div class="verdict-text">No character has count = 1</div>
+          <div class="verdict-result" style="color: var(--red);">return '_'</div>
+        `;
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        return;
+      }
+      phase2Idx++;
+      phase = 'phase2';
+      const ch = input[phase2Idx];
+      const isOne = freq[ch] === 1;
+      document.getElementById('stateI').textContent = phase2Idx;
+
+      if (isOne) {
+        cellStates[phase2Idx] = 'found';
+        phase = 'done';
+        document.getElementById('phase2Tab').className = 'phase-tab completed';
+        answer = ch;
+        highlightCode([['c7', 'eval'], ['c8', 'eval'], ['c9', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `i = <span class="formula-piece fp purple">${phase2Idx}</span>, char <span class="formula-piece fp orange">'${ch}'</span>, freq = <span class="formula-piece fp green">1</span> → <span class="formula-piece fp green">FOUND — return '${ch}'</span>`;
+        document.getElementById('stepLbl').textContent = `Phase 2: found '${ch}' at index ${phase2Idx}`;
+        document.getElementById('stateR').textContent = `'${ch}'`;
+        document.getElementById('verdictBox').innerHTML = `
+          <div class="verdict-text">First char with count = 1 at index ${phase2Idx}</div>
+          <div class="verdict-result">return '${ch}'</div>
+        `;
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        renderInput();
+        return;
+      } else {
+        cellStates[phase2Idx] = 'repeats';
+        highlightCode([['c7', 'eval'], ['c8', 'eval']]);
+        document.getElementById('traceText').innerHTML =
+          `i = <span class="formula-piece fp purple">${phase2Idx}</span>, char <span class="formula-piece fp orange">'${ch}'</span>, freq = <span class="formula-piece fp red">${freq[ch]}</span> → repeats, skip`;
+        document.getElementById('stepLbl').textContent = `Phase 2: '${ch}' repeats (count ${freq[ch]}), skip`;
+        renderInput();
+        return;
+      }
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 850);
+  }
+
+  reset();
+</script>
+</body>
+</html>

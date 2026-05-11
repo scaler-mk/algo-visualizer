@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Second largest — one-pass sweep</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.skipped { opacity: 0.4; color: var(--muted); }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 10px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.l { border-left-color: var(--green); }
+  .state-cell.s { border-left-color: var(--blue); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; transition: all 0.3s; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.l .val { color: var(--green); }
+  .state-cell.s .val { color: var(--blue); }
+  .state-cell.bumped .val {
+    animation: bump 0.5s ease-out;
+  }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+
+  .arr-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px 18px 28px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .arr-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px;
+  }
+  .arr-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .arr-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .arr-row {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+    min-height: 60px; align-items: center;
+  }
+  .arr-cell {
+    min-width: 56px;
+    height: 56px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+    position: relative;
+  }
+  .arr-cell .idx {
+    position: absolute;
+    bottom: -18px;
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .arr-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.12);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .arr-cell.visited {
+    background: rgba(192, 132, 232, 0.08);
+    border-color: rgba(192, 132, 232, 0.4);
+    color: var(--purple);
+  }
+  .arr-cell.is-largest {
+    background: rgba(163, 217, 119, 0.18);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .arr-cell.is-second {
+    background: rgba(93, 173, 236, 0.15);
+    border-color: var(--blue);
+    color: var(--blue);
+  }
+
+  .check-display {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 100px;
+  }
+  .check-lbl {
+    font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px;
+  }
+  .check-row {
+    display: flex; gap: 8px; align-items: center; margin: 5px 0;
+    font-size: 13px;
+  }
+  .check-pill {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 130px;
+    text-align: center;
+  }
+  .check-pill.ok { background: rgba(163, 217, 119, 0.15); color: var(--green); }
+  .check-pill.fail { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .check-pill.pending { background: var(--panel-2); color: var(--muted); }
+  .check-pill.action { background: rgba(240, 160, 75, 0.15); color: var(--accent); }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Second largest — one-pass sweep with two trackers</h1>
+  <div class="sub">Maintain <span style="color:var(--green)">largest</span> and <span style="color:var(--blue)">secondLargest</span> as you sweep. For each element, decide: is this the new largest? Or just the new second? Or neither? One pass — no sorting needed.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="qb" onclick="loadInput([3, 1, 4, 1, 5, 9, 2, 6])">demo array → 6</button>
+        <button class="qb" onclick="loadInput([10, 5, 8, 12, 3])">[10, 5, 8, 12, 3] → 10</button>
+        <button class="qb" onclick="loadInput([7, 7, 7])">all duplicates</button>
+        <button class="qb" onclick="loadInput([-2, -5, -1, -8])">negatives</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">int</span> largest = Integer.MIN_VALUE;</div>
+<div class="cl" id="c2"><span class="kw">int</span> secondLargest = Integer.MIN_VALUE;</div>
+<div class="cl" id="c3"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; A.length; i++) {</div>
+<div class="cl" id="c4">  <span class="kw">if</span> (A[i] &gt; largest) {</div>
+<div class="cl" id="c5">    secondLargest = largest;</div>
+<div class="cl" id="c6">    largest = A[i];</div>
+<div class="cl" id="c7">  } <span class="kw">else if</span> (A[i] &gt; secondLargest &amp;&amp; A[i] != largest) {</div>
+<div class="cl" id="c8">    secondLargest = A[i];</div>
+<div class="cl" id="c9">  }</div>
+<div class="cl" id="c10">}</div>
+<div class="cl" id="c11"><span class="kw">return</span> secondLargest;</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i" id="cellI">
+          <div class="lbl">i</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell l" id="cellL">
+          <div class="lbl">largest</div>
+          <div class="val" id="stateL">−∞</div>
+        </div>
+        <div class="state-cell s" id="cellS">
+          <div class="lbl">secondLargest</div>
+          <div class="val" id="stateS">−∞</div>
+        </div>
+      </div>
+
+      <div class="check-display" id="checkDisplay">
+        <div class="check-lbl">DECISION FOR THIS ELEMENT</div>
+        <div style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 13px;">— press Step to begin —</div>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ARRAY</div>
+      <div class="arr-display">
+        <div class="arr-header">
+          <span class="arr-name">A</span>
+          <span class="arr-size-pill" id="inSize">length = 0</span>
+        </div>
+        <div class="arr-row" id="inRow"></div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div style="background: rgba(240, 160, 75, 0.06); border-left: 3px solid var(--accent); padding: 14px 16px; border-radius: 4px; font-size: 12px; line-height: 1.6; font-family: Georgia, serif; font-style: italic; color: var(--ink);">
+        <strong style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">The insight →</strong> sorting takes the whole array, looks at all of it twice. This one-pass version reads each element exactly once — and only updates the trackers when needed. Same answer, less work.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const NEG_INF = -Infinity;
+  let input = [3, 1, 4, 1, 5, 9, 2, 6];
+  let i = -1;
+  let largest = NEG_INF;
+  let secondLargest = NEG_INF;
+  let phase = 'idle';
+  let timer = null;
+
+  function loadInput(arr) {
+    input = arr.slice();
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = -1;
+    largest = NEG_INF;
+    secondLargest = NEG_INF;
+    phase = 'idle';
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateL').textContent = '−∞';
+    document.getElementById('stateS').textContent = '−∞';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('checkDisplay').innerHTML =
+      `<div class="check-lbl">DECISION FOR THIS ELEMENT</div><div style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 13px;">— press Step to begin —</div>`;
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11'].forEach(id => document.getElementById(id).className = 'cl');
+    document.getElementById('c1').className = 'cl taken';
+    document.getElementById('c2').className = 'cl taken';
+    renderInput();
+    document.getElementById('stepLbl').textContent = `${input.length} elements to scan`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderInput() {
+    const r = document.getElementById('inRow');
+    document.getElementById('inSize').textContent = `length = ${input.length}`;
+    let h = '';
+    for (let k = 0; k < input.length; k++) {
+      let cls = 'arr-cell';
+      if (k === i && phase === 'active') cls += ' current';
+      else if (k < i || (k === i && phase === 'done')) {
+        if (input[k] === largest && largest !== NEG_INF) cls += ' is-largest';
+        else if (input[k] === secondLargest && secondLargest !== NEG_INF) cls += ' is-second';
+        else cls += ' visited';
+      }
+      h += `<div class="${cls}">${input[k]}<span class="idx">${k}</span></div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function highlightCode(arr) {
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11'].forEach(id => document.getElementById(id).className = 'cl');
+    // keep init lines lit
+    document.getElementById('c1').className = 'cl taken';
+    document.getElementById('c2').className = 'cl taken';
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function bumpCell(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('bumped');
+      setTimeout(() => el.classList.remove('bumped'), 500);
+    }
+  }
+
+  function fmt(v) {
+    return v === NEG_INF ? '−∞' : v;
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    if (i + 1 >= input.length) {
+      phase = 'done';
+      highlightCode([['c11', 'taken']]);
+      const result = secondLargest === NEG_INF ? 'no second largest exists' : secondLargest;
+      document.getElementById('traceText').innerHTML =
+        `<span class="formula-piece fp green">DONE — return secondLargest = ${result}</span>`;
+      document.getElementById('stepLbl').textContent = `complete — largest = ${largest}, secondLargest = ${result}`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      renderInput();
+      return;
+    }
+
+    i++;
+    phase = 'active';
+    const v = input[i];
+    document.getElementById('stateI').textContent = i;
+
+    const beatsLargest = v > largest;
+    const beatsSecond = v > secondLargest && v !== largest;
+
+    let checkHtml = `<div class="check-lbl">DECISION — A[${i}] = ${v}</div>`;
+    checkHtml += `<div class="check-row">
+      <span class="check-pill ${beatsLargest ? 'ok' : 'fail'}">${v} > largest (${fmt(largest)})? ${beatsLargest ? '✓' : '✗'}</span>
+    </div>`;
+
+    if (beatsLargest) {
+      // New largest. Old largest demoted to secondLargest.
+      const oldLargest = largest;
+      secondLargest = largest;
+      largest = v;
+      checkHtml += `<div class="check-row" style="margin-top:8px;">
+        <span class="check-pill action">new largest!</span>
+        <span style="color: var(--muted); font-size: 11px;">old largest (${fmt(oldLargest)}) becomes the new secondLargest</span>
+      </div>`;
+      highlightCode([['c3', 'eval'], ['c4', 'eval'], ['c5', 'taken'], ['c6', 'taken']]);
+      document.getElementById('traceText').innerHTML =
+        `A[i] = <span class="formula-piece fp orange">${v}</span> beats largest → <span class="formula-piece fp green">largest = ${v}</span>, <span class="formula-piece fp blue">secondLargest = ${fmt(oldLargest)}</span>`;
+      bumpCell('cellL');
+      if (oldLargest !== NEG_INF) bumpCell('cellS');
+    } else {
+      checkHtml += `<div class="check-row">
+        <span class="check-pill ${beatsSecond ? 'ok' : 'fail'}">${v} > secondLargest (${fmt(secondLargest)}) AND ≠ largest? ${beatsSecond ? '✓' : '✗'}</span>
+      </div>`;
+      if (beatsSecond) {
+        secondLargest = v;
+        checkHtml += `<div class="check-row" style="margin-top:8px;">
+          <span class="check-pill action">new secondLargest!</span>
+        </div>`;
+        highlightCode([['c3', 'eval'], ['c4', 'eval'], ['c7', 'eval'], ['c8', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `A[i] = <span class="formula-piece fp orange">${v}</span> beats secondLargest → <span class="formula-piece fp blue">secondLargest = ${v}</span>`;
+        bumpCell('cellS');
+      } else {
+        const reason = v === largest ? 'equals largest — skip duplicate' : 'too small for either';
+        checkHtml += `<div class="check-row" style="margin-top:8px;">
+          <span class="check-pill fail">no update — ${reason}</span>
+        </div>`;
+        highlightCode([['c3', 'eval'], ['c4', 'eval'], ['c7', 'eval']]);
+        document.getElementById('traceText').innerHTML =
+          `A[i] = <span class="formula-piece fp orange">${v}</span> — <span class="formula-piece fp red">${reason}</span>`;
+      }
+    }
+
+    document.getElementById('checkDisplay').innerHTML = checkHtml;
+    document.getElementById('stateL').textContent = fmt(largest);
+    document.getElementById('stateS').textContent = fmt(secondLargest);
+    document.getElementById('stepLbl').textContent = `step ${i + 1} of ${input.length} — i = ${i}, A[i] = ${v}`;
+    renderInput();
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1100);
+  }
+
+  reset();
+</script>
+</body>
+</html>

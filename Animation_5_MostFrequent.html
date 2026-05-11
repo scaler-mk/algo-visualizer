@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Most frequent element</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+  .phase-bar {
+    display: flex;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .phase-tab {
+    flex: 1;
+    padding: 14px 18px;
+    text-align: center;
+    border-right: 1px solid var(--line);
+    transition: all 0.3s;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+  .phase-tab:last-child { border-right: none; }
+  .phase-tab.active {
+    background: rgba(240, 160, 75, 0.12);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .phase-tab.completed {
+    background: rgba(163, 217, 119, 0.08);
+    color: var(--green);
+  }
+  .phase-tab .num {
+    font-size: 18px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-right: 8px;
+  }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 11.5px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 9px 10px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.b { border-left-color: var(--green); }
+  .state-cell.m { border-left-color: var(--accent); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 16px; font-weight: 600; transition: all 0.3s; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.b .val { color: var(--green); }
+  .state-cell.m .val { color: var(--accent); }
+  .state-cell.bumped .val { animation: bump 0.5s ease-out; }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+
+  .arr-display, .map-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .arr-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .arr-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--purple);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .arr-name.map { color: var(--accent); }
+  .arr-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .arr-row {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+    min-height: 56px; align-items: center;
+  }
+  .arr-cell {
+    min-width: 54px;
+    height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 5px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+  }
+  .arr-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .arr-cell.scanned {
+    background: rgba(192, 132, 232, 0.08);
+    border-color: rgba(192, 132, 232, 0.4);
+    color: var(--purple);
+  }
+
+  .map-rows {
+    display: flex; flex-direction: column; gap: 6px;
+    min-height: 80px;
+  }
+  .map-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border: 1.5px solid var(--line);
+    transition: all 0.3s;
+  }
+  .map-row.updated {
+    background: rgba(240, 160, 75, 0.12);
+    border-color: var(--accent);
+    animation: flash 0.5s ease-out;
+  }
+  .map-row.scanning {
+    background: rgba(93, 173, 236, 0.15);
+    border-color: var(--blue);
+    transform: translateX(8px);
+  }
+  .map-row.is-max {
+    background: rgba(163, 217, 119, 0.18);
+    border-color: var(--green);
+    border-left: 3px solid var(--green);
+  }
+  .map-row.not-max {
+    opacity: 0.6;
+  }
+  @keyframes flash {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(240, 160, 75, 0); }
+    50% { box-shadow: 0 0 0 4px rgba(240, 160, 75, 0.3); }
+  }
+
+  .map-key {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 40px;
+    text-align: center;
+  }
+  .map-arrow { color: var(--muted); font-size: 14px; }
+  .map-val {
+    background: rgba(240, 160, 75, 0.15);
+    color: var(--accent);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 36px;
+    text-align: center;
+  }
+  .map-tag {
+    margin-left: auto;
+    font-size: 11px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--muted);
+  }
+  .map-row.is-max .map-tag { color: #4a7e2a; color: var(--green); }
+
+  .verdict-box {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    text-align: center;
+    min-height: 80px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+  }
+  .verdict-text {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .verdict-result {
+    font-size: 28px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 6px;
+    color: var(--green);
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Most frequent element — build map, then find max</h1>
+  <div class="sub">Same pattern as "Count Unique" — Phase 1 builds the frequency map. Phase 2 walks the map and tracks the maximum count, remembering which key it came from.</div>
+
+  <div class="phase-bar" id="phaseBar">
+    <div class="phase-tab" id="phase1Tab"><span class="num">1</span> BUILD frequency map</div>
+    <div class="phase-tab" id="phase2Tab"><span class="num">2</span> SCAN for max count</div>
+  </div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="qb" onclick="loadInput([1, 3, 2, 1, 4, 1, 3, 1])">demo → 1</button>
+        <button class="qb" onclick="loadInput([5, 5, 7, 7, 7, 2])">→ 7</button>
+        <button class="qb" onclick="loadInput([1, 2, 3, 4])">all unique → first one wins</button>
+        <button class="qb" onclick="loadInput([3, 3, 3])">all same</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1">HashMap&lt;Integer, Integer&gt; freq = <span class="kw">new</span> HashMap&lt;&gt;();</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; A.length; i++) {</div>
+<div class="cl" id="c3">  freq.<span class="meth">put</span>(A[i], freq.<span class="meth">getOrDefault</span>(A[i], <span class="num">0</span>) + <span class="num">1</span>);</div>
+<div class="cl" id="c4">}</div>
+<div class="cl" id="c5"><span class="kw">int</span> bestKey = <span class="num">0</span>, bestCount = <span class="num">0</span>;</div>
+<div class="cl" id="c6"><span class="kw">for</span> (<span class="kw">int</span> key : freq.<span class="meth">keySet</span>()) {</div>
+<div class="cl" id="c7">  <span class="kw">if</span> (freq.<span class="meth">get</span>(key) &gt; bestCount) {</div>
+<div class="cl" id="c8">    bestCount = freq.<span class="meth">get</span>(key);</div>
+<div class="cl" id="c9">    bestKey = key;</div>
+<div class="cl" id="c10">  }</div>
+<div class="cl" id="c11">}</div>
+<div class="cl" id="c12"><span class="kw">return</span> bestKey;</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i / key</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell b" id="cellB">
+          <div class="lbl">bestCount</div>
+          <div class="val" id="stateB">0</div>
+        </div>
+        <div class="state-cell m" id="cellM">
+          <div class="lbl">bestKey</div>
+          <div class="val" id="stateM">—</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">DATA STRUCTURES</div>
+      <div class="arr-display">
+        <div class="arr-header">
+          <span class="arr-name">A (input)</span>
+          <span class="arr-size-pill" id="inSize">length = 0</span>
+        </div>
+        <div class="arr-row" id="inRow"></div>
+      </div>
+
+      <div class="map-display">
+        <div class="arr-header">
+          <span class="arr-name map">freq (key → count)</span>
+          <span class="arr-size-pill" id="mapSize">size = 0</span>
+        </div>
+        <div class="map-rows" id="mapRows"></div>
+      </div>
+
+      <div class="verdict-box" id="verdictBox">
+        <div class="verdict-text">— verdict pending —</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let input = [1, 3, 2, 1, 4, 1, 3, 1];
+  let i = -1;
+  let freq = {};
+  let freqOrder = [];
+  let recentlyUpdated = null;
+  let cellStates = [];
+  let phase = 'idle';
+  let phase2Idx = -1;
+  let phase2States = {};
+  let bestKey = null, bestCount = 0;
+  let timer = null;
+
+  function loadInput(arr) {
+    input = arr.slice();
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = -1;
+    freq = {};
+    freqOrder = [];
+    recentlyUpdated = null;
+    cellStates = input.map(() => null);
+    phase = 'idle';
+    phase2Idx = -1;
+    phase2States = {};
+    bestKey = null;
+    bestCount = 0;
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateB').textContent = '0';
+    document.getElementById('stateM').textContent = '—';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('verdictBox').innerHTML = '<div class="verdict-text">— verdict pending —</div>';
+    for (let n = 1; n <= 12; n++) {
+      const el = document.getElementById('c' + n);
+      if (el) el.className = 'cl';
+    }
+    document.getElementById('c1').className = 'cl taken';
+    document.getElementById('phase1Tab').className = 'phase-tab';
+    document.getElementById('phase2Tab').className = 'phase-tab';
+    renderInput();
+    renderMap();
+    document.getElementById('stepLbl').textContent = `Phase 1: scan ${input.length} elements → Phase 2: find max count`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderInput() {
+    const r = document.getElementById('inRow');
+    document.getElementById('inSize').textContent = `length = ${input.length}`;
+    let h = '';
+    for (let k = 0; k < input.length; k++) {
+      let cls = 'arr-cell';
+      if (k === i && phase === 'phase1') cls += ' current';
+      else if (cellStates[k] === 'scanned') cls += ' scanned';
+      h += `<div class="${cls}">${input[k]}</div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function renderMap() {
+    const m = document.getElementById('mapRows');
+    document.getElementById('mapSize').textContent = `size = ${freqOrder.length}`;
+    if (freqOrder.length === 0) {
+      m.innerHTML = '<span style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px;">— empty map, building —</span>';
+      return;
+    }
+    let h = '';
+    for (const key of freqOrder) {
+      let cls = 'map-row';
+      let tag = '';
+      if (phase === 'phase1' && key === recentlyUpdated) cls += ' updated';
+      if (phase === 'phase2' || phase === 'done') {
+        const s = phase2States[key];
+        if (s === 'scanning') cls += ' scanning';
+        else if (s === 'is-max') { cls += ' is-max'; tag = '<span class="map-tag">current best ★</span>'; }
+        else if (s === 'not-max') cls += ' not-max';
+      }
+      if (phase === 'done' && key === bestKey) { cls = 'map-row is-max'; tag = '<span class="map-tag">WINNER ★</span>'; }
+      h += `<div class="${cls}">
+        <span class="map-key">${key}</span>
+        <span class="map-arrow">→</span>
+        <span class="map-val">${freq[key]}</span>
+        ${tag}
+      </div>`;
+    }
+    m.innerHTML = h;
+  }
+
+  function highlightCode(arr) {
+    for (let n = 1; n <= 12; n++) {
+      const el = document.getElementById('c' + n);
+      if (el) el.className = 'cl';
+    }
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function bumpCell(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('bumped');
+      setTimeout(() => el.classList.remove('bumped'), 500);
+    }
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    // PHASE 1
+    if (phase === 'idle' || phase === 'phase1') {
+      if (i + 1 >= input.length) {
+        phase = 'phase1-done';
+        document.getElementById('phase1Tab').className = 'phase-tab completed';
+        document.getElementById('phase2Tab').className = 'phase-tab active';
+        highlightCode([['c5', 'taken']]);
+        cellStates = input.map(() => 'scanned');
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">Phase 1 done.</span> Now scan the map to find the max count.`;
+        document.getElementById('stepLbl').textContent = `Phase 1 complete → Phase 2 starting`;
+        recentlyUpdated = null;
+        document.getElementById('stateI').textContent = '—';
+        renderInput();
+        renderMap();
+        return;
+      }
+      i++;
+      phase = 'phase1';
+      document.getElementById('phase1Tab').className = 'phase-tab active';
+      cellStates[i] = 'scanned';
+      const v = input[i];
+      const exists = freq[v] !== undefined;
+      if (exists) freq[v]++;
+      else { freq[v] = 1; freqOrder.push(v); }
+      recentlyUpdated = v;
+      highlightCode([['c2', 'eval'], ['c3', 'taken']]);
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('traceText').innerHTML =
+        `i = <span class="formula-piece fp purple">${i}</span>, A[i] = <span class="formula-piece fp orange">${v}</span> — ${exists ? 'bump count to ' + freq[v] : 'new key, count = 1'}`;
+      document.getElementById('stepLbl').textContent = `Phase 1: i = ${i}, freq[${v}] = ${freq[v]}`;
+      renderInput();
+      renderMap();
+      return;
+    }
+
+    // PHASE 2
+    if (phase === 'phase1-done' || phase === 'phase2') {
+      if (phase2Idx + 1 >= freqOrder.length) {
+        phase = 'done';
+        document.getElementById('phase2Tab').className = 'phase-tab completed';
+        highlightCode([['c12', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">DONE — return bestKey = ${bestKey} (appears ${bestCount} times)</span>`;
+        document.getElementById('stepLbl').textContent = `complete — answer = ${bestKey}`;
+        document.getElementById('verdictBox').innerHTML = `
+          <div class="verdict-text">Most frequent element: appears ${bestCount} times</div>
+          <div class="verdict-result">return ${bestKey}</div>
+        `;
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        // Final tidy of states
+        for (const k of freqOrder) {
+          if (phase2States[k] === 'scanning') phase2States[k] = 'not-max';
+        }
+        renderMap();
+        return;
+      }
+      phase2Idx++;
+      phase = 'phase2';
+      // Clear scanning state from previous
+      for (const k of freqOrder) {
+        if (phase2States[k] === 'scanning') phase2States[k] = (k === bestKey ? 'is-max' : 'not-max');
+      }
+      const key = freqOrder[phase2Idx];
+      phase2States[key] = 'scanning';
+      const cnt = freq[key];
+      const isNewBest = cnt > bestCount;
+
+      document.getElementById('stateI').textContent = `key=${key}`;
+
+      if (isNewBest) {
+        // Demote old best
+        if (bestKey !== null) phase2States[bestKey] = 'not-max';
+        bestCount = cnt;
+        bestKey = key;
+        document.getElementById('stateB').textContent = bestCount;
+        document.getElementById('stateM').textContent = bestKey;
+        bumpCell('cellB');
+        bumpCell('cellM');
+        highlightCode([['c6', 'eval'], ['c7', 'eval'], ['c8', 'taken'], ['c9', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `key = <span class="formula-piece fp blue">${key}</span>, count = <span class="formula-piece fp orange">${cnt}</span> &gt; bestCount → <span class="formula-piece fp green">new best!</span>`;
+        document.getElementById('stepLbl').textContent = `Phase 2: key ${key} (count ${cnt}) → new best`;
+        // Schedule transition from scanning to is-max
+        setTimeout(() => {
+          phase2States[key] = 'is-max';
+          // demote any prior is-max except this one
+          for (const k of freqOrder) {
+            if (k !== key && phase2States[k] === 'is-max') phase2States[k] = 'not-max';
+          }
+          renderMap();
+        }, 400);
+      } else {
+        highlightCode([['c6', 'eval'], ['c7', 'eval']]);
+        document.getElementById('traceText').innerHTML =
+          `key = <span class="formula-piece fp blue">${key}</span>, count = <span class="formula-piece fp orange">${cnt}</span> ≤ bestCount (${bestCount}) → <span class="formula-piece fp red">skip</span>`;
+        document.getElementById('stepLbl').textContent = `Phase 2: key ${key} (count ${cnt}) → not best`;
+        setTimeout(() => {
+          phase2States[key] = 'not-max';
+          renderMap();
+        }, 400);
+      }
+      renderMap();
+      return;
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 900);
+  }
+
+  reset();
+</script>
+</body>
+</html>
