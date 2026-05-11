@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reverse + Palindrome</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+  .mode-switcher {
+    display: flex;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--line);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .mode-btn:last-child { border-right: none; }
+  .mode-btn.active {
+    background: rgba(240, 160, 75, 0.12);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .mode-btn .num {
+    font-size: 18px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-right: 8px;
+  }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+  .str { color: #a3d977; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.r { border-left-color: var(--green); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 16px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.r .val { color: var(--green); }
+
+  .str-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .str-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .str-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .str-name.input { color: var(--purple); }
+  .str-name.output { color: var(--green); }
+
+  .char-row {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+    min-height: 60px; align-items: center;
+  }
+  .str-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 13px;
+  }
+  .char-cell {
+    width: 50px; height: 56px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 5px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+    position: relative;
+  }
+  .char-cell .idx {
+    position: absolute;
+    bottom: -16px;
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .char-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-8px) scale(1.1);
+    box-shadow: 0 8px 0 -4px rgba(240, 160, 75, 0.3);
+  }
+  .char-cell.consumed {
+    background: rgba(192, 132, 232, 0.08);
+    border-color: rgba(192, 132, 232, 0.4);
+    color: var(--purple);
+  }
+  .char-cell.fresh {
+    background: rgba(163, 217, 119, 0.25);
+    border-color: var(--green);
+    color: var(--green);
+    animation: pop-in 0.4s ease-out;
+  }
+  .char-cell.placed {
+    background: rgba(163, 217, 119, 0.1);
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  /* palindrome compare states */
+  .char-cell.compare-match {
+    background: rgba(163, 217, 119, 0.18);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .char-cell.compare-mismatch {
+    background: rgba(229, 115, 115, 0.2);
+    border-color: var(--red);
+    color: var(--red);
+    animation: shake 0.4s ease-out;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.18); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .verdict-box {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 28px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    text-align: center;
+    min-height: 100px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+  }
+  .verdict-text {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .verdict-text.show {
+    color: var(--ink);
+  }
+  .verdict-result {
+    font-size: 32px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 10px;
+  }
+  .verdict-result.yes { color: var(--green); }
+  .verdict-result.no { color: var(--red); }
+
+  .input-display {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .input-display .lbl {
+    font-size: 10px; color: var(--muted); letter-spacing: 0.1em; display: block; margin-bottom: 6px;
+  }
+  .input-display .val { color: var(--green); font-size: 15px; }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 13px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="hTitle">Reverse a string — character by character</h1>
+  <div class="sub" id="hSub">Walk the input from the last character to the first. Append each one to the result. The result builds up backwards.</div>
+
+  <div class="mode-switcher">
+    <button class="mode-btn active" id="modeReverseBtn" onclick="setMode('reverse')">
+      <span class="num">4</span>REVERSE the string
+    </button>
+    <button class="mode-btn" id="modePalindromeBtn" onclick="setMode('palindrome')">
+      <span class="num">5</span>CHECK palindrome
+    </button>
+  </div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px; flex-wrap: wrap;" id="presetRow"></div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="state-grid" id="stateGrid"></div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">STRINGS</div>
+
+      <div class="str-display">
+        <div class="str-header">
+          <span class="str-name input" id="inputLabel">str (input)</span>
+          <span class="ctl-label" id="inputMeta"></span>
+        </div>
+        <div class="char-row" id="inputRow"></div>
+      </div>
+
+      <div id="rightSlot"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let mode = 'reverse'; // 'reverse' | 'palindrome'
+  let input = 'scaler';
+  let i = -1; // pointer
+  let result = '';
+  let phase = 'idle'; // idle | building | reversed | comparing | done
+  let timer = null;
+
+  // For palindrome compare
+  let compareLeft = -1; // walks from 0
+  let compareRight = -1; // walks from len-1
+  let compareStates = []; // per-position: 'match' | 'mismatch' | null
+  let palindromeVerdict = null; // 1 | 0 | null
+
+  const codeReverse = `
+<div class="cl" id="c1"><span class="kw">String</span> ans = <span class="str">""</span>;</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = str.length() - <span class="num">1</span>; i &gt;= <span class="num">0</span>; i--) {</div>
+<div class="cl" id="c3">  ans += str.<span class="meth">charAt</span>(i);</div>
+<div class="cl" id="c4">}</div>
+<div class="cl" id="c5"><span class="kw">return</span> ans;</div>`;
+
+  const codePalindrome = `
+<div class="cl" id="c1"><span class="kw">String</span> rev = reverse(str);</div>
+<div class="cl" id="c2"><span class="kw">if</span> (str.<span class="meth">equals</span>(rev)) {</div>
+<div class="cl" id="c3">  <span class="kw">return</span> <span class="num">1</span>;</div>
+<div class="cl" id="c4">} <span class="kw">else</span> {</div>
+<div class="cl" id="c5">  <span class="kw">return</span> <span class="num">0</span>;</div>
+<div class="cl" id="c6">}</div>`;
+
+  const presetsReverse = [
+    { label: '"scaler" (script)', val: 'scaler' },
+    { label: '"hello"', val: 'hello' },
+    { label: '"abcba"', val: 'abcba' }
+  ];
+  const presetsPalindrome = [
+    { label: '"abcba" → 1', val: 'abcba' },
+    { label: '"axax" → 0', val: 'axax' },
+    { label: '"racecar" → 1', val: 'racecar' },
+    { label: '"hello" → 0', val: 'hello' }
+  ];
+
+  function setMode(m) {
+    mode = m;
+    if (m === 'reverse') {
+      input = 'scaler';
+      document.getElementById('hTitle').textContent = 'Reverse a string — character by character';
+      document.getElementById('hSub').textContent = 'Walk the input from the last character to the first. Append each one to the result. The result builds up backwards.';
+      document.getElementById('modeReverseBtn').classList.add('active');
+      document.getElementById('modePalindromeBtn').classList.remove('active');
+      document.getElementById('codebox').innerHTML = codeReverse;
+      document.getElementById('stateGrid').innerHTML = `
+        <div class="state-cell i"><div class="lbl">i (pointer)</div><div class="val" id="stateI">—</div></div>
+        <div class="state-cell r"><div class="lbl">ans (so far)</div><div class="val" id="stateR">""</div></div>
+      `;
+      renderPresets(presetsReverse);
+    } else {
+      input = 'abcba';
+      document.getElementById('hTitle').textContent = 'Check palindrome — reverse, then compare';
+      document.getElementById('hSub').textContent = 'Use the reverse function from Problem 4. Compare reversed against original. If they match, palindrome → 1.';
+      document.getElementById('modeReverseBtn').classList.remove('active');
+      document.getElementById('modePalindromeBtn').classList.add('active');
+      document.getElementById('codebox').innerHTML = codePalindrome;
+      document.getElementById('stateGrid').innerHTML = `
+        <div class="state-cell i"><div class="lbl">phase</div><div class="val" id="stateI">—</div></div>
+        <div class="state-cell r"><div class="lbl">verdict</div><div class="val" id="stateR">—</div></div>
+      `;
+      renderPresets(presetsPalindrome);
+    }
+    reset();
+  }
+
+  function renderPresets(presets) {
+    const row = document.getElementById('presetRow');
+    row.innerHTML = '';
+    presets.forEach(p => {
+      const b = document.createElement('button');
+      b.className = 'qb';
+      b.textContent = p.label;
+      b.onclick = () => { input = p.val; reset(); };
+      row.appendChild(b);
+    });
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = -1;
+    result = '';
+    phase = 'idle';
+    compareLeft = -1;
+    compareRight = -1;
+    compareStates = input.split('').map(() => null);
+    palindromeVerdict = null;
+
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('stepBtn').disabled = false;
+    if (mode === 'reverse') {
+      document.getElementById('stateI').textContent = '—';
+      document.getElementById('stateR').textContent = '""';
+      document.getElementById('inputLabel').textContent = 'str (input)';
+      document.getElementById('inputMeta').textContent = `length = ${input.length}`;
+      document.getElementById('stepLbl').textContent = `${input.length} characters to reverse`;
+      // reset code highlights
+      ['c1','c2','c3','c4','c5'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'cl';
+      });
+      const c1 = document.getElementById('c1');
+      if (c1) c1.className = 'cl taken';
+      // build right slot
+      document.getElementById('rightSlot').innerHTML = `
+        <div class="str-display">
+          <div class="str-header">
+            <span class="str-name output">ans (result so far)</span>
+            <span class="ctl-label" id="ansMeta">length = 0</span>
+          </div>
+          <div class="char-row" id="ansRow"></div>
+        </div>
+      `;
+    } else {
+      document.getElementById('stateI').textContent = 'idle';
+      document.getElementById('stateR').textContent = '—';
+      document.getElementById('inputLabel').textContent = 'str (original)';
+      document.getElementById('inputMeta').textContent = `length = ${input.length}`;
+      document.getElementById('stepLbl').textContent = 'Phase 1: build reversed → Phase 2: compare';
+      ['c1','c2','c3','c4','c5','c6'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'cl';
+      });
+      const c1 = document.getElementById('c1');
+      if (c1) c1.className = 'cl taken';
+      document.getElementById('rightSlot').innerHTML = `
+        <div class="str-display">
+          <div class="str-header">
+            <span class="str-name output">rev (reversed)</span>
+            <span class="ctl-label" id="ansMeta">building...</span>
+          </div>
+          <div class="char-row" id="ansRow"></div>
+        </div>
+        <div class="verdict-box" id="verdictBox">
+          <div class="verdict-text">— verdict pending —</div>
+        </div>
+      `;
+    }
+    renderInput();
+    renderResult();
+  }
+
+  function renderInput() {
+    const r = document.getElementById('inputRow');
+    let h = '';
+    for (let k = 0; k < input.length; k++) {
+      let cls = 'char-cell';
+      if (mode === 'reverse') {
+        if (k === i && phase === 'building') cls += ' current';
+        else if (k > i && phase === 'building') cls += ''; // not yet visited
+        else if (i >= 0 && k > i) cls += '';
+        else if (i >= 0) cls += ' consumed';
+      } else {
+        // palindrome mode
+        const cs = compareStates[k];
+        if (k === compareLeft && phase === 'comparing') cls += ' current';
+        else if (cs === 'match') cls += ' compare-match';
+        else if (cs === 'mismatch') cls += ' compare-mismatch';
+      }
+      h += `<div class="${cls}">${input[k]}<span class="idx">${k}</span></div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function renderResult() {
+    const ar = document.getElementById('ansRow');
+    if (!ar) return;
+    const am = document.getElementById('ansMeta');
+    if (am) am.textContent = mode === 'reverse' ? `length = ${result.length}` : (phase === 'building' ? 'building...' : `length = ${result.length}`);
+
+    if (result.length === 0) {
+      ar.innerHTML = '<span class="str-empty">— empty string —</span>';
+      return;
+    }
+    let h = '';
+    for (let k = 0; k < result.length; k++) {
+      let cls = 'char-cell';
+      if (mode === 'reverse') {
+        const fresh = k === result.length - 1 && phase === 'building';
+        cls += fresh ? ' fresh' : ' placed';
+      } else {
+        const cs = compareStates[k];
+        if (k === compareRight && phase === 'comparing') cls += ' current';
+        else if (cs === 'match') cls += ' compare-match';
+        else if (cs === 'mismatch') cls += ' compare-mismatch';
+        else cls += ' placed';
+      }
+      h += `<div class="${cls}">${result[k]}<span class="idx">${k}</span></div>`;
+    }
+    ar.innerHTML = h;
+  }
+
+  function highlightCode(arr) {
+    const allIds = mode === 'reverse' ? ['c1','c2','c3','c4','c5'] : ['c1','c2','c3','c4','c5','c6'];
+    allIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl';
+    });
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    if (mode === 'reverse') {
+      if (i === -1) {
+        i = input.length;
+      }
+      if (i - 1 < 0) {
+        phase = 'done';
+        highlightCode([['c5', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">DONE — return ans = "${result}"</span>`;
+        document.getElementById('stepLbl').textContent = `complete — reversed string`;
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        return;
+      }
+      i--;
+      phase = 'building';
+      const ch = input[i];
+      result += ch;
+      highlightCode([['c2', 'eval'], ['c3', 'taken']]);
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('stateR').textContent = `"${result}"`;
+      document.getElementById('traceText').innerHTML =
+        `i = <span class="formula-piece fp purple">${i}</span>, charAt(i) = <span class="formula-piece fp orange">'${ch}'</span> → <span class="formula-piece fp green">append to ans</span>`;
+      document.getElementById('stepLbl').textContent = `i = ${i}, char '${ch}' → ans = "${result}"`;
+      renderInput();
+      renderResult();
+      return;
+    }
+
+    // PALINDROME mode
+    if (phase === 'idle' || phase === 'building') {
+      // Phase 1: build reversed string instantly (we'll show it animating in batches)
+      if (i === -1) i = input.length;
+      if (i - 1 < 0) {
+        // Move to comparing
+        phase = 'comparing';
+        compareLeft = -1;
+        compareRight = result.length;
+        document.getElementById('stateI').textContent = 'comparing';
+        highlightCode([['c2', 'eval']]);
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">Reversed = "${result}"</span> — now compare with original character by character`;
+        document.getElementById('stepLbl').textContent = `Reversed string built — start comparing`;
+        renderInput();
+        renderResult();
+        return;
+      }
+      i--;
+      phase = 'building';
+      const ch = input[i];
+      result += ch;
+      highlightCode([['c1', 'taken']]);
+      document.getElementById('stateI').textContent = `building i=${i}`;
+      document.getElementById('traceText').innerHTML =
+        `Phase 1: build reversed — char <span class="formula-piece fp orange">'${ch}'</span> → rev = "${result}"`;
+      document.getElementById('stepLbl').textContent = `Phase 1: building reversed — i = ${i}`;
+      renderInput();
+      renderResult();
+      return;
+    }
+
+    if (phase === 'comparing') {
+      compareLeft++;
+      compareRight = compareLeft; // same index — both strings
+      if (compareLeft >= input.length) {
+        // All matched — palindrome
+        phase = 'done';
+        palindromeVerdict = 1;
+        highlightCode([['c2', 'eval'], ['c3', 'taken']]);
+        document.getElementById('stateR').textContent = '1';
+        document.getElementById('stateI').textContent = 'palindrome';
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">All characters match — PALINDROME — return 1</span>`;
+        document.getElementById('stepLbl').textContent = `complete — return 1`;
+        const v = document.getElementById('verdictBox');
+        v.innerHTML = `
+          <div class="verdict-text show">str.equals(rev) → true</div>
+          <div class="verdict-result yes">return 1</div>
+        `;
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        renderInput();
+        renderResult();
+        return;
+      }
+      const a = input[compareLeft];
+      const b = result[compareLeft];
+      if (a === b) {
+        compareStates[compareLeft] = 'match';
+        highlightCode([['c2', 'eval']]);
+        document.getElementById('traceText').innerHTML =
+          `position <span class="formula-piece fp purple">${compareLeft}</span>: '<span class="formula-piece fp orange">${a}</span>' == '<span class="formula-piece fp orange">${b}</span>' → <span class="formula-piece fp green">match</span>`;
+        document.getElementById('stepLbl').textContent = `position ${compareLeft}: match`;
+        renderInput();
+        renderResult();
+      } else {
+        compareStates[compareLeft] = 'mismatch';
+        phase = 'done';
+        palindromeVerdict = 0;
+        highlightCode([['c2', 'eval'], ['c4', 'taken'], ['c5', 'taken']]);
+        document.getElementById('stateR').textContent = '0';
+        document.getElementById('stateI').textContent = 'NOT palindrome';
+        document.getElementById('traceText').innerHTML =
+          `position <span class="formula-piece fp purple">${compareLeft}</span>: '<span class="formula-piece fp orange">${a}</span>' ≠ '<span class="formula-piece fp orange">${b}</span>' → <span class="formula-piece fp red">MISMATCH — return 0</span>`;
+        document.getElementById('stepLbl').textContent = `mismatch at position ${compareLeft} — return 0`;
+        const v = document.getElementById('verdictBox');
+        v.innerHTML = `
+          <div class="verdict-text show">str.equals(rev) → false</div>
+          <div class="verdict-result no">return 0</div>
+        `;
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        renderInput();
+        renderResult();
+      }
+      return;
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 700);
+  }
+
+  setMode('reverse');
+</script>
+</body>
+</html>

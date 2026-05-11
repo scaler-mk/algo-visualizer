@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Count distinct — array → HashSet</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.rejected { background: rgba(229, 115, 115, 0.12); opacity: 1; color: var(--red); border-left: 2px solid var(--red); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.r { border-left-color: var(--green); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 18px; font-weight: 600; }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.r .val { color: var(--green); }
+
+  .arr-display, .hs-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .arr-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .arr-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--purple);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .arr-name.hs { color: var(--accent); }
+  .arr-size-pill {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  .arr-row {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+    min-height: 60px; align-items: center;
+  }
+  .arr-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-size: 12px;
+  }
+  .arr-cell {
+    min-width: 60px;
+    height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+  }
+  .arr-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .arr-cell.added-arr {
+    background: rgba(163, 217, 119, 0.1);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .arr-cell.rejected-arr {
+    background: rgba(229, 115, 115, 0.06);
+    border-color: rgba(229, 115, 115, 0.4);
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  .bag {
+    border: 2.5px dashed var(--accent);
+    border-radius: 60px / 30px;
+    padding: 22px 28px;
+    background: rgba(240, 160, 75, 0.04);
+    min-height: 80px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .bag::before {
+    content: 'HashSet';
+    position: absolute;
+    top: -10px; left: 22px;
+    background: #0d1117;
+    padding: 0 8px;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .hs-cell {
+    width: 50px; height: 50px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: rgba(163, 217, 119, 0.15);
+    color: var(--green);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--green);
+    transition: all 0.4s;
+  }
+  .hs-cell.fresh {
+    background: rgba(240, 160, 75, 0.25);
+    border-color: var(--accent);
+    color: var(--accent);
+    animation: pop-in 0.4s ease-out;
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.18); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .reject-flash {
+    position: absolute;
+    color: var(--red);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(229, 115, 115, 0.1);
+    padding: 5px 12px;
+    border-radius: 16px;
+    border: 2px solid var(--red);
+    pointer-events: none;
+    animation: bounce-off 1s ease-out forwards;
+  }
+  @keyframes bounce-off {
+    0% { opacity: 0; transform: translateY(0) scale(0.6); }
+    20% { opacity: 1; transform: translateY(-25px) scale(1); }
+    80% { opacity: 1; transform: translateY(-40px) scale(1); }
+    100% { opacity: 0; transform: translateY(-55px) scale(0.9); }
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 13px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Count distinct elements — array → HashSet</h1>
+  <div class="sub">Sweep through the array. <span style="color:var(--accent)">Try to add every element</span> to a HashSet. The set silently drops duplicates. Final answer is just the size of the set.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px;">
+        <button class="qb" onclick="loadInput([3, 4, 3, 6, 6])">[3, 4, 3, 6, 6] → 3</button>
+        <button class="qb" onclick="loadInput([3, 3, 3, 9, 0, 1, 0])">[3, 3, 3, 9, 0, 1, 0] → 4</button>
+        <button class="qb" onclick="loadInput([5, 5, 5, 5])">all duplicates → 1</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1">HashSet&lt;Integer&gt; hs = <span class="kw">new</span> HashSet&lt;&gt;();</div>
+<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">0</span>; i &lt; A.length; i++) {</div>
+<div class="cl" id="c3">  hs.<span class="meth">add</span>(A[i]);</div>
+<div class="cl" id="c4">}</div>
+<div class="cl" id="c5"><span class="kw">return</span> hs.<span class="meth">size</span>();</div>
+      </div>
+
+      <div class="state-grid">
+        <div class="state-cell i">
+          <div class="lbl">i</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell r">
+          <div class="lbl">hs.size()</div>
+          <div class="val" id="stateR">0</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">DATA STRUCTURES</div>
+      <div class="arr-display">
+        <div class="arr-header">
+          <span class="arr-name">A (input array)</span>
+          <span class="arr-size-pill" id="inSize">length = 0</span>
+        </div>
+        <div class="arr-row" id="inRow"></div>
+      </div>
+
+      <div class="hs-display">
+        <div class="arr-header">
+          <span class="arr-name hs">hs (distinct values)</span>
+          <span class="arr-size-pill" id="hsSize">size = 0</span>
+        </div>
+        <div class="bag" id="bag"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let input = [3, 4, 3, 6, 6];
+  let i = -1;
+  let cellStates = [];
+  let hs = [];
+  let phase = 'idle';
+  let timer = null;
+
+  function loadInput(arr) {
+    input = arr.slice();
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    i = -1;
+    cellStates = input.map(() => null);
+    hs = [];
+    phase = 'idle';
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateR').textContent = '0';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    ['c1','c2','c3','c4','c5'].forEach(id => document.getElementById(id).className = 'cl');
+    document.getElementById('c1').className = 'cl taken';
+    renderInput();
+    renderHs();
+    document.getElementById('stepLbl').textContent = `${input.length} elements to scan`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderInput() {
+    const r = document.getElementById('inRow');
+    document.getElementById('inSize').textContent = `length = ${input.length}`;
+    if (input.length === 0) {
+      r.innerHTML = '<span class="arr-empty">— empty —</span>';
+      return;
+    }
+    let h = '';
+    for (let k = 0; k < input.length; k++) {
+      let cls = 'arr-cell';
+      if (k === i && phase === 'active') cls += ' current';
+      else if (cellStates[k] === 'added') cls += ' added-arr';
+      else if (cellStates[k] === 'rejected') cls += ' rejected-arr';
+      h += `<div class="${cls}">${input[k]}</div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function renderHs() {
+    const b = document.getElementById('bag');
+    document.getElementById('hsSize').textContent = `size = ${hs.length}`;
+    if (hs.length === 0) {
+      b.innerHTML = '<span class="arr-empty">— empty set —</span>';
+      return;
+    }
+    let h = '';
+    for (let k = 0; k < hs.length; k++) {
+      const fresh = k === hs.length - 1 && phase === 'active' && cellStates[i] === 'added';
+      h += `<div class="hs-cell${fresh ? ' fresh' : ''}">${hs[k]}</div>`;
+    }
+    b.innerHTML = h;
+  }
+
+  function showRejectFlash(value) {
+    const bag = document.getElementById('bag');
+    const flash = document.createElement('div');
+    flash.className = 'reject-flash';
+    flash.textContent = `${value} already there`;
+    flash.style.top = '-6px';
+    flash.style.left = '50%';
+    flash.style.transform = 'translateX(-50%)';
+    bag.appendChild(flash);
+    setTimeout(() => flash.remove(), 1000);
+  }
+
+  function highlightCode(arr) {
+    ['c1','c2','c3','c4','c5'].forEach(id => document.getElementById(id).className = 'cl');
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    if (i + 1 >= input.length) {
+      phase = 'done';
+      highlightCode([['c5', 'taken']]);
+      document.getElementById('traceText').innerHTML =
+        `<span class="formula-piece fp green">DONE — return hs.size() = ${hs.length}</span>`;
+      document.getElementById('stepLbl').textContent = `complete — answer = ${hs.length}`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      renderInput();
+      renderHs();
+      return;
+    }
+
+    i++;
+    phase = 'active';
+    const val = input[i];
+    const isDuplicate = hs.includes(val);
+
+    document.getElementById('stateI').textContent = i;
+
+    if (isDuplicate) {
+      cellStates[i] = 'rejected';
+      highlightCode([['c2', 'eval'], ['c3', 'rejected']]);
+      document.getElementById('traceText').innerHTML =
+        `i = <span class="formula-piece fp purple">${i}</span>, A[i] = <span class="formula-piece fp orange">${val}</span> — <span class="formula-piece fp red">already in hs, rejected</span>`;
+      document.getElementById('stepLbl').textContent = `i = ${i}, A[i] = ${val} → DUPLICATE`;
+      renderInput();
+      setTimeout(() => showRejectFlash(val), 50);
+    } else {
+      cellStates[i] = 'added';
+      hs.push(val);
+      highlightCode([['c2', 'eval'], ['c3', 'taken']]);
+      document.getElementById('traceText').innerHTML =
+        `i = <span class="formula-piece fp purple">${i}</span>, A[i] = <span class="formula-piece fp orange">${val}</span> — <span class="formula-piece fp green">new value, added to hs</span>`;
+      document.getElementById('stepLbl').textContent = `i = ${i}, A[i] = ${val} → added`;
+      renderInput();
+      renderHs();
+    }
+
+    document.getElementById('stateR').textContent = hs.length;
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 900);
+  }
+
+  reset();
+</script>
+</body>
+</html>
