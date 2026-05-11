@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Decision Flow Visualizer — How if-statements route execution</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #f0f4e8; color: #1a1a1a; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; }
+  h1 .accent { color: #2d6e3e; font-style: italic; }
+  .subtitle { color: #555; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 820px; }
+  .controls-bar { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+  .scenario-btn { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 9px 13px; background: #fff; border: 1.5px solid #1a1a1a; border-radius: 5px; cursor: pointer; transition: all 0.15s; line-height: 1.3; text-align: left; }
+  .scenario-btn:hover { background: #fff8d6; }
+  .scenario-btn.active { background: #1a1a1a; color: #ffd95c; }
+  .scenario-btn .preview { display: block; font-size: 9.5px; opacity: 0.7; margin-top: 2px; }
+  .scenario-btn.active .preview { color: #ffd95c; opacity: 0.85; }
+  .input-group { margin-left: auto; display: flex; align-items: center; gap: 8px; background: #fff8d6; padding: 6px 12px; border-radius: 5px; border: 1.5px solid #1a1a1a; }
+  .input-group label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555; }
+  .input-group input { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; width: 80px; padding: 4px 8px; border: 1.5px solid #1a1a1a; border-radius: 4px; text-align: center; background: #fff; }
+  .stage { max-width: 1100px; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 8px 8px 0 #1a1a1a; padding: 22px 24px; }
+  .panel.dark { background: #0d1117; color: #e6edf3; }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; }
+  .flowchart-svg { width: 100%; height: auto; display: block; }
+  .fc-node { transition: all 0.3s; }
+  .fc-node-rect { fill: #fff; stroke: #1a1a1a; stroke-width: 2; }
+  .fc-node-rect.start, .fc-node-rect.end { fill: #1a1a1a; }
+  .fc-node-rect.input { fill: #1a1a1a; stroke: #ffd95c; stroke-width: 2; }
+  .fc-node-rect.action.true-branch { stroke: #2d6e3e; stroke-width: 2.5; }
+  .fc-node-rect.action.false-branch { stroke: #c41e3a; stroke-width: 2.5; }
+  .fc-node-rect.action.active.true-branch { fill: #cfe8d3; stroke: #2d6e3e; }
+  .fc-node-rect.action.active.false-branch { fill: #ffe0e0; stroke: #c41e3a; }
+  .fc-node-rect.action.skipped { opacity: 0.3; }
+  .fc-diamond { fill: #fff8d6; stroke: #1a1a1a; stroke-width: 2.5; }
+  .fc-diamond.active { fill: #ffd95c; stroke: #c4541e; stroke-width: 3; filter: drop-shadow(0 0 4px rgba(196,84,30,0.4)); }
+  .fc-text { font-family: 'JetBrains Mono', monospace; font-size: 13px; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; font-weight: 700; }
+  .fc-text.light { fill: #ffd95c; }
+  .fc-text.diamond-text { font-size: 14px; }
+  .fc-text.action { font-size: 11.5px; }
+  .fc-text.action.skipped { opacity: 0.4; }
+  .fc-branch-lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-anchor: middle; }
+  .fc-branch-lbl.t { fill: #2d6e3e; }
+  .fc-branch-lbl.f { fill: #c41e3a; }
+  .fc-arrow { fill: none; stroke: #1a1a1a; stroke-width: 2; }
+  .fc-arrow.t { stroke: #2d6e3e; }
+  .fc-arrow.f { stroke: #c41e3a; }
+  .fc-arrow.skipped { stroke: #888; stroke-dasharray: 4 3; opacity: 0.4; }
+  .fc-arrow.active { stroke-width: 3; }
+  .code-block { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .indent { display: inline-block; width: 1.4em; }
+  .code-block div { padding: 3px 8px; margin: 0 -8px; border-radius: 4px; transition: all 0.3s; border-left: 3px solid transparent; }
+  .code-block div.active { background: rgba(255, 217, 92, 0.18); border-left-color: #ffd95c; }
+  .code-block div.active-true { background: rgba(86, 211, 100, 0.18); border-left-color: #56d364; }
+  .code-block div.active-false { background: rgba(255, 99, 99, 0.18); border-left-color: #ff6b6b; }
+  .code-block div.skipped { opacity: 0.4; }
+  .output-card { margin-top: 14px; background: #161b22; border-radius: 6px; padding: 12px 14px; min-height: 50px; }
+  .output-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 6px; }
+  .output-text { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #ffd95c; line-height: 1.5; min-height: 22px; }
+  .output-text.empty { color: #555; font-style: italic; font-family: 'Fraunces', serif; }
+  .narration { max-width: 1100px; width: 100%; background: #1a1a1a; color: #e6edf3; padding: 18px 22px; border-radius: 10px; border-left: 5px solid #ffd95c; margin-bottom: 18px; line-height: 1.55; font-size: 14.5px; min-height: 70px; }
+  .narration-tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; padding: 3px 9px; border-radius: 3px; background: #ffd95c; color: #1a1a1a; margin-right: 10px; }
+  .narration-tag.eval { background: #ffd95c; color: #1a1a1a; }
+  .narration-tag.true { background: #56d364; color: #1a3a23; }
+  .narration-tag.false { background: #ff6b6b; color: #fff; }
+  .narration-tag.done { background: #56d364; color: #1a3a23; }
+  .narration strong { color: #ffd95c; }
+  .narration code { background: rgba(255, 217, 92, 0.12); color: #ffd95c; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .actions { max-width: 1100px; width: 100%; display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+  .btn { font-family: 'JetBrains Mono', monospace; background: #1a1a1a; color: #ffd95c; border: none; padding: 12px 22px; cursor: pointer; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 6px; }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .btn.fast { background: #fff8d6; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+  <h1>Decision Flow <span class="accent">Visualizer</span></h1>
+  <p class="subtitle">A flowchart lets you "see" what an <code style="font-family:monospace">if</code> does. The diamond evaluates your condition — depending on the result, execution flows down one branch, never both. Try different inputs and watch the path change.</p>
+  <div class="controls-bar">
+    <span class="picker-label">Scenario:</span>
+    <span class="scenario-btn active" data-scenario="voting"><span>Voting Eligibility</span><span class="preview">age >= 18</span></span>
+    <span class="scenario-btn" data-scenario="pension"><span>Senior Citizen</span><span class="preview">age >= 65</span></span>
+    <span class="scenario-btn" data-scenario="fever"><span>Fever Check</span><span class="preview">temp >= 98.6</span></span>
+    <span class="scenario-btn" data-scenario="sugar"><span>Sugar Request</span><span class="preview">has_sugar?</span></span>
+    <div class="input-group">
+      <label id="inputLabel">age =</label>
+      <input type="number" id="inputValue" value="20" step="0.1">
+    </div>
+  </div>
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">Flowchart</div>
+      <svg class="flowchart-svg" viewBox="0 0 460 580" xmlns="http://www.w3.org/2000/svg" id="flowchartSvg">
+        <defs>
+          <marker id="arrowhead" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <polygon points="0 0, 9 4.5, 0 9" fill="#1a1a1a"/>
+          </marker>
+          <marker id="arrowhead-t" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <polygon points="0 0, 9 4.5, 0 9" fill="#2d6e3e"/>
+          </marker>
+          <marker id="arrowhead-f" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <polygon points="0 0, 9 4.5, 0 9" fill="#c41e3a"/>
+          </marker>
+          <marker id="arrowhead-skip" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+            <polygon points="0 0, 9 4.5, 0 9" fill="#888"/>
+          </marker>
+        </defs>
+        <!-- START -->
+        <rect class="fc-node-rect start" x="180" y="10" width="100" height="36" rx="18" data-fc="start"/>
+        <text class="fc-text light" x="230" y="28">START</text>
+        <!-- arrow start -> input -->
+        <line class="fc-arrow" x1="230" y1="46" x2="230" y2="70" marker-end="url(#arrowhead)" data-fc-arrow="a1"/>
+        <!-- INPUT box -->
+        <rect class="fc-node-rect input" x="155" y="74" width="150" height="34" rx="6" data-fc="input"/>
+        <text class="fc-text light" x="230" y="91" id="inputText">input: 20</text>
+        <!-- arrow input -> diamond -->
+        <line class="fc-arrow" x1="230" y1="108" x2="230" y2="138" marker-end="url(#arrowhead)" data-fc-arrow="a2"/>
+        <!-- DIAMOND -->
+        <polygon class="fc-diamond" points="230,140 340,230 230,320 120,230" data-fc="diamond"/>
+        <text class="fc-text diamond-text" x="230" y="230" id="diamondText">cond ?</text>
+        <!-- T branch (left): from diamond left vertex (120,230) down-left to true box -->
+        <path class="fc-arrow t" d="M 120 230 L 100 340 L 100 380" fill="none" marker-end="url(#arrowhead-t)" data-fc-arrow="t-arrow"/>
+        <text class="fc-branch-lbl t" x="85" y="280">TRUE</text>
+        <!-- F branch (right): from diamond right vertex (340,230) down-right to false box -->
+        <path class="fc-arrow f" d="M 340 230 L 360 340 L 360 380" fill="none" marker-end="url(#arrowhead-f)" data-fc-arrow="f-arrow"/>
+        <text class="fc-branch-lbl f" x="375" y="280">FALSE</text>
+        <!-- TRUE action box -->
+        <rect class="fc-node-rect action true-branch" x="15" y="385" width="170" height="50" rx="8" data-fc="true-branch"/>
+        <text class="fc-text action" x="100" y="410" data-fc-text="true-branch">action</text>
+        <!-- FALSE action box -->
+        <rect class="fc-node-rect action false-branch" x="275" y="385" width="170" height="50" rx="8" data-fc="false-branch"/>
+        <text class="fc-text action" x="360" y="410" data-fc-text="false-branch">action</text>
+        <!-- merge arrows from true and false to a single point above end -->
+        <path class="fc-arrow" d="M 100 435 L 100 490 L 230 490" fill="none" data-fc-arrow="merge-t"/>
+        <path class="fc-arrow" d="M 360 435 L 360 490 L 230 490" fill="none" data-fc-arrow="merge-f"/>
+        <!-- arrow into END -->
+        <line class="fc-arrow" x1="230" y1="490" x2="230" y2="530" marker-end="url(#arrowhead)" data-fc-arrow="a4"/>
+        <!-- END -->
+        <rect class="fc-node-rect end" x="190" y="535" width="80" height="34" rx="17" data-fc="end"/>
+        <text class="fc-text light" x="230" y="552">END</text>
+      </svg>
+    </div>
+    <div class="panel dark">
+      <div class="panel-title">Source code</div>
+      <div class="code-block" id="codeBlock"></div>
+      <div class="output-card">
+        <div class="output-label">stdout</div>
+        <div class="output-text empty" id="output">No output yet…</div>
+      </div>
+    </div>
+  </div>
+  <div class="narration" id="narration"><span class="narration-tag">Ready</span>Pick a scenario, set an input, and click <strong>Run flow</strong>. Watch the diamond evaluate and route execution down one branch.</div>
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <button class="btn fast" id="runBtn">⏩ Run flow</button>
+    <span class="step-info" id="stepInfo">—</span>
+  </div>
+<script>
+const SCENARIOS = {
+  voting: { name: 'Voting Eligibility', inputLabel: 'age =', defaultVal: 20, valueType: 'int',
+    question: 'age >= 18 ?', trueLabel: 'Print "Eligible to vote"', falseLabel: '(skip — no else)', hasFalse: false,
+    code: [['decl', '<span class="kw">int</span> <span class="var">age</span> = <span class="num">VALUE</span>;'],['if', '<span class="kw">if</span> (<span class="var">age</span> &gt;= <span class="num">18</span>) {'],['true', '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Eligible to vote"</span>);'],['close', '}']],
+    eval: (v) => v >= 18, trueOutput: 'Eligible to vote', falseOutput: '' },
+  pension: { name: 'Senior Citizen', inputLabel: 'age =', defaultVal: 70, valueType: 'int',
+    question: 'age >= 65 ?', trueLabel: 'Print "Collect pension"', falseLabel: '(skip — no else)', hasFalse: false,
+    code: [['decl', '<span class="kw">int</span> <span class="var">age</span> = <span class="num">VALUE</span>;'],['if', '<span class="kw">if</span> (<span class="var">age</span> &gt;= <span class="num">65</span>) {'],['true', '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Collect pension"</span>);'],['close', '}']],
+    eval: (v) => v >= 65, trueOutput: 'Collect pension', falseOutput: '' },
+  fever: { name: 'Fever Check', inputLabel: 'temp =', defaultVal: 99.5, valueType: 'double',
+    question: 'temp >= 98.6 ?', trueLabel: 'Print "Go to doctor!"', falseLabel: '(skip — no else)', hasFalse: false,
+    code: [['decl', '<span class="kw">double</span> <span class="var">temp</span> = <span class="num">VALUE</span>;'],['if', '<span class="kw">if</span> (<span class="var">temp</span> &gt;= <span class="num">98.6</span>) {'],['true', '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Go to doctor!"</span>);'],['close', '}']],
+    eval: (v) => v >= 98.6, trueOutput: 'Go to doctor!', falseOutput: '' },
+  sugar: { name: 'Sugar Request', inputLabel: 'has_sugar (1/0) =', defaultVal: 1, valueType: 'int',
+    question: 'has_sugar == 1 ?', trueLabel: 'Print "Give sugar"', falseLabel: 'Print "Sorry, none"', hasFalse: true,
+    code: [['decl', '<span class="kw">int</span> <span class="var">has_sugar</span> = <span class="num">VALUE</span>;'],['if', '<span class="kw">if</span> (<span class="var">has_sugar</span> == <span class="num">1</span>) {'],['true', '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Give sugar"</span>);'],['else', '} <span class="kw">else</span> {'],['false', '<span class="indent"></span><span class="method">SOPln</span>(<span class="str">"Sorry, none"</span>);'],['close', '}']],
+    eval: (v) => v === 1, trueOutput: 'Give sugar', falseOutput: 'Sorry, none' }
+};
+let currentScenario = 'voting', inputVal = 20, phase = 'ready', stepIdx = 0;
+function renderPicker() { document.querySelectorAll('.scenario-btn').forEach(el => el.classList.toggle('active', el.dataset.scenario === currentScenario)); }
+function formatValue(v, type) {
+  if (type === 'double') return parseFloat(v).toFixed(1);
+  return parseInt(v, 10);
+}
+function renderCode() {
+  const s = SCENARIOS[currentScenario];
+  const lines = s.code.map(([tag, html]) => '<div data-tag="' + tag + '">' + html.replace('VALUE', formatValue(inputVal, s.valueType)) + '</div>');
+  document.getElementById('codeBlock').innerHTML = lines.join('');
+}
+function highlightCode(tag, cls) {
+  if (!cls) cls = 'active';
+  document.querySelectorAll('.code-block div').forEach(el => el.classList.remove('active', 'active-true', 'active-false'));
+  if (tag) { const el = document.querySelector('.code-block div[data-tag="' + tag + '"]'); if (el) el.classList.add(cls); }
+}
+function markSkipped(tags) {
+  document.querySelectorAll('.code-block div').forEach(el => el.classList.toggle('skipped', tags.indexOf(el.dataset.tag) >= 0));
+}
+function clearFlowHighlights() {
+  document.querySelectorAll('.fc-diamond').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.fc-node-rect.action').forEach(el => { el.classList.remove('active', 'skipped'); });
+  document.querySelectorAll('.fc-text.action').forEach(el => el.classList.remove('skipped'));
+  document.querySelectorAll('.fc-arrow').forEach(el => el.classList.remove('active', 'skipped'));
+}
+function setSvgLabels() {
+  const s = SCENARIOS[currentScenario];
+  document.getElementById('inputText').textContent = 'input: ' + formatValue(inputVal, s.valueType);
+  document.getElementById('diamondText').textContent = s.question;
+  document.querySelector('[data-fc-text="true-branch"]').textContent = s.trueLabel;
+  document.querySelector('[data-fc-text="false-branch"]').textContent = s.falseLabel;
+}
+function loadScenario() {
+  const s = SCENARIOS[currentScenario];
+  document.getElementById('inputLabel').textContent = s.inputLabel;
+  document.getElementById('inputValue').value = s.defaultVal;
+  inputVal = s.defaultVal;
+  phase = 'ready'; stepIdx = 0;
+  renderPicker(); renderCode(); setSvgLabels(); clearFlowHighlights();
+  highlightCode(null);
+  document.getElementById('output').textContent = 'No output yet…';
+  document.getElementById('output').className = 'output-text empty';
+  document.getElementById('stepBtn').disabled = false; document.getElementById('stepBtn').textContent = '▶ Next step';
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('stepInfo').textContent = 'step 0';
+  document.getElementById('narration').innerHTML = '<span class="narration-tag">Ready</span>' + s.name + ' — set the input and click <strong>Next step</strong>.';
+}
+function refreshFromInput() {
+  const s = SCENARIOS[currentScenario];
+  const raw = document.getElementById('inputValue').value;
+  inputVal = s.valueType === 'double' ? parseFloat(raw) : parseInt(raw, 10);
+  if (isNaN(inputVal)) inputVal = s.defaultVal;
+  phase = 'ready'; stepIdx = 0;
+  renderCode(); setSvgLabels(); clearFlowHighlights();
+  highlightCode(null);
+  document.getElementById('output').textContent = 'No output yet…';
+  document.getElementById('output').className = 'output-text empty';
+  document.getElementById('stepBtn').disabled = false; document.getElementById('stepBtn').textContent = '▶ Next step';
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('stepInfo').textContent = 'step 0';
+  document.getElementById('narration').innerHTML = '<span class="narration-tag">Ready</span>Input updated to <code>' + formatValue(inputVal, s.valueType) + '</code>. Click <strong>Next step</strong>.';
+}
+function doStep() {
+  const s = SCENARIOS[currentScenario];
+  stepIdx++;
+  if (phase === 'ready') {
+    highlightCode('decl');
+    document.getElementById('narration').innerHTML = '<span class="narration-tag">Init</span>Declare and assign: <code>' + s.inputLabel.replace(' =', '') + ' = ' + formatValue(inputVal, s.valueType) + '</code>.';
+    phase = 'eval';
+  } else if (phase === 'eval') {
+    document.querySelector('.fc-diamond').classList.add('active');
+    highlightCode('if');
+    document.getElementById('narration').innerHTML = '<span class="narration-tag eval">Evaluate</span>Check the condition: <code>' + s.question + '</code>. Result will be <strong>true</strong> or <strong>false</strong>.';
+    phase = 'route';
+  } else if (phase === 'route') {
+    const result = s.eval(inputVal);
+    document.querySelector('.fc-diamond').classList.remove('active');
+    if (result) {
+      document.querySelector('[data-fc="true-branch"]').classList.add('active');
+      document.querySelector('[data-fc-arrow="t-arrow"]').classList.add('active');
+      document.querySelector('[data-fc-arrow="f-arrow"]').classList.add('skipped');
+      if (!s.hasFalse) document.querySelector('[data-fc="false-branch"]').classList.add('skipped');
+      else document.querySelector('[data-fc="false-branch"]').classList.add('skipped');
+      document.querySelector('[data-fc-text="false-branch"]').classList.add('skipped');
+      highlightCode('true', 'active-true');
+      if (s.code.find(c => c[0] === 'false')) markSkipped(['false', 'else']);
+      document.getElementById('output').textContent = s.trueOutput;
+      document.getElementById('output').className = 'output-text';
+      document.getElementById('narration').innerHTML = '<span class="narration-tag true">TRUE branch</span>Condition is <strong>true</strong>. Execute the if-body: <code>' + s.trueOutput + '</code>.';
+    } else {
+      if (s.hasFalse) {
+        document.querySelector('[data-fc="false-branch"]').classList.add('active');
+        document.querySelector('[data-fc-arrow="f-arrow"]').classList.add('active');
+        document.querySelector('[data-fc-arrow="t-arrow"]').classList.add('skipped');
+        document.querySelector('[data-fc="true-branch"]').classList.add('skipped');
+        document.querySelector('[data-fc-text="true-branch"]').classList.add('skipped');
+        highlightCode('false', 'active-false');
+        markSkipped(['true']);
+        document.getElementById('output').textContent = s.falseOutput;
+        document.getElementById('output').className = 'output-text';
+        document.getElementById('narration').innerHTML = '<span class="narration-tag false">FALSE branch</span>Condition is <strong>false</strong>. Execute the else-body: <code>' + s.falseOutput + '</code>.';
+      } else {
+        document.querySelector('[data-fc-arrow="t-arrow"]').classList.add('skipped');
+        document.querySelector('[data-fc-arrow="f-arrow"]').classList.add('active');
+        document.querySelector('[data-fc="true-branch"]').classList.add('skipped');
+        document.querySelector('[data-fc-text="true-branch"]').classList.add('skipped');
+        markSkipped(['true']);
+        document.getElementById('output').textContent = '(no output)';
+        document.getElementById('output').className = 'output-text empty';
+        document.getElementById('narration').innerHTML = '<span class="narration-tag false">FALSE branch</span>Condition is <strong>false</strong>. No <code>else</code> block — nothing prints, flow skips to end.';
+      }
+    }
+    phase = 'done';
+  } else if (phase === 'done') {
+    finishUp();
+  }
+  document.getElementById('stepInfo').textContent = 'step ' + stepIdx;
+}
+function finishUp() {
+  document.getElementById('stepBtn').disabled = true; document.getElementById('stepBtn').textContent = '✓ done';
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('narration').innerHTML = '<span class="narration-tag done">Done</span>Flow complete. Try a different input — see how only ONE branch fires per run.';
+}
+function runAll() { function loop() { if (phase === 'done') { finishUp(); return; } doStep(); setTimeout(loop, 700); } loop(); }
+document.querySelectorAll('.scenario-btn').forEach(el => el.addEventListener('click', () => { currentScenario = el.dataset.scenario; loadScenario(); }));
+document.getElementById('inputValue').addEventListener('change', refreshFromInput);
+document.getElementById('stepBtn').addEventListener('click', doStep);
+document.getElementById('runBtn').addEventListener('click', runAll);
+document.getElementById('resetBtn').addEventListener('click', loadScenario);
+loadScenario();
+</script>
+</body>
+</html>
