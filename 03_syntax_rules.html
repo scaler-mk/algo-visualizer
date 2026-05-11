@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Syntax Rules in Action</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #f5f0e8;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(28px, 4vw, 42px);
+    margin-bottom: 6px;
+    text-align: center;
+    letter-spacing: -0.02em;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    text-align: center;
+    color: #555;
+    font-style: italic;
+    margin-bottom: 32px;
+    max-width: 700px;
+  }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .tab {
+    font-family: 'JetBrains Mono', monospace;
+    padding: 10px 18px;
+    border: 2px solid #1a1a1a;
+    background: #fff;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .tab:hover { background: #ffe9a8; }
+  .tab.active {
+    background: #1a1a1a;
+    color: #ffd95c;
+  }
+  .ide {
+    width: 100%;
+    max-width: 900px;
+    background: #1a1a1a;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .ide-header {
+    background: #2a2a2a;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.r { background: #ff5f56; }
+  .dot.y { background: #ffbd2e; }
+  .dot.g { background: #27c93f; }
+  .filename {
+    margin-left: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+  .editor {
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    color: #e6edf3;
+    line-height: 1.7;
+    min-height: 70px;
+  }
+  .editor .keyword { color: #ff7b72; }
+  .editor .string { color: #a5d6ff; }
+  .editor .number { color: #ffa657; }
+  .editor .punct { color: #ffd95c; font-weight: 700; }
+  .editor .punct.flash { animation: flash 0.6s ease-in-out 3; }
+  @keyframes flash {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(255, 217, 92, 0.4); }
+  }
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    background: #e6edf3;
+    animation: blink 1s steps(1) infinite;
+    height: 1em;
+    vertical-align: text-bottom;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .run-btn {
+    margin: 12px 24px;
+    padding: 8px 18px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    border: none;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .terminal {
+    background: #0a0a0a;
+    color: #56d364;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 20px 24px;
+    font-size: 14px;
+    line-height: 1.6;
+    border-top: 1px solid #333;
+    min-height: 100px;
+  }
+  .terminal .err { color: #ff7b72; }
+  .terminal .arrow-pt { color: #ffd95c; }
+  .terminal .ok { color: #56d364; font-weight: 700; font-size: 18px; }
+
+  .rule-card {
+    margin-top: 24px;
+    max-width: 900px;
+    width: 100%;
+    background: #ffd95c;
+    border: 2px solid #1a1a1a;
+    border-radius: 8px;
+    padding: 20px 24px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s;
+  }
+  .rule-card.show { opacity: 1; transform: translateY(0); }
+  .rule-card .rule-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+  }
+  .rule-card .rule-text {
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+  }
+</style>
+</head>
+<body>
+  <h1>Syntax: the <span class="accent">grammar</span> of code</h1>
+  <p class="subtitle">Click each rule to see what breaks — and how to fix it. The compiler is strict, but predictable.</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="show(0)">Rule 1: Semicolon</button>
+    <button class="tab" onclick="show(1)">Rule 2: Case-sensitive</button>
+    <button class="tab" onclick="show(2)">Rule 3: Quotes</button>
+    <button class="tab" onclick="show(3)">Rule 4: Brackets pair</button>
+  </div>
+
+  <div class="ide">
+    <div class="ide-header">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="filename">Main.java</span>
+    </div>
+    <div class="editor" id="editor"></div>
+    <button class="run-btn" onclick="play()">▶ Run</button>
+    <div class="terminal" id="terminal">$ Output will appear here</div>
+  </div>
+
+  <div class="rule-card" id="rule-card">
+    <div class="rule-label">The Rule</div>
+    <div class="rule-text" id="rule-text"></div>
+  </div>
+
+<script>
+  const examples = [
+    {
+      broken: '<span class="keyword">System</span>.out.<span class="keyword">print</span>(<span class="number">100</span>)',
+      brokenError: 'Main.java:4: error: \';\' expected\n   System.out.print(100)\n                       <span class="arrow-pt">^</span>\n1 error',
+      fixed: '<span class="keyword">System</span>.out.<span class="keyword">print</span>(<span class="number">100</span>)<span class="punct flash">;</span>',
+      output: '100',
+      rule: 'Every statement must end with a semicolon ;'
+    },
+    {
+      broken: '<span class="keyword">system</span>.out.<span class="keyword">print</span>(<span class="number">5000</span>);',
+      brokenError: 'Main.java:4: error: package system does not exist\n   system.out.print(5000);\n      <span class="arrow-pt">^</span>\n1 error',
+      fixed: '<span class="keyword">S</span><span class="punct flash">ystem</span>.out.<span class="keyword">print</span>(<span class="number">5000</span>);',
+      output: '5000',
+      rule: 'Java is case-sensitive. System ≠ system.'
+    },
+    {
+      broken: '<span class="keyword">System</span>.out.<span class="keyword">print</span>(Priyanshi);',
+      brokenError: 'Main.java:4: error: cannot find symbol\n   System.out.print(Priyanshi);\n                    <span class="arrow-pt">^</span>\n1 error',
+      fixed: '<span class="keyword">System</span>.out.<span class="keyword">print</span>(<span class="punct flash">"</span><span class="string">Priyanshi</span><span class="punct flash">"</span>);',
+      output: 'Priyanshi',
+      rule: 'Text must be wrapped in double quotes " "'
+    },
+    {
+      broken: '<span class="keyword">class</span> Main {\n   <span class="keyword">public static void</span> main(String args[]) {\n      // your code\n   ',
+      brokenError: 'Main.java: error: reached end of file while parsing\n}\n<span class="arrow-pt">^</span>\n1 error',
+      fixed: '<span class="keyword">class</span> Main {\n   <span class="keyword">public static void</span> main(String args[]) {\n      // your code\n   <span class="punct flash">}</span>\n<span class="punct flash">}</span>',
+      output: '(compiles successfully)',
+      rule: '( ) { } " "  →  All brackets and quotes come in pairs.'
+    }
+  ];
+
+  let current = 0;
+
+  function show(i) {
+    current = i;
+    document.querySelectorAll('.tab').forEach((t, idx) => t.classList.toggle('active', idx === i));
+    document.getElementById('editor').innerHTML = examples[i].broken.replace(/\n/g, '<br>') + '<span class="cursor"></span>';
+    document.getElementById('terminal').innerHTML = '$ <span style="color:#888">click Run to compile...</span>';
+    document.getElementById('rule-card').classList.remove('show');
+  }
+
+  function play() {
+    const ex = examples[current];
+    const term = document.getElementById('terminal');
+    const editor = document.getElementById('editor');
+
+    term.innerHTML = '$ javac Main.java<br><span style="color:#888">compiling...</span>';
+
+    setTimeout(() => {
+      term.innerHTML = '$ javac Main.java<br><span class="err">[CompilationError]<br>' + ex.brokenError.replace(/\n/g, '<br>') + '</span>';
+    }, 900);
+
+    setTimeout(() => {
+      editor.innerHTML = ex.fixed.replace(/\n/g, '<br>') + '<span class="cursor"></span>';
+      term.innerHTML = '$ <span style="color:#888">fix applied, recompiling...</span>';
+    }, 2600);
+
+    setTimeout(() => {
+      term.innerHTML = '$ javac Main.java<br>$ java Main<br><span class="ok">' + ex.output + '</span>';
+      document.getElementById('rule-text').textContent = ex.rule;
+      document.getElementById('rule-card').classList.add('show');
+    }, 3800);
+  }
+
+  show(0);
+</script>
+</body>
+</html>

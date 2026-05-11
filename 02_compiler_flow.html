@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>How Code Reaches the Computer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .stage {
+    max-width: 1200px;
+    width: 100%;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(28px, 4vw, 44px);
+    text-align: center;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  h1 .accent { color: #ffd95c; font-style: italic; }
+  .subtitle {
+    text-align: center;
+    color: #9aa4b2;
+    font-style: italic;
+    margin-bottom: 40px;
+    font-size: 17px;
+  }
+
+  .flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .node {
+    flex: 1;
+    min-width: 160px;
+    max-width: 220px;
+    background: #161b22;
+    border: 2px solid #30363d;
+    border-radius: 12px;
+    padding: 22px 16px;
+    text-align: center;
+    position: relative;
+    opacity: 0.2;
+    transform: scale(0.92);
+    transition: all 0.5s ease;
+  }
+  .node.active {
+    opacity: 1;
+    transform: scale(1);
+    border-color: #ffd95c;
+    box-shadow: 0 0 40px rgba(255, 217, 92, 0.4);
+  }
+  .node.done {
+    opacity: 1;
+    border-color: #56d364;
+  }
+  .icon {
+    font-size: 44px;
+    margin-bottom: 10px;
+    line-height: 1;
+  }
+  .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #9aa4b2;
+    margin-bottom: 6px;
+  }
+  .node.active .label, .node.done .label { color: #e6edf3; }
+  .name {
+    font-weight: 900;
+    font-size: 20px;
+    font-family: 'Fraunces', serif;
+    margin-bottom: 8px;
+  }
+  .sample {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: #0d1117;
+    padding: 8px;
+    border-radius: 4px;
+    color: #ffd95c;
+    word-break: break-all;
+  }
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    color: #30363d;
+    font-size: 28px;
+    position: relative;
+  }
+  .arrow.lit { color: #ffd95c; }
+  .arrow .pulse {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #ffd95c, transparent);
+    opacity: 0;
+  }
+  .arrow.lit .pulse { animation: pulse 1.2s ease-in-out; }
+  @keyframes pulse {
+    0% { opacity: 0; transform: translateX(-100%); }
+    50% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(100%); }
+  }
+  @media (max-width: 900px) {
+    .flow { flex-direction: column; align-items: center; }
+    .arrow { width: 40px; height: 40px; transform: rotate(90deg); }
+  }
+  .caption {
+    text-align: center;
+    margin-top: 36px;
+    padding: 18px 24px;
+    background: #161b22;
+    border: 1px dashed #30363d;
+    border-radius: 8px;
+    font-size: 17px;
+    line-height: 1.5;
+    min-height: 60px;
+    color: #c9d1d9;
+  }
+  .caption strong { color: #ffd95c; }
+
+  .controls { margin-top: 24px; text-align: center; }
+  .controls button {
+    font-family: 'JetBrains Mono', monospace;
+    background: transparent;
+    border: 2px solid #ffd95c;
+    color: #ffd95c;
+    padding: 10px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .controls button:hover { background: #ffd95c; color: #0d1117; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <h1>How does your code <span class="accent">reach</span> the computer?</h1>
+  <p class="subtitle">We speak English. The computer speaks binary. Something has to translate.</p>
+
+  <div class="flow">
+    <div class="node" id="n1">
+      <div class="icon">🧑‍💻</div>
+      <div class="label">Step 1</div>
+      <div class="name">You</div>
+      <div class="sample">"Print 100"</div>
+    </div>
+    <div class="arrow" id="a1"><span class="pulse"></span>→</div>
+    <div class="node" id="n2">
+      <div class="icon">📝</div>
+      <div class="label">Step 2</div>
+      <div class="name">Java Code</div>
+      <div class="sample">System.out.print(100);</div>
+    </div>
+    <div class="arrow" id="a2"><span class="pulse"></span>→</div>
+    <div class="node" id="n3">
+      <div class="icon">⚙️</div>
+      <div class="label">Step 3</div>
+      <div class="name">Compiler</div>
+      <div class="sample">translates...</div>
+    </div>
+    <div class="arrow" id="a3"><span class="pulse"></span>→</div>
+    <div class="node" id="n4">
+      <div class="icon">🔢</div>
+      <div class="label">Step 4</div>
+      <div class="name">Binary</div>
+      <div class="sample">01001000 01101001</div>
+    </div>
+    <div class="arrow" id="a4"><span class="pulse"></span>→</div>
+    <div class="node" id="n5">
+      <div class="icon">💻</div>
+      <div class="label">Step 5</div>
+      <div class="name">Computer</div>
+      <div class="sample">100</div>
+    </div>
+  </div>
+
+  <div class="caption" id="caption">Watch the journey of one instruction →</div>
+
+  <div class="controls">
+    <button onclick="run()">↻ Replay</button>
+  </div>
+</div>
+
+<script>
+  const captions = [
+    "You have an idea: print the number 100.",
+    "You write it in <strong>Java</strong> — a language humans can read.",
+    "The <strong>compiler</strong> acts as a translator.",
+    "Code becomes <strong>binary</strong> — 0s and 1s, the only language the computer truly speaks.",
+    "The computer runs it. Output: <strong>100</strong> ✨"
+  ];
+
+  function run() {
+    document.querySelectorAll('.node').forEach(n => n.classList.remove('active', 'done'));
+    document.querySelectorAll('.arrow').forEach(a => {
+      a.classList.remove('lit');
+      const p = a.querySelector('.pulse');
+      p.style.animation = 'none';
+      void p.offsetWidth;
+      p.style.animation = '';
+    });
+
+    const nodes = ['n1', 'n2', 'n3', 'n4', 'n5'];
+    const arrows = ['a1', 'a2', 'a3', 'a4'];
+
+    nodes.forEach((id, i) => {
+      setTimeout(() => {
+        document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        document.getElementById('caption').innerHTML = captions[i];
+        for (let j = 0; j < i; j++) {
+          document.getElementById(nodes[j]).classList.remove('active');
+          document.getElementById(nodes[j]).classList.add('done');
+        }
+        if (i < arrows.length) {
+          setTimeout(() => {
+            document.getElementById(arrows[i]).classList.add('lit');
+          }, 800);
+        }
+      }, i * 1600);
+    });
+  }
+
+  run();
+</script>
+</body>
+</html>

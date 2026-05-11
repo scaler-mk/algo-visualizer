@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI vs You — Who's Good at What?</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: #e6edf3;
+    min-height: 100vh;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(28px, 4vw, 44px);
+    margin-bottom: 6px;
+    text-align: center;
+    letter-spacing: -0.02em;
+  }
+  h1 .ai { color: #00d9ff; font-style: italic; }
+  h1 .you { color: #ffd95c; font-style: italic; }
+  .subtitle {
+    color: #9aa4b2;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 36px;
+    max-width: 700px;
+    font-size: 17px;
+  }
+  .arena {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 0;
+    max-width: 1100px;
+    width: 100%;
+    align-items: stretch;
+  }
+  @media (max-width: 760px) {
+    .arena { grid-template-columns: 1fr; }
+    .vs-divider { display: none; }
+  }
+  .side {
+    padding: 28px 24px;
+    border-radius: 16px;
+    position: relative;
+  }
+  .side.ai {
+    background: rgba(0, 217, 255, 0.08);
+    border: 2px solid #00d9ff;
+  }
+  .side.human {
+    background: rgba(255, 217, 92, 0.08);
+    border: 2px solid #ffd95c;
+  }
+  .side-icon {
+    font-size: 56px;
+    text-align: center;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .side-name {
+    text-align: center;
+    font-weight: 900;
+    font-size: 28px;
+    margin-bottom: 4px;
+  }
+  .side.ai .side-name { color: #00d9ff; }
+  .side.human .side-name { color: #ffd95c; }
+  .side-tagline {
+    text-align: center;
+    font-style: italic;
+    font-size: 14px;
+    color: #9aa4b2;
+    margin-bottom: 22px;
+  }
+  .strength {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: rise 0.5s forwards;
+  }
+  .strength .check {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .side.ai .check { background: #00d9ff; color: #1a1a2e; }
+  .side.human .check { background: #ffd95c; color: #1a1a2e; }
+  .strength .text {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .strength .text strong { font-weight: 700; }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+  .vs-divider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .vs-divider::before {
+    content: '';
+    position: absolute;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(180deg, transparent, #555, transparent);
+  }
+  .vs-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #1a1a2e;
+    border: 2px solid #e63946;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: #e63946;
+    font-size: 14px;
+    z-index: 1;
+    box-shadow: 0 0 30px rgba(230, 57, 70, 0.4);
+  }
+
+  .verdict {
+    margin-top: 36px;
+    max-width: 1100px;
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 22px 28px;
+    text-align: center;
+    font-size: 18px;
+    line-height: 1.6;
+  }
+  .verdict strong { color: #ffd95c; }
+  .verdict .formula {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(0,0,0,0.3);
+    padding: 14px 18px;
+    border-radius: 6px;
+    margin-top: 14px;
+    display: inline-block;
+    font-size: 16px;
+    color: #00d9ff;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+  <h1><span class="ai">AI</span> vs <span class="you">YOU</span></h1>
+  <p class="subtitle">Both are powerful — but at <em>different</em> things. The future belongs to people who know which is which.</p>
+
+  <div class="arena">
+    <div class="side ai">
+      <div class="side-icon">🤖</div>
+      <div class="side-name">What AI is great at</div>
+      <div class="side-tagline">Fast, tireless, knows a lot</div>
+
+      <div class="strength" style="animation-delay: 0.2s">
+        <span class="check">✓</span>
+        <span class="text"><strong>Writing boilerplate</strong> — repetitive code patterns it has seen a million times.</span>
+      </div>
+      <div class="strength" style="animation-delay: 0.5s">
+        <span class="check">✓</span>
+        <span class="text"><strong>Explaining syntax</strong> — what a semicolon does, what a loop is.</span>
+      </div>
+      <div class="strength" style="animation-delay: 0.8s">
+        <span class="check">✓</span>
+        <span class="text"><strong>Suggesting fixes</strong> when you describe a bug clearly.</span>
+      </div>
+      <div class="strength" style="animation-delay: 1.1s">
+        <span class="check">✓</span>
+        <span class="text"><strong>Speed</strong> — produces 100 lines in seconds. Doesn't get tired.</span>
+      </div>
+    </div>
+
+    <div class="vs-divider">
+      <div class="vs-circle">VS</div>
+    </div>
+
+    <div class="side human">
+      <div class="side-icon">🧠</div>
+      <div class="side-name">What YOU are great at</div>
+      <div class="side-tagline">Judgment, taste, ownership</div>
+
+      <div class="strength" style="animation-delay: 0.3s">
+        <span class="check">✓</span>
+        <span class="text"><strong>Understanding the problem</strong> — what does the user <em>actually</em> need?</span>
+      </div>
+      <div class="strength" style="animation-delay: 0.6s">
+        <span class="check">✓</span>
+        <span class="text"><strong>Breaking it into steps</strong> — the messy, creative part AI struggles with.</span>
+      </div>
+      <div class="strength" style="animation-delay: 0.9s">
+        <span class="check">✓</span>
+        <span class="text"><strong>Spotting when AI is wrong</strong> — and it <em>is</em> wrong, often.</span>
+      </div>
+      <div class="strength" style="animation-delay: 1.2s">
+        <span class="check">✓</span>
+        <span class="text"><strong>Owning the result</strong> — your name is on it. AI can't be accountable.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    Companies aren't replacing developers with AI. They're hiring developers who <strong>use AI well</strong>.
+    <br>
+    <span class="formula">Developer + AI &nbsp;&gt;&nbsp; AI alone &nbsp;&gt;&nbsp; Developer alone</span>
+  </div>
+</body>
+</html>
