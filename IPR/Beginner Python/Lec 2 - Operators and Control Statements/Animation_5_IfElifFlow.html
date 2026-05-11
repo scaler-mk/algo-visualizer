@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>if-elif-else flow walkthrough</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .mode-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+  }
+  .tab {
+    padding: 8px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 18px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .text-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 5px;
+    width: 130px;
+    text-align: center;
+  }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .step-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 8px 18px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 18px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  /* Code panel */
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px 18px;
+    font-size: 13px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .cl {
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval {
+    background: rgba(240, 160, 75, 0.15);
+    opacity: 1;
+    color: var(--accent);
+    border-left: 2px solid var(--accent);
+    padding-left: 6px;
+  }
+  .cl.taken {
+    background: rgba(163, 217, 119, 0.12);
+    opacity: 1;
+    color: var(--green);
+    border-left: 2px solid var(--green);
+    padding-left: 6px;
+  }
+  .cl.failed {
+    background: rgba(229, 115, 115, 0.08);
+    opacity: 0.85;
+    color: var(--red);
+    text-decoration: line-through;
+    text-decoration-color: rgba(229, 115, 115, 0.4);
+  }
+  .cl.skipped {
+    opacity: 0.3;
+  }
+  .cl.indent { padding-left: 22px; }
+  .cl.eval.indent { padding-left: 20px; }
+  .cl.taken.indent { padding-left: 20px; }
+  .kw { color: #5dadec; }
+  .str { color: #a3d977; }
+  .num { color: #f0a04b; }
+  .meth { color: #c084e8; }
+  .com { color: #8b8d93; font-style: italic; }
+
+  .step-trace {
+    padding: 14px 16px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12.5px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    min-height: 55px;
+  }
+  .step-trace strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  /* Output panel */
+  .output-box {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    min-height: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--green);
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+  .output-line {
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .output-line.shown {
+    opacity: 1;
+  }
+
+  .branches-list {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .branch-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    background: var(--panel-2);
+    border-radius: 4px;
+    border-left: 3px solid var(--line);
+    transition: all 0.3s;
+    font-size: 12px;
+    opacity: 0.5;
+  }
+  .branch-item .branch-cond {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink);
+    flex: 1;
+  }
+  .branch-item .branch-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--panel);
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .branch-item.checked {
+    opacity: 1;
+    border-left-color: var(--accent);
+  }
+  .branch-item.taken {
+    opacity: 1;
+    border-left-color: var(--green);
+    background: rgba(163, 217, 119, 0.04);
+  }
+  .branch-item.taken .branch-status { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .branch-item.failed .branch-status { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .branch-item.skipped {
+    opacity: 0.25;
+  }
+  .branch-item.skipped .branch-status { color: var(--muted); }
+
+  .counter { font-size: 11px; color: var(--muted); font-style: italic; font-family: Georgia, serif; margin-top: 12px; text-align: center; }
+
+  .trap-callout {
+    background: rgba(229, 115, 115, 0.05);
+    border: 1px solid rgba(229, 115, 115, 0.25);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-top: 14px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .trap-callout strong {
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--red);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>if-elif-else — execution flow</h1>
+  <div class="sub">Walk through how Python decides which branch to run. The <strong>weather</strong> example demonstrates if-elif-else. The <strong>Quiz 10 trap</strong> shows what happens with two SEPARATE if blocks instead of one if-elif chain.</div>
+
+  <div class="mode-tabs">
+    <button class="tab active" id="tabWeather" onclick="setMode('weather')">if-elif-else (weather)</button>
+    <button class="tab" id="tabQuiz10" onclick="setMode('quiz10')">Quiz 10 — two separate ifs (the trap)</button>
+  </div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;" id="weatherInputs">
+      <span class="ctl-label">WEATHER INPUT</span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="qb active" onclick="loadInput('Sunny')">Sunny</button>
+        <button class="qb" onclick="loadInput('Rainy')">Rainy</button>
+        <button class="qb" onclick="loadInput('Snowy')">Snowy</button>
+        <button class="qb" onclick="loadInput('Mist')">Mist (not matched)</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px; display:none;" id="quiz10Inputs">
+      <span class="ctl-label">VALUE OF a</span>
+      <div style="display: flex; gap: 8px;">
+        <button class="qb active" onclick="loadAVal(5)">a = 5 (Quiz 10)</button>
+        <button class="qb" onclick="loadAVal(2)">a = 2</button>
+        <button class="qb" onclick="loadAVal(10)">a = 10</button>
+      </div>
+    </div>
+    <div style="display:flex; gap: 10px; margin-left: auto;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE — WATCH WHICH BRANCH GETS EVALUATED</div>
+      <div class="codebox" id="codebox"></div>
+      <div class="step-trace" id="stepTrace">— press Step to begin —</div>
+      <div class="counter" id="counter"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">CONDITIONS — CHECKED IN ORDER</div>
+      <div class="branches-list" id="branchesList"></div>
+
+      <div class="panel-title" style="margin-top: 22px;">CONSOLE OUTPUT</div>
+      <div class="output-box" id="outputBox"></div>
+
+      <div id="trapBox" style="display: none;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let mode = 'weather';
+  let weatherInput = 'Sunny';
+  let aVal = 5;
+  let stepIdx = -1;
+  let timer = null;
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('tabWeather').classList.toggle('active', m === 'weather');
+    document.getElementById('tabQuiz10').classList.toggle('active', m === 'quiz10');
+    document.getElementById('weatherInputs').style.display = m === 'weather' ? 'flex' : 'none';
+    document.getElementById('quiz10Inputs').style.display = m === 'quiz10' ? 'flex' : 'none';
+    reset();
+  }
+
+  function loadInput(w) {
+    weatherInput = w;
+    document.querySelectorAll('#weatherInputs .qb').forEach(b => b.classList.toggle('active', b.textContent.startsWith(w)));
+    reset();
+  }
+
+  function loadAVal(v) {
+    aVal = v;
+    document.querySelectorAll('#quiz10Inputs .qb').forEach(b => b.classList.toggle('active', b.textContent.includes('= ' + v)));
+    reset();
+  }
+
+  function buildWeatherCode() {
+    return `<div class="cl" id="c0">weather = <span class="str">'${weatherInput}'</span></div>
+<div class="cl" id="c1"><span class="kw">if</span> weather == <span class="str">'Sunny'</span>:</div>
+<div class="cl indent" id="c2"><span class="meth">print</span>(<span class="str">'Take Goggles'</span>)</div>
+<div class="cl" id="c3"><span class="kw">elif</span> weather == <span class="str">'Rainy'</span>:</div>
+<div class="cl indent" id="c4"><span class="meth">print</span>(<span class="str">'Take Umbrella'</span>)</div>
+<div class="cl" id="c5"><span class="kw">elif</span> weather == <span class="str">'Snowy'</span>:</div>
+<div class="cl indent" id="c6"><span class="meth">print</span>(<span class="str">'wear boots'</span>)</div>
+<div class="cl" id="c7"><span class="kw">else</span>:</div>
+<div class="cl indent" id="c8"><span class="meth">print</span>(<span class="str">"I don't know this weather"</span>)</div>
+<div class="cl" id="c9"><span class="meth">print</span>(<span class="str">'normal execution'</span>)</div>`;
+  }
+
+  function buildQuiz10Code() {
+    return `<div class="cl" id="c0">a = <span class="num">${aVal}</span></div>
+<div class="cl" id="c1"><span class="kw">if</span>(a &lt; <span class="num">6</span>):</div>
+<div class="cl indent" id="c2"><span class="meth">print</span>(<span class="str">'Option 1'</span>)</div>
+<div class="cl" id="c3"><span class="kw">if</span>(a &lt; <span class="num">3</span>):       <span class="com"># ⚠️ separate if, not elif!</span></div>
+<div class="cl indent" id="c4"><span class="meth">print</span>(<span class="str">'Option 2'</span>)</div>
+<div class="cl" id="c5"><span class="kw">else</span>:</div>
+<div class="cl indent" id="c6"><span class="meth">print</span>(<span class="str">'Option 3'</span>)</div>`;
+  }
+
+  function buildWeatherBranches() {
+    return [
+      { cond: `weather == 'Sunny'`, expectedResult: weatherInput === 'Sunny' },
+      { cond: `weather == 'Rainy'`, expectedResult: weatherInput === 'Rainy' },
+      { cond: `weather == 'Snowy'`, expectedResult: weatherInput === 'Snowy' },
+      { cond: `else (fallback)`, expectedResult: !['Sunny', 'Rainy', 'Snowy'].includes(weatherInput) }
+    ];
+  }
+
+  function buildQuiz10Branches() {
+    return [
+      { cond: `BLOCK 1: a < 6`, expectedResult: aVal < 6, isStandalone: true },
+      { cond: `BLOCK 2: a < 3`, expectedResult: aVal < 3, isStandalone: true },
+      { cond: `BLOCK 2 else (a >= 3)`, expectedResult: !(aVal < 3), isStandalone: false }
+    ];
+  }
+
+  function buildWeatherSteps() {
+    const branches = buildWeatherBranches();
+    const steps = [
+      { codeId: 'c0', codeCls: 'taken', trace: `Set <strong>weather = '${weatherInput}'</strong>.`, branchUpdates: [] }
+    ];
+
+    let taken = false;
+    if (weatherInput === 'Sunny') {
+      steps.push({ codeId: 'c1', codeCls: 'eval', trace: `Check <strong>weather == 'Sunny'</strong>: TRUE. Enter the if block.`, branchUpdates: [{ idx: 0, cls: 'taken', status: 'TAKEN' }] });
+      steps.push({ codeId: 'c2', codeCls: 'taken', trace: `Execute <strong>print('Take Goggles')</strong>.`, branchUpdates: [], output: 'Take Goggles' });
+      steps.push({ codeId: null, codeCls: null, trace: `One branch matched — Python <strong>SKIPS</strong> all remaining elif/else branches. This is the key difference vs two separate ifs.`, branchUpdates: [{ idx: 1, cls: 'skipped', status: 'SKIPPED' }, { idx: 2, cls: 'skipped', status: 'SKIPPED' }, { idx: 3, cls: 'skipped', status: 'SKIPPED' }], skipCodeIds: ['c3', 'c4', 'c5', 'c6', 'c7', 'c8'] });
+      taken = true;
+    } else if (weatherInput === 'Rainy') {
+      steps.push({ codeId: 'c1', codeCls: 'failed', trace: `Check <strong>weather == 'Sunny'</strong>: FALSE. Try the next branch.`, branchUpdates: [{ idx: 0, cls: 'failed', status: 'FALSE' }] });
+      steps.push({ codeId: 'c3', codeCls: 'eval', trace: `Check <strong>weather == 'Rainy'</strong>: TRUE. Enter this elif block.`, branchUpdates: [{ idx: 1, cls: 'taken', status: 'TAKEN' }] });
+      steps.push({ codeId: 'c4', codeCls: 'taken', trace: `Execute <strong>print('Take Umbrella')</strong>.`, branchUpdates: [], output: 'Take Umbrella' });
+      steps.push({ codeId: null, codeCls: null, trace: `Branch matched — skip the rest.`, branchUpdates: [{ idx: 2, cls: 'skipped', status: 'SKIPPED' }, { idx: 3, cls: 'skipped', status: 'SKIPPED' }], skipCodeIds: ['c5', 'c6', 'c7', 'c8'] });
+      taken = true;
+    } else if (weatherInput === 'Snowy') {
+      steps.push({ codeId: 'c1', codeCls: 'failed', trace: `<strong>weather == 'Sunny'</strong>: FALSE.`, branchUpdates: [{ idx: 0, cls: 'failed', status: 'FALSE' }] });
+      steps.push({ codeId: 'c3', codeCls: 'failed', trace: `<strong>weather == 'Rainy'</strong>: FALSE.`, branchUpdates: [{ idx: 1, cls: 'failed', status: 'FALSE' }] });
+      steps.push({ codeId: 'c5', codeCls: 'eval', trace: `<strong>weather == 'Snowy'</strong>: TRUE. Enter elif block.`, branchUpdates: [{ idx: 2, cls: 'taken', status: 'TAKEN' }] });
+      steps.push({ codeId: 'c6', codeCls: 'taken', trace: `Execute <strong>print('wear boots')</strong>.`, branchUpdates: [], output: 'wear boots' });
+      steps.push({ codeId: null, codeCls: null, trace: `Branch matched — skip the else.`, branchUpdates: [{ idx: 3, cls: 'skipped', status: 'SKIPPED' }], skipCodeIds: ['c7', 'c8'] });
+      taken = true;
+    } else {
+      steps.push({ codeId: 'c1', codeCls: 'failed', trace: `<strong>weather == 'Sunny'</strong>: FALSE.`, branchUpdates: [{ idx: 0, cls: 'failed', status: 'FALSE' }] });
+      steps.push({ codeId: 'c3', codeCls: 'failed', trace: `<strong>weather == 'Rainy'</strong>: FALSE.`, branchUpdates: [{ idx: 1, cls: 'failed', status: 'FALSE' }] });
+      steps.push({ codeId: 'c5', codeCls: 'failed', trace: `<strong>weather == 'Snowy'</strong>: FALSE.`, branchUpdates: [{ idx: 2, cls: 'failed', status: 'FALSE' }] });
+      steps.push({ codeId: 'c7', codeCls: 'eval', trace: `All conditions failed — fall to <strong>else</strong>.`, branchUpdates: [{ idx: 3, cls: 'taken', status: 'TAKEN' }] });
+      steps.push({ codeId: 'c8', codeCls: 'taken', trace: `Execute <strong>print("I don't know this weather")</strong>.`, branchUpdates: [], output: "I don't know this weather" });
+    }
+
+    steps.push({ codeId: 'c9', codeCls: 'taken', trace: `<strong>After</strong> the if-elif-else chain ends, execution continues normally. Print <strong>'normal execution'</strong>.`, branchUpdates: [], output: 'normal execution' });
+    return steps;
+  }
+
+  function buildQuiz10Steps() {
+    const branches = buildQuiz10Branches();
+    const steps = [
+      { codeId: 'c0', codeCls: 'taken', trace: `Set <strong>a = ${aVal}</strong>.`, branchUpdates: [] }
+    ];
+
+    // First if block (standalone)
+    if (aVal < 6) {
+      steps.push({ codeId: 'c1', codeCls: 'eval', trace: `Check first if: <strong>a &lt; 6</strong> → <strong>${aVal} &lt; 6</strong> → TRUE.`, branchUpdates: [{ idx: 0, cls: 'taken', status: 'TAKEN' }] });
+      steps.push({ codeId: 'c2', codeCls: 'taken', trace: `Execute <strong>print('Option 1')</strong>.`, branchUpdates: [], output: 'Option 1' });
+    } else {
+      steps.push({ codeId: 'c1', codeCls: 'failed', trace: `First if: <strong>a &lt; 6</strong> → FALSE. Skip its block.`, branchUpdates: [{ idx: 0, cls: 'failed', status: 'FALSE' }], skipCodeIds: ['c2'] });
+    }
+
+    // CRITICAL: now the second if block ALWAYS runs (it's separate, not elif!)
+    steps.push({ codeId: null, codeCls: null, trace: `<strong>⚠️ Notice:</strong> the first if block is done. The second <strong>if (a &lt; 3)</strong> is a SEPARATE, INDEPENDENT block — not an elif. Python evaluates it next, regardless of whether the first if matched.`, branchUpdates: [] });
+
+    // Now second if/else
+    if (aVal < 3) {
+      steps.push({ codeId: 'c3', codeCls: 'eval', trace: `Check second if: <strong>a &lt; 3</strong> → <strong>${aVal} &lt; 3</strong> → TRUE.`, branchUpdates: [{ idx: 1, cls: 'taken', status: 'TAKEN' }, { idx: 2, cls: 'skipped', status: 'SKIPPED' }] });
+      steps.push({ codeId: 'c4', codeCls: 'taken', trace: `Execute <strong>print('Option 2')</strong>.`, branchUpdates: [], output: 'Option 2' });
+    } else {
+      steps.push({ codeId: 'c3', codeCls: 'failed', trace: `Second if: <strong>a &lt; 3</strong> → <strong>${aVal} &lt; 3</strong> → FALSE. Skip to else.`, branchUpdates: [{ idx: 1, cls: 'failed', status: 'FALSE' }], skipCodeIds: ['c4'] });
+      steps.push({ codeId: 'c5', codeCls: 'eval', trace: `Take the <strong>else</strong> branch of the second block.`, branchUpdates: [{ idx: 2, cls: 'taken', status: 'TAKEN' }] });
+      steps.push({ codeId: 'c6', codeCls: 'taken', trace: `Execute <strong>print('Option 3')</strong>.`, branchUpdates: [], output: 'Option 3' });
+    }
+
+    return steps;
+  }
+
+  let currSteps = [];
+  let currOutputLines = [];
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    stepIdx = -1;
+    currOutputLines = [];
+
+    if (mode === 'weather') {
+      document.getElementById('codebox').innerHTML = buildWeatherCode();
+      currSteps = buildWeatherSteps();
+      renderBranches(buildWeatherBranches());
+      document.getElementById('trapBox').style.display = 'none';
+    } else {
+      document.getElementById('codebox').innerHTML = buildQuiz10Code();
+      currSteps = buildQuiz10Steps();
+      renderBranches(buildQuiz10Branches());
+      document.getElementById('trapBox').style.display = 'block';
+      // Trap message specific to the value
+      let trapMsg = '';
+      if (aVal === 5) {
+        trapMsg = `<strong>Quiz 10 trap →</strong> The first if (<code style="color: var(--green); font-family: 'JetBrains Mono', monospace;">a &lt; 6</code>) is TRUE → "Option 1" is printed. Then the second SEPARATE if (<code style="color: var(--green); font-family: 'JetBrains Mono', monospace;">a &lt; 3</code>) runs independently → FALSE → its else fires → "Option 3" prints too. Output: <strong>Option 1</strong> AND <strong>Option 3</strong>. If they had used <strong>elif</strong> instead of a second <strong>if</strong>, only "Option 1" would have printed.`;
+      } else if (aVal === 2) {
+        trapMsg = `<strong>Two independent ifs →</strong> First: <code style="font-family: 'JetBrains Mono', monospace;">a &lt; 6</code> is TRUE → "Option 1". Second: <code style="font-family: 'JetBrains Mono', monospace;">a &lt; 3</code> is also TRUE → "Option 2". Output: <strong>Option 1</strong> AND <strong>Option 2</strong>. Two ifs = two checks, no skipping.`;
+      } else {
+        trapMsg = `<strong>Notice →</strong> first if (<code style="font-family: 'JetBrains Mono', monospace;">a &lt; 6</code>) is FALSE — its block is skipped. Then the second if-else evaluates independently. Output depends entirely on its conditions.`;
+      }
+      document.getElementById('trapBox').innerHTML = `<div class="trap-callout">${trapMsg}</div>`;
+    }
+
+    document.getElementById('outputBox').innerHTML = '';
+    document.getElementById('stepTrace').innerHTML = '— press Step to begin —';
+    document.getElementById('counter').textContent = `${currSteps.length} steps total`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderBranches(branches) {
+    let html = '';
+    branches.forEach((b, i) => {
+      html += `<div class="branch-item" id="branch-${i}">
+        <span class="branch-cond">${b.cond}</span>
+        <span class="branch-status">PENDING</span>
+      </div>`;
+    });
+    document.getElementById('branchesList').innerHTML = html;
+  }
+
+  function step() {
+    if (stepIdx + 1 >= currSteps.length) return;
+    stepIdx++;
+    const s = currSteps[stepIdx];
+
+    // Apply code highlights
+    if (s.codeId && s.codeCls) {
+      // Reset previous "eval" to "taken" or kept as is
+      const evalEl = document.querySelector('.cl.eval');
+      if (evalEl) evalEl.classList.remove('eval');
+
+      const el = document.getElementById(s.codeId);
+      if (el) {
+        // Don't override if already in a final state
+        el.classList.remove('eval', 'taken', 'failed', 'skipped');
+        el.classList.add(s.codeCls);
+      }
+    }
+    if (s.skipCodeIds) {
+      s.skipCodeIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('taken') && !el.classList.contains('failed')) {
+          el.classList.add('skipped');
+        }
+      });
+    }
+
+    // Branch updates
+    if (s.branchUpdates) {
+      s.branchUpdates.forEach(u => {
+        const b = document.getElementById('branch-' + u.idx);
+        if (b) {
+          b.classList.remove('checked', 'taken', 'failed', 'skipped');
+          b.classList.add(u.cls);
+          b.querySelector('.branch-status').textContent = u.status;
+        }
+      });
+    }
+
+    // Output
+    if (s.output) {
+      currOutputLines.push(s.output);
+      const out = document.getElementById('outputBox');
+      out.innerHTML = currOutputLines.map(l => `<div class="output-line shown">${l}</div>`).join('');
+    }
+
+    document.getElementById('stepTrace').innerHTML = s.trace;
+    document.getElementById('counter').textContent = `step ${stepIdx + 1} / ${currSteps.length}`;
+
+    if (stepIdx + 1 >= currSteps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (stepIdx + 1 >= currSteps.length) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1500);
+  }
+
+  reset();
+</script>
+</body>
+</html>

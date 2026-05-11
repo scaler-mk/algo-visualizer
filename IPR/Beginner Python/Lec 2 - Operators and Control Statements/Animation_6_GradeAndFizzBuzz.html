@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Grade & FizzBuzz — conditional problem walkthroughs</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .mode-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+  }
+  .tab {
+    padding: 8px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 5px;
+    width: 100px;
+    text-align: center;
+  }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240, 160, 75, 0.1); }
+  .step-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 8px 18px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 18px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-size: 13px;
+    line-height: 1.8;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .cl {
+    padding: 2px 8px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval {
+    background: rgba(240, 160, 75, 0.15);
+    opacity: 1;
+    color: var(--accent);
+    border-left: 2px solid var(--accent);
+    padding-left: 6px;
+  }
+  .cl.taken {
+    background: rgba(163, 217, 119, 0.12);
+    opacity: 1;
+    color: var(--green);
+    border-left: 2px solid var(--green);
+    padding-left: 6px;
+  }
+  .cl.failed {
+    background: rgba(229, 115, 115, 0.08);
+    opacity: 0.85;
+    color: var(--red);
+    text-decoration: line-through;
+    text-decoration-color: rgba(229, 115, 115, 0.4);
+  }
+  .cl.skipped { opacity: 0.3; }
+  .cl.indent { padding-left: 22px; }
+  .cl.eval.indent { padding-left: 20px; }
+  .cl.taken.indent { padding-left: 20px; }
+  .kw { color: #5dadec; }
+  .str { color: #a3d977; }
+  .num { color: #f0a04b; }
+  .meth { color: #c084e8; }
+  .com { color: #8b8d93; font-style: italic; }
+  .op { color: #c084e8; }
+
+  .step-trace {
+    padding: 12px 16px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12.5px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    min-height: 55px;
+  }
+  .step-trace strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    color: var(--accent);
+  }
+  .step-trace code {
+    background: rgba(255,255,255,0.05);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-style: normal;
+  }
+
+  .branches-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .branch-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    background: var(--panel-2);
+    border-radius: 4px;
+    border-left: 3px solid var(--line);
+    transition: all 0.3s;
+    font-size: 12px;
+    opacity: 0.5;
+  }
+  .branch-item .branch-cond {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink);
+    flex: 1;
+  }
+  .branch-item .branch-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--panel);
+    color: var(--muted);
+  }
+  .branch-item.checked { opacity: 1; border-left-color: var(--accent); }
+  .branch-item.taken { opacity: 1; border-left-color: var(--green); background: rgba(163, 217, 119, 0.04); }
+  .branch-item.taken .branch-status { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .branch-item.failed { opacity: 0.85; }
+  .branch-item.failed .branch-status { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .branch-item.skipped { opacity: 0.25; }
+
+  .output-box {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    min-height: 80px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    color: var(--green);
+    font-weight: 600;
+    line-height: 1.6;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .output-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+    font-weight: 400;
+    font-size: 12px;
+  }
+
+  .counter { font-size: 11px; color: var(--muted); font-style: italic; font-family: Georgia, serif; margin-top: 10px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Conditional problems — Grade & FizzBuzz</h1>
+  <div class="sub">Two classic problems that exercise if-elif-else patterns. Try different inputs, see which branch fires.</div>
+
+  <div class="mode-tabs">
+    <button class="tab active" id="tabGrade" onclick="setMode('grade')">Problem 1 — Print the Grade</button>
+    <button class="tab" id="tabFizz" onclick="setMode('fizz')">Problem 2 — FizzBuzz</button>
+  </div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;" id="gradeCtl">
+      <span class="ctl-label">MARKS (0-100)</span>
+      <input type="number" min="0" max="100" class="num-input" id="marksIn" value="85" oninput="onChange()">
+      <div style="display: flex; gap: 5px; margin-top: 6px;">
+        <button class="qb" onclick="setMarks(95)">95 (A)</button>
+        <button class="qb" onclick="setMarks(85)">85 (B)</button>
+        <button class="qb" onclick="setMarks(75)">75 (C)</button>
+        <button class="qb" onclick="setMarks(50)">50 (D)</button>
+        <button class="qb" onclick="setMarks(120)">120 (invalid!)</button>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px; display:none;" id="fizzCtl">
+      <span class="ctl-label">NUMBER (n)</span>
+      <input type="number" class="num-input" id="numIn" value="15" oninput="onChange()">
+      <div style="display: flex; gap: 5px; margin-top: 6px;">
+        <button class="qb" onclick="setNum(15)">15 (Fizz-Buzz)</button>
+        <button class="qb" onclick="setNum(9)">9 (Fizz)</button>
+        <button class="qb" onclick="setNum(10)">10 (Buzz)</button>
+        <button class="qb" onclick="setNum(7)">7 (nothing)</button>
+        <button class="qb" onclick="setNum(30)">30 (Fizz-Buzz)</button>
+      </div>
+    </div>
+    <div style="display:flex; gap: 10px; margin-left: auto;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE — WATCH WHICH BRANCH MATCHES</div>
+      <div class="codebox" id="codebox"></div>
+      <div class="step-trace" id="stepTrace">— press Step to begin —</div>
+      <div class="counter" id="counter"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">CONDITIONS CHECKED</div>
+      <div class="branches-list" id="branchesList"></div>
+
+      <div class="panel-title" style="margin-top: 22px;">FINAL OUTPUT</div>
+      <div class="output-box" id="outputBox">
+        <span class="output-empty">— step through to see output —</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let mode = 'grade';
+  let marks = 85;
+  let num = 15;
+  let stepIdx = -1;
+  let timer = null;
+  let currSteps = [];
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('tabGrade').classList.toggle('active', m === 'grade');
+    document.getElementById('tabFizz').classList.toggle('active', m === 'fizz');
+    document.getElementById('gradeCtl').style.display = m === 'grade' ? 'flex' : 'none';
+    document.getElementById('fizzCtl').style.display = m === 'fizz' ? 'flex' : 'none';
+    reset();
+  }
+
+  function setMarks(v) {
+    marks = v;
+    document.getElementById('marksIn').value = v;
+    reset();
+  }
+  function setNum(v) {
+    num = v;
+    document.getElementById('numIn').value = v;
+    reset();
+  }
+  function onChange() {
+    if (mode === 'grade') marks = parseInt(document.getElementById('marksIn').value) || 0;
+    else num = parseInt(document.getElementById('numIn').value) || 0;
+    reset();
+  }
+
+  function buildGradeCode() {
+    return `<div class="cl" id="c0">marks = <span class="num">${marks}</span></div>
+<div class="cl" id="c1"><span class="kw">if</span> marks &gt; <span class="num">90</span> <span class="kw">and</span> marks &lt;= <span class="num">100</span>:</div>
+<div class="cl indent" id="c2">    <span class="meth">print</span>(<span class="str">"Grade: A"</span>)</div>
+<div class="cl" id="c3"><span class="kw">elif</span> marks &gt; <span class="num">80</span> <span class="kw">and</span> marks &lt;= <span class="num">90</span>:</div>
+<div class="cl indent" id="c4">    <span class="meth">print</span>(<span class="str">"Grade: B"</span>)</div>
+<div class="cl" id="c5"><span class="kw">elif</span> marks &gt; <span class="num">70</span> <span class="kw">and</span> marks &lt;= <span class="num">80</span>:</div>
+<div class="cl indent" id="c6">    <span class="meth">print</span>(<span class="str">"Grade: C"</span>)</div>
+<div class="cl" id="c7"><span class="kw">elif</span> marks &gt;= <span class="num">0</span> <span class="kw">and</span> marks &lt;= <span class="num">70</span>:</div>
+<div class="cl indent" id="c8">    <span class="meth">print</span>(<span class="str">"Grade: D"</span>)</div>
+<div class="cl" id="c9"><span class="kw">else</span>:</div>
+<div class="cl indent" id="c10">    <span class="meth">print</span>(<span class="str">"Invalid marks"</span>)</div>`;
+  }
+
+  function buildFizzCode() {
+    return `<div class="cl" id="c0">a = <span class="num">${num}</span></div>
+<div class="cl" id="c1"><span class="kw">if</span> (a % <span class="num">3</span> == <span class="num">0</span> <span class="kw">and</span> a % <span class="num">5</span> == <span class="num">0</span>):</div>
+<div class="cl indent" id="c2">    <span class="meth">print</span>(<span class="str">'Fizz-Buzz'</span>)</div>
+<div class="cl" id="c3"><span class="kw">elif</span> (a % <span class="num">3</span> == <span class="num">0</span>):</div>
+<div class="cl indent" id="c4">    <span class="meth">print</span>(<span class="str">'Fizz'</span>)</div>
+<div class="cl" id="c5"><span class="kw">elif</span> (a % <span class="num">5</span> == <span class="num">0</span>):</div>
+<div class="cl indent" id="c6">    <span class="meth">print</span>(<span class="str">'Buzz'</span>)</div>`;
+  }
+
+  function buildGradeBranches() {
+    return [
+      { cond: `marks > 90 and marks <= 100`, label: 'A', test: () => marks > 90 && marks <= 100 },
+      { cond: `marks > 80 and marks <= 90`, label: 'B', test: () => marks > 80 && marks <= 90 },
+      { cond: `marks > 70 and marks <= 80`, label: 'C', test: () => marks > 70 && marks <= 80 },
+      { cond: `marks >= 0 and marks <= 70`, label: 'D', test: () => marks >= 0 && marks <= 70 },
+      { cond: `else (invalid)`, label: 'invalid', test: () => true }
+    ];
+  }
+
+  function buildFizzBranches() {
+    return [
+      { cond: `a % 3 == 0 and a % 5 == 0`, label: 'Fizz-Buzz', test: () => num % 3 === 0 && num % 5 === 0 },
+      { cond: `a % 3 == 0`, label: 'Fizz', test: () => num % 3 === 0 },
+      { cond: `a % 5 == 0`, label: 'Buzz', test: () => num % 5 === 0 }
+    ];
+  }
+
+  function buildGradeSteps() {
+    const branches = buildGradeBranches();
+    const steps = [
+      { codeId: 'c0', codeCls: 'taken', trace: `Set <strong>marks = ${marks}</strong>.`, branchUpdates: [] }
+    ];
+
+    let conds = [
+      { id: 1, codeId: 'c1', bodyId: 'c2', cond: `marks > 90 and marks <= 100`, body: 'Grade: A',
+        evalText: `Check: <strong>${marks} &gt; 90 and ${marks} &lt;= 100</strong> → ${marks > 90 ? 'first is True' : 'first is False'}${marks > 90 && marks <= 100 ? ', second is True. Whole expression True!' : marks > 90 ? `, second is ${marks <= 100 ? 'True': 'False'}.` : ' (short-circuits, no need to check second).'} ` },
+      { id: 2, codeId: 'c3', bodyId: 'c4', cond: `marks > 80 and marks <= 90`, body: 'Grade: B',
+        evalText: `Check: <strong>${marks} &gt; 80 and ${marks} &lt;= 90</strong>.` },
+      { id: 3, codeId: 'c5', bodyId: 'c6', cond: `marks > 70 and marks <= 80`, body: 'Grade: C',
+        evalText: `Check: <strong>${marks} &gt; 70 and ${marks} &lt;= 80</strong>.` },
+      { id: 4, codeId: 'c7', bodyId: 'c8', cond: `marks >= 0 and marks <= 70`, body: 'Grade: D',
+        evalText: `Check: <strong>${marks} &gt;= 0 and ${marks} &lt;= 70</strong>.` }
+    ];
+
+    let taken = false;
+    for (let i = 0; i < conds.length; i++) {
+      const c = conds[i];
+      const result = branches[i].test();
+      if (result) {
+        steps.push({ codeId: c.codeId, codeCls: 'eval', trace: c.evalText + ' Branch is <strong>TRUE</strong>.', branchUpdates: [{ idx: i, cls: 'taken', status: 'TAKEN' }] });
+        steps.push({ codeId: c.bodyId, codeCls: 'taken', trace: `Execute <strong>print("${c.body}")</strong>.`, branchUpdates: [], output: c.body });
+        // Skip remaining
+        const skipCodeIds = [];
+        const skipBranches = [];
+        for (let j = i + 1; j < conds.length; j++) {
+          skipCodeIds.push(conds[j].codeId, conds[j].bodyId);
+          skipBranches.push({ idx: j, cls: 'skipped', status: 'SKIPPED' });
+        }
+        if (i < 4) {
+          skipCodeIds.push('c9', 'c10');
+          skipBranches.push({ idx: 4, cls: 'skipped', status: 'SKIPPED' });
+        }
+        if (skipCodeIds.length > 0) {
+          steps.push({ codeId: null, codeCls: null, trace: `One branch matched — Python <strong>skips</strong> all remaining elif/else branches.`, branchUpdates: skipBranches, skipCodeIds });
+        }
+        taken = true;
+        break;
+      } else {
+        steps.push({ codeId: c.codeId, codeCls: 'failed', trace: c.evalText + ' → <strong>FALSE</strong>. Try next branch.', branchUpdates: [{ idx: i, cls: 'failed', status: 'FALSE' }], skipCodeIds: [c.bodyId] });
+      }
+    }
+
+    if (!taken) {
+      steps.push({ codeId: 'c9', codeCls: 'eval', trace: `All elif failed → take <strong>else</strong> branch.`, branchUpdates: [{ idx: 4, cls: 'taken', status: 'TAKEN' }] });
+      steps.push({ codeId: 'c10', codeCls: 'taken', trace: `Execute <strong>print("Invalid marks")</strong>.`, branchUpdates: [], output: 'Invalid marks' });
+    }
+    return steps;
+  }
+
+  function buildFizzSteps() {
+    const branches = buildFizzBranches();
+    const steps = [
+      { codeId: 'c0', codeCls: 'taken', trace: `Set <strong>a = ${num}</strong>.`, branchUpdates: [] }
+    ];
+
+    const conds = [
+      { id: 1, codeId: 'c1', bodyId: 'c2', body: 'Fizz-Buzz',
+        evalText: `Check: <strong>${num} % 3 == 0 and ${num} % 5 == 0</strong> → ${num} % 3 = ${num % 3}, ${num} % 5 = ${num % 5}.` },
+      { id: 2, codeId: 'c3', bodyId: 'c4', body: 'Fizz',
+        evalText: `Check: <strong>${num} % 3 == 0</strong> → ${num} % 3 = ${num % 3}.` },
+      { id: 3, codeId: 'c5', bodyId: 'c6', body: 'Buzz',
+        evalText: `Check: <strong>${num} % 5 == 0</strong> → ${num} % 5 = ${num % 5}.` }
+    ];
+
+    let taken = false;
+    for (let i = 0; i < conds.length; i++) {
+      const c = conds[i];
+      const result = branches[i].test();
+      if (result) {
+        steps.push({ codeId: c.codeId, codeCls: 'eval', trace: c.evalText + ' → <strong>TRUE</strong>.', branchUpdates: [{ idx: i, cls: 'taken', status: 'TAKEN' }] });
+        steps.push({ codeId: c.bodyId, codeCls: 'taken', trace: `Execute <strong>print("${c.body}")</strong>.`, branchUpdates: [], output: c.body });
+        const skipCodeIds = [];
+        const skipBranches = [];
+        for (let j = i + 1; j < conds.length; j++) {
+          skipCodeIds.push(conds[j].codeId, conds[j].bodyId);
+          skipBranches.push({ idx: j, cls: 'skipped', status: 'SKIPPED' });
+        }
+        if (skipCodeIds.length > 0) {
+          steps.push({ codeId: null, codeCls: null, trace: `Matched → skip remaining branches.`, branchUpdates: skipBranches, skipCodeIds });
+        }
+        taken = true;
+        break;
+      } else {
+        steps.push({ codeId: c.codeId, codeCls: 'failed', trace: c.evalText + ' → <strong>FALSE</strong>.', branchUpdates: [{ idx: i, cls: 'failed', status: 'FALSE' }], skipCodeIds: [c.bodyId] });
+      }
+    }
+
+    if (!taken) {
+      steps.push({ codeId: null, codeCls: null, trace: `All conditions FALSE. Notice there's no <strong>else</strong> — so <strong>nothing</strong> is printed for ${num}.`, branchUpdates: [] });
+    }
+    return steps;
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    stepIdx = -1;
+
+    if (mode === 'grade') {
+      document.getElementById('codebox').innerHTML = buildGradeCode();
+      currSteps = buildGradeSteps();
+      renderBranches(buildGradeBranches());
+    } else {
+      document.getElementById('codebox').innerHTML = buildFizzCode();
+      currSteps = buildFizzSteps();
+      renderBranches(buildFizzBranches());
+    }
+
+    document.getElementById('outputBox').innerHTML = '<span class="output-empty">— step through to see output —</span>';
+    document.getElementById('stepTrace').innerHTML = '— press Step to begin —';
+    document.getElementById('counter').textContent = `${currSteps.length} steps total`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function renderBranches(branches) {
+    let html = '';
+    branches.forEach((b, i) => {
+      html += `<div class="branch-item" id="branch-${i}">
+        <span class="branch-cond">${b.cond}</span>
+        <span class="branch-status">PENDING</span>
+      </div>`;
+    });
+    document.getElementById('branchesList').innerHTML = html;
+  }
+
+  function step() {
+    if (stepIdx + 1 >= currSteps.length) return;
+    stepIdx++;
+    const s = currSteps[stepIdx];
+
+    if (s.codeId && s.codeCls) {
+      const evalEl = document.querySelector('.cl.eval');
+      if (evalEl) evalEl.classList.remove('eval');
+      const el = document.getElementById(s.codeId);
+      if (el) {
+        el.classList.remove('eval', 'taken', 'failed', 'skipped');
+        el.classList.add(s.codeCls);
+      }
+    }
+    if (s.skipCodeIds) {
+      s.skipCodeIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('taken') && !el.classList.contains('failed') && !el.classList.contains('eval')) {
+          el.classList.add('skipped');
+        }
+      });
+    }
+
+    if (s.branchUpdates) {
+      s.branchUpdates.forEach(u => {
+        const b = document.getElementById('branch-' + u.idx);
+        if (b) {
+          b.classList.remove('checked', 'taken', 'failed', 'skipped');
+          b.classList.add(u.cls);
+          b.querySelector('.branch-status').textContent = u.status;
+        }
+      });
+    }
+
+    if (s.output) {
+      document.getElementById('outputBox').innerHTML = s.output;
+    }
+
+    document.getElementById('stepTrace').innerHTML = s.trace;
+    document.getElementById('counter').textContent = `step ${stepIdx + 1} / ${currSteps.length}`;
+
+    if (stepIdx + 1 >= currSteps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (stepIdx + 1 >= currSteps.length) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1300);
+  }
+
+  reset();
+</script>
+</body>
+</html>
