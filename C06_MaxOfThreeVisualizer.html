@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Max of Three: Why >= Matters</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fef6e7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 800px;
+  }
+
+  /* Scenario picker */
+  .scenarios {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 6px;
+  }
+  .scenario {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 13px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .scenario:hover { background: #fff8d6; }
+  .scenario.active { background: #1a1a1a; color: #ffd95c; }
+  .scenario .tie {
+    margin-left: 4px;
+    font-size: 9px;
+    padding: 1px 4px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+  .scenario.active .tie { background: #ffd95c; color: #1a1a1a; }
+
+  /* Input display */
+  .inputs-row {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 22px 26px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .var-bubble {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .var-bubble .var-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: #888;
+  }
+  .var-bubble .var-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #fff8d6;
+    border: 3px solid #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 900;
+    color: #1a1a1a;
+    transition: all 0.4s;
+  }
+  .var-bubble.in-play .var-circle {
+    background: rgba(255, 217, 92, 0.3);
+    box-shadow: 0 0 0 4px rgba(255, 217, 92, 0.25);
+  }
+  .var-bubble.winner .var-circle {
+    background: #cfe8d3;
+    border-color: #2d6e3e;
+    color: #2d6e3e;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(45, 110, 62, 0.25);
+  }
+  .var-bubble.eliminated .var-circle {
+    background: #f0ebde;
+    color: #aaa;
+    border-style: dashed;
+  }
+  .var-bubble .status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    min-height: 14px;
+  }
+  .var-bubble.winner .status {
+    color: #2d6e3e;
+    font-weight: 700;
+  }
+  .var-bubble.eliminated .status {
+    color: #c41e3a;
+  }
+
+  /* Stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  .code-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    color: #e6edf3;
+    min-height: 320px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+  }
+  .code-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 8px 14px;
+    margin: 4px -14px;
+    border-left: 3px solid transparent;
+    transition: all 0.3s;
+    border-radius: 3px;
+  }
+  .code-line.active {
+    background: rgba(255, 217, 92, 0.1);
+    border-left-color: #ffd95c;
+  }
+  .code-line.true-cond {
+    background: rgba(86, 211, 100, 0.12);
+    border-left-color: #56d364;
+  }
+  .code-line.false-cond {
+    background: rgba(255, 107, 107, 0.08);
+    border-left-color: #555;
+    opacity: 0.7;
+  }
+  .code-line.dead {
+    opacity: 0.3;
+  }
+  .code-line .kw { color: #ff7b72; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .num { color: #ffa657; }
+  .code-line .str { color: #a5d6ff; }
+  .code-line .op { color: #ffd95c; }
+  .code-line .method { color: #ffd95c; }
+  .code-line .indent { display: inline-block; width: 1.6em; }
+  .code-line .check {
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .code-line .check.true {
+    background: rgba(86, 211, 100, 0.25);
+    color: #7ee08e;
+    font-weight: 700;
+  }
+  .code-line .check.false {
+    background: rgba(255, 107, 107, 0.18);
+    color: #ff9999;
+    font-weight: 700;
+  }
+
+  /* Right: comparison panel */
+  .compare-panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cmp-step {
+    padding: 12px 14px;
+    background: #f5efe2;
+    border-radius: 6px;
+    border-left: 4px solid #1a1a1a;
+    opacity: 0.4;
+    transition: all 0.3s;
+  }
+  .cmp-step.show { opacity: 1; }
+  .cmp-step.true { border-left-color: #56d364; background: #cfe8d3; }
+  .cmp-step.false { border-left-color: #ff6b6b; background: #ffd0d0; }
+  .cmp-step .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .cmp-step.true .label { color: #2d6e3e; }
+  .cmp-step.false .label { color: #c41e3a; }
+  .cmp-step .body {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+  .cmp-step .result {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+
+  .final-answer {
+    margin-top: auto;
+    padding: 16px 18px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    text-align: center;
+    transition: all 0.3s;
+    opacity: 0;
+  }
+  .final-answer.show { opacity: 1; }
+  .final-answer .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 6px;
+  }
+  .final-answer .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    color: #ffd95c;
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 1100px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 70px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration-tag.tie { background: #ff6b6b; color: #fff; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  /* Controls */
+  .actions {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Tie warning */
+  .tie-note {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #d62828;
+    padding: 16px 22px;
+  }
+  .tie-note h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #c41e3a;
+    margin-bottom: 8px;
+  }
+  .tie-note p {
+    font-family: 'Fraunces', serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .tie-note code {
+    background: #f5efe2;
+    border: 1px solid #ddd;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .tie-note strong { color: #c41e3a; }
+</style>
+</head>
+<body>
+  <h1>Max of Three <span class="accent">— why &gt;= matters</span></h1>
+  <p class="subtitle">Three numbers come in. Which is the max? The logic seems simple — until two or three are tied. Pick a scenario and watch the conditions decide.</p>
+
+  <div class="scenarios" id="scenariosRow">
+    <span class="picker-label">Scenario:</span>
+  </div>
+
+  <div class="inputs-row">
+    <div class="var-bubble" data-name="a">
+      <div class="var-label">a</div>
+      <div class="var-circle" id="circle-a">—</div>
+      <div class="status" id="status-a"></div>
+    </div>
+    <div class="var-bubble" data-name="b">
+      <div class="var-label">b</div>
+      <div class="var-circle" id="circle-b">—</div>
+      <div class="status" id="status-b"></div>
+    </div>
+    <div class="var-bubble" data-name="c">
+      <div class="var-label">c</div>
+      <div class="var-circle" id="circle-c">—</div>
+      <div class="status" id="status-c"></div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="code-panel">
+      <div class="panel-title">Max of 3 — the chain</div>
+      <div id="codeLines">
+        <div class="code-line" data-i="0"><span class="kw">if</span> (<span class="check" data-c="ab"><span class="var">a</span> <span class="op">&gt;=</span> <span class="var">b</span></span> <span class="op">&amp;&amp;</span> <span class="check" data-c="ac"><span class="var">a</span> <span class="op">&gt;=</span> <span class="var">c</span></span>) {</div>
+        <div class="code-line" data-i="1"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"a"</span>);</div>
+        <div class="code-line" data-i="2">}</div>
+        <div class="code-line" data-i="3"><span class="kw">else if</span> (<span class="check" data-c="bc"><span class="var">b</span> <span class="op">&gt;=</span> <span class="var">c</span></span>) {</div>
+        <div class="code-line" data-i="4"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"b"</span>);</div>
+        <div class="code-line" data-i="5">}</div>
+        <div class="code-line" data-i="6"><span class="kw">else</span> {</div>
+        <div class="code-line" data-i="7"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"c"</span>);</div>
+        <div class="code-line" data-i="8">}</div>
+      </div>
+    </div>
+
+    <div class="compare-panel">
+      <div class="panel-title">Comparisons (in order)</div>
+      <div class="cmp-step" data-i="0">
+        <div class="label">Check 1</div>
+        <div class="body" id="cmp1Body">a &gt;= b</div>
+        <div class="result" id="cmp1Result">—</div>
+      </div>
+      <div class="cmp-step" data-i="1">
+        <div class="label">Check 2 (AND with check 1)</div>
+        <div class="body" id="cmp2Body">a &gt;= c</div>
+        <div class="result" id="cmp2Result">—</div>
+      </div>
+      <div class="cmp-step" data-i="2">
+        <div class="label">Check 3 (if both above weren't enough)</div>
+        <div class="body" id="cmp3Body">b &gt;= c</div>
+        <div class="result" id="cmp3Result">—</div>
+      </div>
+      <div class="final-answer" id="finalAnswer">
+        <div class="label">Output</div>
+        <div class="value" id="finalValue">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Pick a scenario and click <strong>Next step</strong>. Watch which conditions Java tests, and how the chain stops at the first match.
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+  <div class="tie-note">
+    <h4>⚡ Why &gt;= and not &gt;?</h4>
+    <p>If we wrote <code>a &gt; b && a &gt; c</code> instead of <code>&gt;=</code>, then for input <code>a=3, b=3, c=3</code> the chain would print <strong>"c"</strong> — because every comparison would be false. <strong>Ties need <code>&gt;=</code></strong> so that "tied for first" still counts as winning. We pick one of the tied values arbitrarily, and that's fine — they're equal anyway.</p>
+  </div>
+
+<script>
+  const SCENARIOS = [
+    { label: 'a=7,  b=20, c=50', a: 7,  b: 20, c: 50, expected: 'c', hasTie: false },
+    { label: 'a=10, b=9,  c=10', a: 10, b: 9,  c: 10, expected: 'a', hasTie: true, tieNote: 'a==c' },
+    { label: 'a=3,  b=3,  c=3',  a: 3,  b: 3,  c: 3,  expected: 'a', hasTie: true, tieNote: 'all equal' },
+    { label: 'a=25, b=40, c=15', a: 25, b: 40, c: 15, expected: 'b', hasTie: false },
+    { label: 'a=8,  b=12, c=12', a: 8,  b: 12, c: 12, expected: 'b', hasTie: true, tieNote: 'b==c' },
+    { label: 'a=99, b=2,  c=2',  a: 99, b: 2,  c: 2,  expected: 'a', hasTie: false }
+  ];
+
+  let currentIdx = 0;
+  let currentStep = -1;
+  let trace = [];
+
+  function buildTrace(s) {
+    const steps = [];
+    const { a, b, c, expected, hasTie } = s;
+    const ab = a >= b;
+    const ac = a >= c;
+    const bc = b >= c;
+
+    steps.push({
+      narrate: `Inputs: <code>a=${a}</code>, <code>b=${b}</code>, <code>c=${c}</code>. ${hasTie ? `<strong>Tie scenario — ${s.tieNote}.</strong>` : 'Goal: find the maximum.'}`,
+      reset: true, tag: hasTie ? 'tie' : 'init', tagClass: hasTie ? 'tie' : ''
+    });
+
+    // Check the first if: a >= b && a >= c
+    steps.push({
+      narrate: `First branch: <code>a >= b && a >= c</code>. Evaluate left: <code>${a} >= ${b}</code> → ${ab ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+      line: 0, check: 'ab', checkState: ab ? 'true' : 'false',
+      cmp: { i: 0, body: `${a} >= ${b}`, result: ab ? 'true ✓' : 'false ✗', state: ab ? 'true' : 'false' },
+      inPlay: ['a', 'b']
+    });
+
+    if (ab) {
+      // Need to check second part
+      steps.push({
+        narrate: `Left was true. Check right: <code>${a} >= ${c}</code> → ${ac ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+        line: 0, check: 'ac', checkState: ac ? 'true' : 'false',
+        cmp: { i: 1, body: `${a} >= ${c}`, result: ac ? 'true ✓' : 'false ✗', state: ac ? 'true' : 'false' },
+        inPlay: ['a', 'c']
+      });
+
+      if (ac) {
+        // a is the max
+        steps.push({
+          narrate: `Both true. <code>a</code> beats (or ties) both <code>b</code> and <code>c</code>. <code>a</code> is the max.`,
+          line: 0, lineClass: 'true-cond', winner: 'a', eliminated: ['b', 'c']
+        });
+        steps.push({
+          narrate: `Print <strong>"a"</strong>. The else-if and else are skipped.`,
+          line: 1, lineClass: 'true-cond', dead: [3, 4, 5, 6, 7, 8], final: 'a'
+        });
+      } else {
+        // a >= b but not a >= c, so c is bigger than a
+        steps.push({
+          narrate: `<code>a >= c</code> is false → first branch is false overall. Move to else-if.`,
+          line: 0, lineClass: 'false-cond'
+        });
+        steps.push({
+          narrate: `Else-if: <code>b >= c</code> → <code>${b} >= ${c}</code> → ${bc ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+          line: 3, check: 'bc', checkState: bc ? 'true' : 'false',
+          cmp: { i: 2, body: `${b} >= ${c}`, result: bc ? 'true ✓' : 'false ✗', state: bc ? 'true' : 'false' },
+          inPlay: ['b', 'c']
+        });
+        if (bc) {
+          steps.push({
+            narrate: `<code>b</code> wins.`,
+            line: 4, lineClass: 'true-cond', winner: 'b', eliminated: ['a', 'c'], dead: [6, 7, 8], final: 'b'
+          });
+        } else {
+          steps.push({
+            narrate: `Both branches false. Fall to <code>else</code> — <code>c</code> is the max.`,
+            line: 7, lineClass: 'true-cond', winner: 'c', eliminated: ['a', 'b'], final: 'c'
+          });
+        }
+      }
+    } else {
+      // a < b, so first branch is false
+      // && short-circuits! second check skipped
+      steps.push({
+        narrate: `Left is false. With <code>&&</code>, no need to check <code>a >= c</code> — first branch is false. Move on.`,
+        line: 0, lineClass: 'false-cond'
+      });
+      steps.push({
+        narrate: `Else-if: <code>b >= c</code> → <code>${b} >= ${c}</code> → ${bc ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+        line: 3, check: 'bc', checkState: bc ? 'true' : 'false',
+        cmp: { i: 2, body: `${b} >= ${c}`, result: bc ? 'true ✓' : 'false ✗', state: bc ? 'true' : 'false' },
+        inPlay: ['b', 'c']
+      });
+      if (bc) {
+        steps.push({
+          narrate: `<code>b</code> is at least as big as <code>c</code>, and we already know <code>a < b</code>. So <code>b</code> is the max.`,
+          line: 4, lineClass: 'true-cond', winner: 'b', eliminated: ['a', 'c'], dead: [6, 7, 8], final: 'b'
+        });
+      } else {
+        steps.push({
+          narrate: `Both branches false. Fall to <code>else</code> — <code>c</code> is the max.`,
+          line: 7, lineClass: 'true-cond', winner: 'c', eliminated: ['a', 'b'], final: 'c'
+        });
+      }
+    }
+
+    if (hasTie) {
+      steps.push({
+        narrate: `<strong>Note the tie:</strong> ${s.tieNote}. Our code picked <code>"${expected}"</code>. That's correct — when values are equal, picking either is a valid max. <strong>This is why we use <code>>=</code> instead of <code>></code>.</strong>`,
+        tag: 'tie ok', tagClass: 'tie', final: expected
+      });
+    }
+
+    return steps;
+  }
+
+  function renderScenarios() {
+    const wrap = document.getElementById('scenariosRow');
+    let html = '<span class="picker-label">Scenario:</span>';
+    SCENARIOS.forEach((s, i) => {
+      html += `<span class="scenario ${i === currentIdx ? 'active' : ''}" data-i="${i}">${s.label}${s.hasTie ? '<span class="tie">TIE</span>' : ''}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.scenario').forEach(el => {
+      el.addEventListener('click', () => {
+        currentIdx = parseInt(el.dataset.i, 10);
+        loadScenario();
+      });
+    });
+  }
+
+  function clearAll() {
+    document.querySelectorAll('.code-line').forEach(el => {
+      el.classList.remove('active', 'true-cond', 'false-cond', 'dead');
+    });
+    document.querySelectorAll('.check').forEach(el => {
+      el.classList.remove('true', 'false');
+    });
+    document.querySelectorAll('.var-bubble').forEach(el => {
+      el.classList.remove('in-play', 'winner', 'eliminated');
+    });
+    document.querySelectorAll('.cmp-step').forEach(el => {
+      el.classList.remove('show', 'true', 'false');
+    });
+    ['status-a', 'status-b', 'status-c'].forEach(id => {
+      document.getElementById(id).textContent = '';
+    });
+    document.getElementById('finalAnswer').classList.remove('show');
+    document.getElementById('cmp1Result').textContent = '—';
+    document.getElementById('cmp2Result').textContent = '—';
+    document.getElementById('cmp3Result').textContent = '—';
+  }
+
+  function loadScenario() {
+    currentStep = -1;
+    const s = SCENARIOS[currentIdx];
+    trace = buildTrace(s);
+
+    document.getElementById('circle-a').textContent = s.a;
+    document.getElementById('circle-b').textContent = s.b;
+    document.getElementById('circle-c').textContent = s.c;
+
+    renderScenarios();
+    clearAll();
+
+    // Pre-fill the comparison bodies based on this scenario's values
+    document.getElementById('cmp1Body').textContent = `${s.a} >= ${s.b}`;
+    document.getElementById('cmp2Body').textContent = `${s.a} >= ${s.c}`;
+    document.getElementById('cmp3Body').textContent = `${s.b} >= ${s.c}`;
+
+    document.getElementById('narration').innerHTML =
+      '<span class="narration-tag">Ready</span>Click <strong>Next step</strong>.';
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('stepInfo').textContent = `step 0 / ${trace.length}`;
+  }
+
+  function nextStep() {
+    currentStep++;
+    if (currentStep >= trace.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      return;
+    }
+    const step = trace[currentStep];
+
+    if (step.reset) clearAll();
+
+    // Clear only active code-line highlight (preserve true/false/dead)
+    document.querySelectorAll('.code-line.active').forEach(el => el.classList.remove('active'));
+    if (step.line !== undefined) {
+      const el = document.querySelector(`.code-line[data-i="${step.line}"]`);
+      if (el) el.classList.add(step.lineClass || 'active');
+    }
+
+    if (step.check) {
+      const el = document.querySelector(`[data-c="${step.check}"]`);
+      if (el) {
+        el.classList.remove('true', 'false');
+        el.classList.add(step.checkState);
+      }
+    }
+
+    if (step.dead) {
+      step.dead.forEach(i => {
+        const el = document.querySelector(`.code-line[data-i="${i}"]`);
+        if (el) el.classList.add('dead');
+      });
+    }
+
+    if (step.inPlay) {
+      document.querySelectorAll('.var-bubble').forEach(el => el.classList.remove('in-play'));
+      step.inPlay.forEach(name => {
+        const el = document.querySelector(`.var-bubble[data-name="${name}"]`);
+        if (el && !el.classList.contains('winner') && !el.classList.contains('eliminated')) {
+          el.classList.add('in-play');
+        }
+      });
+    }
+
+    if (step.winner) {
+      document.querySelectorAll('.var-bubble').forEach(el => el.classList.remove('in-play'));
+      const el = document.querySelector(`.var-bubble[data-name="${step.winner}"]`);
+      if (el) el.classList.add('winner');
+      document.getElementById(`status-${step.winner}`).textContent = 'max ✓';
+    }
+    if (step.eliminated) {
+      step.eliminated.forEach(name => {
+        const el = document.querySelector(`.var-bubble[data-name="${name}"]`);
+        if (el) {
+          el.classList.add('eliminated');
+          el.classList.remove('in-play');
+        }
+      });
+    }
+
+    if (step.cmp) {
+      const el = document.querySelector(`.cmp-step[data-i="${step.cmp.i}"]`);
+      if (el) {
+        el.classList.add('show');
+        el.classList.remove('true', 'false');
+        el.classList.add(step.cmp.state);
+        document.getElementById(`cmp${step.cmp.i + 1}Result`).textContent = step.cmp.result;
+      }
+    }
+
+    if (step.final) {
+      const fa = document.getElementById('finalAnswer');
+      fa.classList.add('show');
+      const s = SCENARIOS[currentIdx];
+      document.getElementById('finalValue').textContent = `"${step.final}"   →   value: ${s[step.final]}`;
+    }
+
+    document.getElementById('narration').innerHTML =
+      `<span class="narration-tag ${step.tagClass || ''}">${step.tag || 'step'}</span>${step.narrate}`;
+    document.getElementById('stepInfo').textContent = `step ${currentStep + 1} / ${trace.length}`;
+
+    if (currentStep === trace.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+    }
+  }
+
+  renderScenarios();
+  loadScenario();
+
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+</script>
+</body>
+</html>

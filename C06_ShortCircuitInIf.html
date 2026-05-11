@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Short-Circuit in If Conditions</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #f3eee2;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 800px;
+  }
+
+  .quiz-picker {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 6px;
+  }
+  .quiz-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 13px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .quiz-btn:hover { background: #fff8d6; }
+  .quiz-btn.active { background: #1a1a1a; color: #ffd95c; }
+
+  /* Stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  /* Code panel */
+  .code-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    color: #e6edf3;
+    min-height: 360px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+  }
+  .code-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 8px 14px;
+    margin: 4px -14px;
+    border-left: 3px solid transparent;
+    transition: all 0.3s;
+    border-radius: 3px;
+  }
+  .code-line.active {
+    background: rgba(255, 217, 92, 0.1);
+    border-left-color: #ffd95c;
+  }
+  .code-line.done { opacity: 0.45; }
+  .code-line .kw { color: #ff7b72; }
+  .code-line .type { color: #56d364; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .num { color: #ffa657; }
+  .code-line .str { color: #a5d6ff; }
+  .code-line .op { color: #ffd95c; font-weight: 700; }
+  .code-line .method { color: #ffd95c; }
+  .code-line .indent { display: inline-block; width: 1.6em; }
+
+  /* Sub-evaluation highlighting */
+  .code-line .subexpr {
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: all 0.3s;
+  }
+  .code-line .subexpr.evaluating {
+    background: rgba(255, 217, 92, 0.25);
+    box-shadow: 0 0 0 1px #ffd95c;
+  }
+  .code-line .subexpr.true-val {
+    background: rgba(86, 211, 100, 0.2);
+    color: #7ee08e;
+    font-weight: 700;
+  }
+  .code-line .subexpr.false-val {
+    background: rgba(255, 107, 107, 0.18);
+    color: #ff9999;
+    font-weight: 700;
+  }
+  .code-line .subexpr.skipped {
+    opacity: 0.35;
+    text-decoration: line-through;
+    text-decoration-color: #888;
+  }
+
+  /* Right panel: state + output */
+  .state-panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .vars-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .var-box {
+    background: #f5efe2;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .var-box.pulse {
+    animation: pulse 0.5s;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); box-shadow: 0 0 0 4px rgba(255, 217, 92, 0.3); }
+  }
+  .var-box.skipped {
+    background: #ececec;
+    border-style: dashed;
+    opacity: 0.7;
+  }
+  .var-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 16px;
+    color: #d2a8ff;
+    background: #1a1a1a;
+    border-radius: 4px;
+    padding: 3px 8px;
+    display: inline-block;
+    margin-bottom: 6px;
+  }
+  .var-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 700;
+    color: #1f5a8a;
+    line-height: 1;
+  }
+  .var-history {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    margin-top: 4px;
+  }
+  .var-box.skipped .var-history {
+    color: #c41e3a;
+    font-style: italic;
+  }
+
+  /* Condition evaluation tracker */
+  .cond-tracker {
+    background: #161b22;
+    border-radius: 6px;
+    padding: 14px 16px;
+    color: #e6edf3;
+  }
+  .cond-tracker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 10px;
+  }
+  .cond-step {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    padding: 6px 10px;
+    margin: 4px 0;
+    border-radius: 4px;
+    border-left: 3px solid #444;
+    background: #1c2128;
+    color: #888;
+    opacity: 0.5;
+    transition: all 0.3s;
+  }
+  .cond-step.show {
+    opacity: 1;
+  }
+  .cond-step.active {
+    border-left-color: #ffd95c;
+    color: #ffd95c;
+    background: rgba(255, 217, 92, 0.08);
+  }
+  .cond-step.true {
+    border-left-color: #56d364;
+    color: #7ee08e;
+  }
+  .cond-step.false {
+    border-left-color: #ff6b6b;
+    color: #ff9999;
+  }
+  .cond-step.skipped {
+    border-left-color: #555;
+    color: #666;
+    text-decoration: line-through;
+  }
+  .cond-step strong {
+    font-weight: 700;
+  }
+
+  /* Output */
+  .output-section {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    color: #e6edf3;
+  }
+  .output-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  .output-content {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    color: #e6edf3;
+    min-height: 30px;
+    line-height: 1.5;
+  }
+  .output-content .empty {
+    color: #555;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+  }
+  .output-line {
+    padding: 2px 0;
+  }
+  .output-line.fresh {
+    color: #ffd95c;
+    font-weight: 700;
+    animation: highlight 0.6s;
+  }
+  @keyframes highlight {
+    0% { background: rgba(255, 217, 92, 0.25); }
+    100% { background: transparent; }
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 1100px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 80px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration-tag.skip { background: #ff6b6b; color: #fff; }
+  .narration-tag.true { background: #56d364; color: #1a1a1a; }
+  .narration-tag.false { background: #ff9999; color: #1a1a1a; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  /* Controls */
+  .controls {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Key insight card */
+  .insight {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #d62828;
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 700px) { .insight { grid-template-columns: 1fr; } }
+  .insight-block {
+    padding: 14px 16px;
+    background: #f5efe2;
+    border-radius: 6px;
+    border-left: 4px solid #1a1a1a;
+  }
+  .insight-block.and { border-left-color: #1f5a8a; }
+  .insight-block.or { border-left-color: #8a6a1f; }
+  .insight-block h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .insight-block.and h4 { color: #1f5a8a; }
+  .insight-block.or h4 { color: #8a6a1f; }
+  .insight-block .body {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .insight-block code {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+  }
+</style>
+</head>
+<body>
+  <h1>Short-Circuit <span class="accent">in if conditions</span></h1>
+  <p class="subtitle">When <code style="font-family:monospace">++a</code> sits inside an <code style="font-family:monospace">if</code>, two things compete: the side-effect (the bump) and the short-circuit (skipping unevaluated parts). The order matters.</p>
+
+  <div class="quiz-picker" id="quizPicker">
+    <span class="picker-label">Quiz:</span>
+    <!-- injected -->
+  </div>
+
+  <div class="stage">
+    <div class="code-panel">
+      <div class="panel-title">Source code</div>
+      <div id="codeLines">
+        <!-- injected -->
+      </div>
+    </div>
+
+    <div class="state-panel">
+      <div class="panel-title">State &amp; condition trace</div>
+      <div class="vars-grid" id="varsGrid"></div>
+
+      <div class="cond-tracker">
+        <div class="cond-tracker-label">Condition evaluation (left → right)</div>
+        <div id="condSteps"></div>
+      </div>
+
+      <div class="output-section">
+        <div class="output-label">stdout</div>
+        <div class="output-content" id="outputContent">
+          <span class="empty">No output yet…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Pick a quiz above and click <strong>Next step</strong>. We'll evaluate the if-condition piece by piece, watching where Java short-circuits and what gets skipped.
+  </div>
+
+  <div class="controls">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+  <div class="insight">
+    <div class="insight-block and">
+      <h4>&amp;&amp; short-circuits when LEFT is false</h4>
+      <div class="body">
+        In <code>X && Y</code>, if <code>X</code> is false, the answer must be false. Java doesn't bother evaluating <code>Y</code>. If <code>Y</code> contains <code>++b</code>, that bump never happens.
+      </div>
+    </div>
+    <div class="insight-block or">
+      <h4>|| short-circuits when LEFT is true</h4>
+      <div class="body">
+        In <code>X || Y</code>, if <code>X</code> is true, the answer must be true. Java skips <code>Y</code>. Any side-effect in <code>Y</code> — including <code>++b</code> — is silently skipped.
+      </div>
+    </div>
+  </div>
+
+<script>
+  // For each quiz, we encode initial variable values and the sequence of evaluation steps.
+  // Each step modifies state and updates narration.
+
+  const QUIZZES = [
+    {
+      id: 'q1',
+      label: 'Quiz 1: a>=10 && b>=10 (no ++)',
+      initialVars: [
+        { name: 'a', value: 10 },
+        { name: 'b', value: 10 }
+      ],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>, <span class="var">b</span> = <span class="num">10</span>;',
+        '<span class="kw">if</span> (<span class="subexpr" id="x-q1-l"><span class="var">a</span> &gt;= <span class="num">10</span></span> <span class="op">&amp;&amp;</span> <span class="subexpr" id="x-q1-r"><span class="var">b</span> &gt;= <span class="num">10</span></span>) {',
+        '<span class="indent"></span><span class="kw">System</span>.out.<span class="method">print</span>(<span class="var">a</span> + <span class="var">b</span>);',
+        '}'
+      ],
+      condSteps: [
+        { label: 'a >= 10  →  10 >= 10', state: 'true' },
+        { label: 'b >= 10  →  10 >= 10', state: 'true' },
+        { label: 'Overall: true', state: 'final-true' }
+      ],
+      steps: [
+        { codeLine: 0, narrate: 'Initialise <code>a = 10</code>, <code>b = 10</code>.', tag: 'init' },
+        { codeLine: 1, highlight: 'x-q1-l', condShow: 0, narrate: 'Evaluate the LEFT side: <code>a >= 10</code> → <code>10 >= 10</code> → <strong>true</strong>.', tag: 'eval' },
+        { codeLine: 1, highlight: 'x-q1-l', highlightState: 'true-val', condState: { i: 0, state: 'true' }, narrate: 'Left side is <strong>true</strong>. With <code>&&</code>, we still need to check the right side (no short-circuit on true-left for AND).', tag: 'true', tagClass: 'true' },
+        { codeLine: 1, highlight: 'x-q1-r', condShow: 1, narrate: 'Evaluate the RIGHT side: <code>b >= 10</code> → <code>10 >= 10</code> → <strong>true</strong>.', tag: 'eval' },
+        { codeLine: 1, highlight: 'x-q1-r', highlightState: 'true-val', condState: { i: 1, state: 'true' }, narrate: 'Right is true. Overall condition: <code>true && true</code> = <strong>true</strong>.', tag: 'true', tagClass: 'true', condShow: 2, condFinalState: { i: 2, state: 'true' } },
+        { codeLine: 2, print: '20', narrate: 'Body runs. Print <code>a + b</code> = <strong>20</strong>.', tag: 'print' }
+      ]
+    },
+    {
+      id: 'q2',
+      label: 'Quiz 2: ++a >= 12 && ++b >= 12',
+      initialVars: [
+        { name: 'a', value: 10 },
+        { name: 'b', value: 10 }
+      ],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">10</span>;',
+        '<span class="kw">if</span> (<span class="subexpr" id="x-q2-l"><span class="op">++</span><span class="var">a</span> &gt;= <span class="num">12</span></span> <span class="op">&amp;&amp;</span> <span class="subexpr" id="x-q2-r"><span class="op">++</span><span class="var">b</span> &gt;= <span class="num">12</span></span>) {',
+        '<span class="indent"></span><span class="kw">System</span>.out.<span class="method">println</span>(<span class="str">"Hello"</span>);',
+        '}',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">a</span> + <span class="var">b</span>);'
+      ],
+      condSteps: [
+        { label: 'Bump: ++a → a = 11', state: '' },
+        { label: 'Check: 11 >= 12 → false', state: 'false' },
+        { label: 'AND with false-left → SKIP right (++b not done)', state: 'skipped' },
+        { label: 'Overall: false → if body skipped', state: 'final-false' }
+      ],
+      steps: [
+        { codeLine: 0, narrate: 'Initialise <code>a = 10</code>.', tag: 'init' },
+        { codeLine: 1, narrate: 'Initialise <code>b = 10</code>.', tag: 'init' },
+        { codeLine: 2, highlight: 'x-q2-l', condShow: 0, narrate: 'Evaluate LEFT: <code>++a</code>. Pre-increment bumps <code>a</code> from 10 to <strong>11</strong> first.', tag: 'bump', update: { name: 'a', value: 11 } },
+        { codeLine: 2, highlight: 'x-q2-l', condShow: 1, narrate: 'Now check: <code>11 >= 12</code> → <strong>false</strong>.', tag: 'false', tagClass: 'false', condState: { i: 0, state: '' } },
+        { codeLine: 2, highlight: 'x-q2-l', highlightState: 'false-val', condState: { i: 1, state: 'false' }, narrate: 'Left side is <strong>false</strong>. With <code>&&</code>, false on the left means the whole thing is false. <strong>Short-circuit kicks in.</strong>', tag: 'short', tagClass: 'skip' },
+        { codeLine: 2, skipHighlight: 'x-q2-r', condShow: 2, condState: { i: 2, state: 'skipped' }, narrate: 'Right side <code>++b >= 12</code> is <strong>NEVER evaluated</strong>. The <code>++b</code> bump <strong>does not happen</strong>. <code>b</code> stays at 10.', tag: 'skip', tagClass: 'skip', skipVar: 'b' },
+        { codeLine: 2, condShow: 3, condState: { i: 3, state: 'final-false' }, narrate: 'Overall condition is <strong>false</strong>. If-body is skipped entirely. "Hello" is NOT printed.', tag: 'false', tagClass: 'false' },
+        { codeLine: 5, print: '21', narrate: 'Continue after the if-block. Print <code>a + b</code> = <code>11 + 10</code> = <strong>21</strong>. Notice: only <code>a</code> was bumped.', tag: 'print' }
+      ]
+    },
+    {
+      id: 'q3',
+      label: 'Quiz 3: ++a >= 11 || ++b >= 12',
+      initialVars: [
+        { name: 'a', value: 10 },
+        { name: 'b', value: 10 }
+      ],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">10</span>;',
+        '<span class="kw">if</span> (<span class="subexpr" id="x-q3-l"><span class="op">++</span><span class="var">a</span> &gt;= <span class="num">11</span></span> <span class="op">||</span> <span class="subexpr" id="x-q3-r"><span class="op">++</span><span class="var">b</span> &gt;= <span class="num">12</span></span>) {',
+        '<span class="indent"></span><span class="kw">System</span>.out.<span class="method">println</span>(<span class="str">"Hello"</span>);',
+        '}',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">a</span> + <span class="var">b</span>);'
+      ],
+      condSteps: [
+        { label: 'Bump: ++a → a = 11', state: '' },
+        { label: 'Check: 11 >= 11 → true', state: 'true' },
+        { label: 'OR with true-left → SKIP right (++b not done)', state: 'skipped' },
+        { label: 'Overall: true → if body runs', state: 'final-true' }
+      ],
+      steps: [
+        { codeLine: 0, narrate: 'Initialise <code>a = 10</code>.', tag: 'init' },
+        { codeLine: 1, narrate: 'Initialise <code>b = 10</code>.', tag: 'init' },
+        { codeLine: 2, highlight: 'x-q3-l', condShow: 0, narrate: 'Evaluate LEFT: <code>++a</code>. <code>a</code> bumps from 10 to <strong>11</strong>.', tag: 'bump', update: { name: 'a', value: 11 } },
+        { codeLine: 2, highlight: 'x-q3-l', condShow: 1, narrate: 'Check: <code>11 >= 11</code> → <strong>true</strong>.', tag: 'true', tagClass: 'true', condState: { i: 0, state: '' } },
+        { codeLine: 2, highlight: 'x-q3-l', highlightState: 'true-val', condState: { i: 1, state: 'true' }, narrate: 'Left is <strong>true</strong>. With <code>||</code>, true-left means the whole thing is true. <strong>Short-circuit fires.</strong>', tag: 'short', tagClass: 'skip' },
+        { codeLine: 2, skipHighlight: 'x-q3-r', condShow: 2, condState: { i: 2, state: 'skipped' }, narrate: 'Right side <code>++b >= 12</code> is <strong>skipped</strong>. <code>++b</code> never runs. <code>b</code> stays at 10.', tag: 'skip', tagClass: 'skip', skipVar: 'b' },
+        { codeLine: 2, condShow: 3, condState: { i: 3, state: 'final-true' }, narrate: 'Overall condition is <strong>true</strong>. If-body runs.', tag: 'true', tagClass: 'true' },
+        { codeLine: 3, print: 'Hello', narrate: 'Print <code>"Hello"</code>.', tag: 'print' },
+        { codeLine: 5, print: '21', narrate: 'Continue. Print <code>a + b</code> = <code>11 + 10</code> = <strong>21</strong>. Same total as Quiz 2, but this time "Hello" also got printed.', tag: 'print' }
+      ]
+    },
+    {
+      id: 'q4',
+      label: 'Quiz 4: ++a >= 12 || ++b >= 12',
+      initialVars: [
+        { name: 'a', value: 10 },
+        { name: 'b', value: 10 }
+      ],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">10</span>;',
+        '<span class="kw">if</span> (<span class="subexpr" id="x-q4-l"><span class="op">++</span><span class="var">a</span> &gt;= <span class="num">12</span></span> <span class="op">||</span> <span class="subexpr" id="x-q4-r"><span class="op">++</span><span class="var">b</span> &gt;= <span class="num">12</span></span>) {',
+        '<span class="indent"></span><span class="kw">System</span>.out.<span class="method">println</span>(<span class="str">"Hello"</span>);',
+        '}',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">a</span> + <span class="var">b</span>);'
+      ],
+      condSteps: [
+        { label: 'Bump: ++a → a = 11', state: '' },
+        { label: 'Check: 11 >= 12 → false', state: 'false' },
+        { label: 'OR with false-left → MUST evaluate right', state: '' },
+        { label: 'Bump: ++b → b = 11', state: '' },
+        { label: 'Check: 11 >= 12 → false', state: 'false' },
+        { label: 'Overall: false → if body skipped', state: 'final-false' }
+      ],
+      steps: [
+        { codeLine: 0, narrate: 'Initialise <code>a = 10</code>.', tag: 'init' },
+        { codeLine: 1, narrate: 'Initialise <code>b = 10</code>.', tag: 'init' },
+        { codeLine: 2, highlight: 'x-q4-l', condShow: 0, narrate: 'Evaluate LEFT: <code>++a</code>. <code>a</code> bumps from 10 to <strong>11</strong>.', tag: 'bump', update: { name: 'a', value: 11 } },
+        { codeLine: 2, highlight: 'x-q4-l', condShow: 1, narrate: 'Check: <code>11 >= 12</code> → <strong>false</strong>.', tag: 'false', tagClass: 'false', condState: { i: 0, state: '' } },
+        { codeLine: 2, highlight: 'x-q4-l', highlightState: 'false-val', condState: { i: 1, state: 'false' }, narrate: 'Left is <strong>false</strong>. With <code>||</code>, false-left means we MUST check the right side. <strong>No short-circuit.</strong>', tag: 'eval' },
+        { codeLine: 2, highlight: 'x-q4-r', condShow: 2, narrate: 'Now evaluate RIGHT: <code>++b</code>. <code>b</code> bumps from 10 to <strong>11</strong>.', tag: 'bump', update: { name: 'b', value: 11 } },
+        { codeLine: 2, highlight: 'x-q4-r', condShow: 3, narrate: 'Check: <code>11 >= 12</code> → <strong>false</strong>.', tag: 'false', tagClass: 'false', condState: { i: 3, state: '' } },
+        { codeLine: 2, highlight: 'x-q4-r', highlightState: 'false-val', condState: { i: 4, state: 'false' }, condShow: 4, narrate: 'Right is also false.', tag: 'false', tagClass: 'false' },
+        { codeLine: 2, condShow: 5, condState: { i: 5, state: 'final-false' }, narrate: '<code>false || false</code> = <strong>false</strong>. If-body skipped.', tag: 'false', tagClass: 'false' },
+        { codeLine: 5, print: '22', narrate: 'Print <code>a + b</code> = <code>11 + 11</code> = <strong>22</strong>. BOTH were bumped because no short-circuit happened.', tag: 'print' }
+      ]
+    }
+  ];
+
+  let currentIdx = 0;
+  let currentStep = -1;
+  let vars = [];
+  let output = [];
+  let skippedVars = new Set();
+
+  function renderQuizPicker() {
+    const wrap = document.getElementById('quizPicker');
+    let html = '<span class="picker-label">Quiz:</span>';
+    QUIZZES.forEach((q, i) => {
+      html += `<span class="quiz-btn ${i === currentIdx ? 'active' : ''}" data-i="${i}">${q.label}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.quiz-btn').forEach(el => {
+      el.addEventListener('click', () => {
+        currentIdx = parseInt(el.dataset.i, 10);
+        loadQuiz();
+      });
+    });
+  }
+
+  function loadQuiz() {
+    currentStep = -1;
+    const q = QUIZZES[currentIdx];
+
+    vars = q.initialVars.map(v => ({ name: v.name, value: v.value, history: [v.value], skipped: false }));
+    output = [];
+    skippedVars = new Set();
+
+    renderCode();
+    renderVars();
+    renderCondSteps();
+    renderOutput();
+
+    document.getElementById('narration').innerHTML =
+      '<span class="narration-tag">Ready</span>Click <strong>Next step</strong> to walk through.';
+
+    document.querySelectorAll('.quiz-btn').forEach((el, i) =>
+      el.classList.toggle('active', i === currentIdx));
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('stepInfo').textContent = `step 0 / ${q.steps.length}`;
+  }
+
+  function renderCode() {
+    const q = QUIZZES[currentIdx];
+    const wrap = document.getElementById('codeLines');
+    wrap.innerHTML = q.code.map((c, i) =>
+      `<div class="code-line" data-i="${i}">${c}</div>`
+    ).join('');
+  }
+
+  function renderVars() {
+    const wrap = document.getElementById('varsGrid');
+    wrap.innerHTML = vars.map(v => {
+      const skippedCls = skippedVars.has(v.name) ? 'skipped' : '';
+      let hist;
+      if (skippedVars.has(v.name)) {
+        hist = 'bump skipped';
+      } else if (v.history.length > 1) {
+        hist = v.history.join(' → ');
+      } else {
+        hist = `initial: ${v.history[0]}`;
+      }
+      return `
+        <div class="var-box ${skippedCls}" data-var="${v.name}">
+          <div class="var-name">${v.name}</div>
+          <div class="var-value">${v.value}</div>
+          <div class="var-history">${hist}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderCondSteps() {
+    const q = QUIZZES[currentIdx];
+    const wrap = document.getElementById('condSteps');
+    wrap.innerHTML = q.condSteps.map((cs, i) => {
+      return `<div class="cond-step" data-i="${i}">${cs.label}</div>`;
+    }).join('');
+  }
+
+  function renderOutput() {
+    const wrap = document.getElementById('outputContent');
+    if (output.length === 0) {
+      wrap.innerHTML = '<span class="empty">No output yet…</span>';
+      return;
+    }
+    wrap.innerHTML = output.map((line, i) => {
+      const isFresh = i === output.length - 1 && line._fresh;
+      return `<div class="output-line ${isFresh ? 'fresh' : ''}">${line.text}</div>`;
+    }).join('');
+    output.forEach(o => delete o._fresh);
+  }
+
+  function highlightCode(idx) {
+    document.querySelectorAll('.code-line').forEach((el, i) => {
+      el.classList.remove('active', 'done');
+      if (i < idx) el.classList.add('done');
+      if (i === idx) el.classList.add('active');
+    });
+  }
+
+  function clearSubexprHighlights() {
+    document.querySelectorAll('.subexpr').forEach(el => {
+      el.classList.remove('evaluating', 'true-val', 'false-val', 'skipped');
+    });
+  }
+
+  function pulseVar(name) {
+    setTimeout(() => {
+      const el = document.querySelector(`.var-box[data-var="${name}"]`);
+      if (el) {
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 500);
+      }
+    }, 20);
+  }
+
+  function nextStep() {
+    const q = QUIZZES[currentIdx];
+    currentStep++;
+
+    if (currentStep >= q.steps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      return;
+    }
+    const step = q.steps[currentStep];
+
+    if (step.codeLine !== undefined) highlightCode(step.codeLine);
+
+    // Sub-expression highlight
+    clearSubexprHighlights();
+    if (step.highlight) {
+      const el = document.getElementById(step.highlight);
+      if (el) {
+        if (step.highlightState) {
+          el.classList.add(step.highlightState);
+        } else {
+          el.classList.add('evaluating');
+        }
+      }
+    }
+    if (step.skipHighlight) {
+      const el = document.getElementById(step.skipHighlight);
+      if (el) el.classList.add('skipped');
+    }
+
+    // Variable updates
+    if (step.update) {
+      const v = vars.find(x => x.name === step.update.name);
+      if (v) {
+        v.value = step.update.value;
+        v.history.push(step.update.value);
+        renderVars();
+        pulseVar(step.update.name);
+      }
+    }
+    if (step.skipVar) {
+      skippedVars.add(step.skipVar);
+      renderVars();
+    }
+
+    // Condition trace updates
+    if (step.condShow !== undefined) {
+      document.querySelectorAll('.cond-step').forEach((el, i) => {
+        if (i <= step.condShow) el.classList.add('show');
+      });
+    }
+    if (step.condState) {
+      const csEl = document.querySelectorAll('.cond-step')[step.condState.i];
+      if (csEl) {
+        csEl.classList.remove('active', 'true', 'false', 'skipped');
+        if (step.condState.state === 'final-true') {
+          csEl.classList.add('true');
+          csEl.style.borderLeftColor = '#56d364';
+          csEl.style.fontWeight = '700';
+        } else if (step.condState.state === 'final-false') {
+          csEl.classList.add('false');
+          csEl.style.fontWeight = '700';
+        } else if (step.condState.state) {
+          csEl.classList.add(step.condState.state);
+        } else {
+          csEl.classList.add('active');
+        }
+      }
+    }
+
+    // Print
+    if (step.print !== undefined) {
+      output.push({ text: step.print, _fresh: true });
+      renderOutput();
+    }
+
+    // Narration
+    document.getElementById('narration').innerHTML =
+      `<span class="narration-tag ${step.tagClass || ''}">${step.tag || 'step'}</span>${step.narrate}`;
+    document.getElementById('stepInfo').textContent = `step ${currentStep + 1} / ${q.steps.length}`;
+
+    if (currentStep === q.steps.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+    }
+  }
+
+  renderQuizPicker();
+  loadQuiz();
+
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('resetBtn').addEventListener('click', loadQuiz);
+</script>
+</body>
+</html>

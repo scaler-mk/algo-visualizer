@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Independent if vs if/else-if Chain</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #eaf4f4;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 760px;
+  }
+
+  .controls-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 16px 20px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .n-presets {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .n-preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 12px;
+    background: #fff8d6;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .n-preset:hover { background: #ffe9b3; }
+  .n-preset.active { background: #1a1a1a; color: #ffd95c; }
+
+  /* Comparison stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  .approach {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 22px 24px;
+  }
+  .approach.left { box-shadow: 6px 6px 0 #c41e3a; border-color: #c41e3a; }
+  .approach.right { box-shadow: 6px 6px 0 #2d6e3e; border-color: #2d6e3e; }
+
+  .approach-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .approach.left .approach-title { color: #c41e3a; }
+  .approach.right .approach-title { color: #2d6e3e; }
+  .approach-subtitle {
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    font-style: italic;
+    color: #555;
+    margin-bottom: 14px;
+  }
+
+  /* Code block */
+  .code-block {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    margin-bottom: 14px;
+  }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .comment { color: #6e7681; font-style: italic; }
+  .code-block .check {
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: all 0.4s;
+  }
+  .code-block .check.evaluating {
+    background: rgba(255, 217, 92, 0.25);
+    box-shadow: 0 0 0 1px #ffd95c;
+  }
+  .code-block .check.matched {
+    background: rgba(86, 211, 100, 0.2);
+    color: #7ee08e;
+    font-weight: 700;
+  }
+  .code-block .check.skipped {
+    color: #555;
+    text-decoration: line-through;
+    text-decoration-color: #555;
+  }
+  .code-block .check.never-runs {
+    background: rgba(255, 107, 107, 0.1);
+    color: #777;
+  }
+  .code-block .body-line {
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: all 0.3s;
+  }
+  .code-block .body-line.runs {
+    background: rgba(86, 211, 100, 0.18);
+  }
+  .code-block .body-line.dead {
+    opacity: 0.4;
+  }
+  .code-block .indent { display: inline-block; width: 1.5em; }
+
+  /* Comparison counter */
+  .counter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: #f5efe2;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  .counter-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .counter-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 900;
+    color: #1a1a1a;
+    transition: all 0.3s;
+  }
+  .approach.left .counter-value.over { color: #c41e3a; }
+  .approach.right .counter-value.exact { color: #2d6e3e; }
+
+  /* Mini-output box */
+  .mini-output {
+    background: #161b22;
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    min-height: 38px;
+  }
+  .mini-output .lbl {
+    font-size: 9px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 4px;
+  }
+  .mini-output .line {
+    color: #ffd95c;
+    font-weight: 700;
+  }
+  .mini-output .empty {
+    color: #555;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+    font-size: 12px;
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 1100px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 70px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  /* Controls */
+  .actions {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Verdict bar */
+  .verdict-bar {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 16px 22px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .verdict-bar.show { opacity: 1; }
+  .verdict-text {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .verdict-text strong { color: #2d6e3e; }
+  .savings-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 14px;
+    background: #cfe8d3;
+    color: #2d6e3e;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .savings-pill.zero { background: #f5efe2; color: #888; }
+</style>
+</head>
+<body>
+  <h1>Independent <code style="font-family:monospace">if</code>s vs <span class="accent">if/else-if chain</span></h1>
+  <p class="subtitle">The Categorize Number problem: positive, negative, or zero. Both versions give correct answers — but one runs every comparison every time. The other stops the moment it finds the answer.</p>
+
+  <div class="controls-bar">
+    <span class="picker-label">Input n =</span>
+    <div class="n-presets" id="nPresets"></div>
+  </div>
+
+  <div class="stage">
+    <div class="approach left">
+      <div class="approach-title">Approach A — Three independent <code>if</code>s</div>
+      <div class="approach-subtitle">Every condition is checked, even after one matches.</div>
+      <div class="code-block" id="codeA">
+        <div><span class="kw">if</span> (<span class="check" data-c="a-pos"><span class="var">n</span> &gt; <span class="num">0</span></span>) {</div>
+        <div class="body-line" data-b="a-pos-body"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"positive"</span>);</div>
+        <div>}</div>
+        <div><span class="kw">if</span> (<span class="check" data-c="a-neg"><span class="var">n</span> &lt; <span class="num">0</span></span>) {</div>
+        <div class="body-line" data-b="a-neg-body"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"negative"</span>);</div>
+        <div>}</div>
+        <div><span class="kw">if</span> (<span class="check" data-c="a-zero"><span class="var">n</span> == <span class="num">0</span></span>) {</div>
+        <div class="body-line" data-b="a-zero-body"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"zero"</span>);</div>
+        <div>}</div>
+      </div>
+      <div class="counter-row">
+        <span class="counter-label">Comparisons made</span>
+        <span class="counter-value" id="counterA">0</span>
+      </div>
+      <div class="mini-output">
+        <div class="lbl">stdout</div>
+        <div id="outA"><span class="empty">No output yet…</span></div>
+      </div>
+    </div>
+
+    <div class="approach right">
+      <div class="approach-title">Approach B — if / else-if / else</div>
+      <div class="approach-subtitle">Stops at the first matching branch.</div>
+      <div class="code-block" id="codeB">
+        <div><span class="kw">if</span> (<span class="check" data-c="b-pos"><span class="var">n</span> &gt; <span class="num">0</span></span>) {</div>
+        <div class="body-line" data-b="b-pos-body"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"positive"</span>);</div>
+        <div>}</div>
+        <div><span class="kw">else if</span> (<span class="check" data-c="b-neg"><span class="var">n</span> &lt; <span class="num">0</span></span>) {</div>
+        <div class="body-line" data-b="b-neg-body"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"negative"</span>);</div>
+        <div>}</div>
+        <div><span class="kw">else</span> {</div>
+        <div class="body-line" data-b="b-zero-body"><span class="indent"></span><span class="method">SOPln</span>(<span class="str">"zero"</span>);</div>
+        <div>}</div>
+      </div>
+      <div class="counter-row">
+        <span class="counter-label">Comparisons made</span>
+        <span class="counter-value" id="counterB">0</span>
+      </div>
+      <div class="mini-output">
+        <div class="lbl">stdout</div>
+        <div id="outB"><span class="empty">No output yet…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Pick an input and click <strong>Next step</strong>. Watch both versions evaluate in lockstep. Count the comparisons — that's where the difference lives.
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+  <div class="verdict-bar" id="verdict">
+    <div class="verdict-text" id="verdictText">—</div>
+    <div class="savings-pill" id="savingsPill">—</div>
+  </div>
+
+<script>
+  const N_VALUES = [
+    { n: 10, label: '10 (positive)' },
+    { n: -27, label: '-27 (negative)' },
+    { n: 0, label: '0 (zero)' }
+  ];
+
+  let currentN = 10;
+  let currentStep = -1;
+  let trace = [];
+
+  function buildTrace(n) {
+    // We interleave: A checks pos, A may print, A checks neg, A may print, A checks zero, A may print
+    // B checks pos, B may print, ELSE-IF neg, B may print, ELSE prints zero
+    // Best for teaching: do the WHOLE A pass first, then the WHOLE B pass — but with comparison counters interleaved is more impactful.
+    // Let's do them sequentially: full A pass, then full B pass, with a transition step in between.
+    const steps = [];
+    const isPos = n > 0;
+    const isNeg = n < 0;
+    const isZero = n === 0;
+    const label = isPos ? 'positive' : isNeg ? 'negative' : 'zero';
+
+    // === APPROACH A ===
+    steps.push({
+      narrate: `<strong>Approach A — start:</strong> three independent <code>if</code>s. Java will evaluate every one, no matter what.`,
+      side: 'A', counterA: 0
+    });
+    // A check 1: n > 0
+    steps.push({
+      narrate: `Check 1: <code>n > 0</code> → <code>${n} > 0</code> → ${isPos ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+      side: 'A', check: 'a-pos', counterA: 1
+    });
+    if (isPos) {
+      steps.push({
+        narrate: `Print <code>"positive"</code>. But the next <code>if</code> still runs.`,
+        side: 'A', check: 'a-pos', matched: 'a-pos', bodyRun: 'a-pos-body', printA: 'positive', counterA: 1
+      });
+    }
+    // A check 2: n < 0
+    steps.push({
+      narrate: `Check 2: <code>n < 0</code> → <code>${n} < 0</code> → ${isNeg ? '<strong>true</strong>' : '<strong>false</strong>'} — and this still runs even after a match.`,
+      side: 'A', check: 'a-neg', counterA: 2
+    });
+    if (isNeg) {
+      steps.push({
+        narrate: `Print <code>"negative"</code>.`,
+        side: 'A', check: 'a-neg', matched: 'a-neg', bodyRun: 'a-neg-body', printA: 'negative', counterA: 2
+      });
+    }
+    // A check 3: n == 0
+    steps.push({
+      narrate: `Check 3: <code>n == 0</code> → <code>${n} == 0</code> → ${isZero ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+      side: 'A', check: 'a-zero', counterA: 3
+    });
+    if (isZero) {
+      steps.push({
+        narrate: `Print <code>"zero"</code>.`,
+        side: 'A', check: 'a-zero', matched: 'a-zero', bodyRun: 'a-zero-body', printA: 'zero', counterA: 3
+      });
+    }
+    steps.push({
+      narrate: `<strong>Approach A done.</strong> Total comparisons: <strong>3</strong>. We checked all three even after finding the answer.`,
+      side: 'A', counterA: 3, tag: 'A done'
+    });
+
+    // === APPROACH B ===
+    steps.push({
+      narrate: `<strong>Approach B — start:</strong> if / else-if / else chain. Only goes to the next branch if the previous was false.`,
+      side: 'B', counterB: 0, tag: 'B start'
+    });
+    // B check 1: n > 0
+    steps.push({
+      narrate: `Check 1: <code>n > 0</code> → ${isPos ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+      side: 'B', check: 'b-pos', counterB: 1
+    });
+    if (isPos) {
+      steps.push({
+        narrate: `Print <code>"positive"</code> and <strong>skip the rest of the chain entirely</strong>.`,
+        side: 'B', check: 'b-pos', matched: 'b-pos', bodyRun: 'b-pos-body', printB: 'positive', counterB: 1,
+        skip: ['b-neg'], dead: ['b-neg-body', 'b-zero-body']
+      });
+    } else {
+      // B check 2
+      steps.push({
+        narrate: `First was false. Check next: <code>n < 0</code> → ${isNeg ? '<strong>true</strong>' : '<strong>false</strong>'}`,
+        side: 'B', check: 'b-neg', counterB: 2
+      });
+      if (isNeg) {
+        steps.push({
+          narrate: `Print <code>"negative"</code> and <strong>skip the else</strong>.`,
+          side: 'B', check: 'b-neg', matched: 'b-neg', bodyRun: 'b-neg-body', printB: 'negative', counterB: 2,
+          dead: ['b-zero-body']
+        });
+      } else {
+        steps.push({
+          narrate: `Both checks false. Fall into <code>else</code> — no comparison needed for this branch!`,
+          side: 'B', bodyRun: 'b-zero-body', printB: 'zero', counterB: 2
+        });
+      }
+    }
+    const compsB = isPos ? 1 : isNeg ? 2 : 2;
+    steps.push({
+      narrate: `<strong>Approach B done.</strong> Total comparisons: <strong>${compsB}</strong>. ${
+        isPos ? 'Stopped after the first check.' :
+        isNeg ? 'Stopped after the second check.' :
+        'Else branch needs no check.'
+      }`,
+      side: 'B', counterB: compsB, tag: 'B done', verdict: true,
+      summary: { compsA: 3, compsB, label }
+    });
+
+    return steps;
+  }
+
+  function renderNPresets() {
+    const wrap = document.getElementById('nPresets');
+    let html = '';
+    N_VALUES.forEach(v => {
+      html += `<span class="n-preset ${v.n === currentN ? 'active' : ''}" data-n="${v.n}">${v.label}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.n-preset').forEach(el => {
+      el.addEventListener('click', () => {
+        currentN = parseInt(el.dataset.n, 10);
+        loadScenario();
+      });
+    });
+  }
+
+  function clearAllStyles() {
+    document.querySelectorAll('.check').forEach(el => {
+      el.classList.remove('evaluating', 'matched', 'skipped', 'never-runs');
+    });
+    document.querySelectorAll('.body-line').forEach(el => {
+      el.classList.remove('runs', 'dead');
+    });
+  }
+
+  function setOutput(elId, text) {
+    const wrap = document.getElementById(elId);
+    if (text) {
+      wrap.innerHTML = `<div class="line">${text}</div>`;
+    } else {
+      wrap.innerHTML = '<span class="empty">No output yet…</span>';
+    }
+  }
+
+  function appendOutput(elId, text) {
+    const wrap = document.getElementById(elId);
+    if (wrap.querySelector('.empty')) wrap.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'line';
+    div.textContent = text;
+    wrap.appendChild(div);
+  }
+
+  function loadScenario() {
+    currentStep = -1;
+    trace = buildTrace(currentN);
+
+    renderNPresets();
+    clearAllStyles();
+    document.getElementById('counterA').textContent = '0';
+    document.getElementById('counterB').textContent = '0';
+    document.getElementById('counterA').classList.remove('over');
+    document.getElementById('counterB').classList.remove('exact');
+    setOutput('outA', null);
+    setOutput('outB', null);
+    document.getElementById('verdict').classList.remove('show');
+
+    document.getElementById('narration').innerHTML =
+      '<span class="narration-tag">Ready</span>Click <strong>Next step</strong>.';
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('stepInfo').textContent = `step 0 / ${trace.length}`;
+  }
+
+  function nextStep() {
+    currentStep++;
+    if (currentStep >= trace.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      return;
+    }
+    const step = trace[currentStep];
+
+    // Clear evaluating state but keep matched/dead from previous steps
+    document.querySelectorAll('.check.evaluating').forEach(el => el.classList.remove('evaluating'));
+
+    if (step.check) {
+      const el = document.querySelector(`[data-c="${step.check}"]`);
+      if (el && !el.classList.contains('matched')) {
+        el.classList.add('evaluating');
+      }
+    }
+    if (step.matched) {
+      const el = document.querySelector(`[data-c="${step.matched}"]`);
+      if (el) {
+        el.classList.remove('evaluating');
+        el.classList.add('matched');
+      }
+    }
+    if (step.skip) {
+      step.skip.forEach(c => {
+        const el = document.querySelector(`[data-c="${c}"]`);
+        if (el) el.classList.add('skipped');
+      });
+    }
+    if (step.dead) {
+      step.dead.forEach(b => {
+        const el = document.querySelector(`[data-b="${b}"]`);
+        if (el) el.classList.add('dead');
+      });
+    }
+    if (step.bodyRun) {
+      const el = document.querySelector(`[data-b="${step.bodyRun}"]`);
+      if (el) el.classList.add('runs');
+    }
+
+    if (step.counterA !== undefined) {
+      const el = document.getElementById('counterA');
+      el.textContent = step.counterA;
+      if (step.counterA >= 3) el.classList.add('over');
+    }
+    if (step.counterB !== undefined) {
+      const el = document.getElementById('counterB');
+      el.textContent = step.counterB;
+      if (currentStep === trace.length - 1) el.classList.add('exact');
+    }
+
+    if (step.printA) appendOutput('outA', step.printA);
+    if (step.printB) appendOutput('outB', step.printB);
+
+    document.getElementById('narration').innerHTML =
+      `<span class="narration-tag">${step.tag || 'step'}</span>${step.narrate}`;
+    document.getElementById('stepInfo').textContent = `step ${currentStep + 1} / ${trace.length}`;
+
+    if (step.verdict && step.summary) {
+      const v = document.getElementById('verdict');
+      v.classList.add('show');
+      const saved = step.summary.compsA - step.summary.compsB;
+      document.getElementById('verdictText').innerHTML =
+        `Both versions correctly identified n=${currentN} as <strong>${step.summary.label}</strong>. But Approach A ran <strong>${step.summary.compsA}</strong> comparisons; Approach B ran <strong>${step.summary.compsB}</strong>. That's <strong>${saved}</strong> wasted comparison${saved !== 1 ? 's' : ''} for this input alone.`;
+      const pill = document.getElementById('savingsPill');
+      pill.textContent = saved > 0 ? `${saved} comparison${saved > 1 ? 's' : ''} saved` : 'No savings';
+      pill.classList.toggle('zero', saved === 0);
+    }
+
+    if (currentStep === trace.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+    }
+  }
+
+  renderNPresets();
+  loadScenario();
+
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+</script>
+</body>
+</html>
