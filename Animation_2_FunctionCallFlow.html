@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Function call — the black box made visible</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+  .str { color: #a3d977; }
+
+  /* The black box visualization */
+  .blackbox-stage {
+    background: #0d1117;
+    border-radius: 10px;
+    padding: 28px 20px;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    min-height: 440px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .caller-frame {
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    border-left: 3px solid var(--blue);
+    margin-bottom: 18px;
+  }
+  .frame-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .frame-vars {
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .var-pill {
+    background: #1a1d23;
+    border: 1.5px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    transition: all 0.3s;
+  }
+  .var-pill .vn {
+    color: var(--muted);
+    font-size: 10px;
+    display: block;
+  }
+  .var-pill .vv {
+    color: var(--blue);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .var-pill.active {
+    border-color: var(--accent);
+    background: rgba(240, 160, 75, 0.08);
+  }
+  .var-pill.active .vv {
+    color: var(--accent);
+  }
+
+  .call-arrow-row {
+    display: flex; align-items: center; justify-content: center;
+    margin: 12px 0;
+    min-height: 50px;
+    position: relative;
+  }
+  .arg-traveler {
+    background: rgba(240, 160, 75, 0.15);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.6s ease-in-out;
+    transform: translateY(-30px) scale(0.8);
+  }
+  .arg-traveler.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  .arg-traveler .lbl {
+    display: block;
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  .fn-box {
+    background: var(--panel-2);
+    border: 2px solid var(--purple);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+    position: relative;
+    transition: all 0.3s;
+  }
+  .fn-box.active {
+    box-shadow: 0 0 0 3px rgba(192, 132, 232, 0.15);
+    background: rgba(192, 132, 232, 0.05);
+  }
+  .fn-box.idle {
+    opacity: 0.55;
+  }
+  .fn-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 8px;
+  }
+  .fn-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--purple);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .fn-tag {
+    font-size: 10px;
+    color: var(--muted);
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+  .fn-locals {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .var-pill.local {
+    border-color: var(--purple);
+    background: rgba(192, 132, 232, 0.05);
+  }
+  .var-pill.local .vv {
+    color: var(--purple);
+  }
+  .var-pill.fresh {
+    animation: pop-in 0.5s ease-out;
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .fn-body-state {
+    background: #1a1d23;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    border-left: 3px solid var(--line);
+  }
+  .fn-body-state.computing {
+    border-left-color: var(--accent);
+    color: var(--ink);
+  }
+
+  .return-arrow-row {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 50px;
+    margin: 12px 0;
+    position: relative;
+  }
+  .return-traveler {
+    background: rgba(163, 217, 119, 0.15);
+    border: 2px solid var(--green);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.6s ease-in-out;
+    transform: translateY(30px) scale(0.8);
+  }
+  .return-traveler.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  .return-traveler .lbl {
+    display: block;
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+
+  .ai-note {
+    background: linear-gradient(135deg, rgba(93, 173, 236, 0.08), rgba(192, 132, 232, 0.08));
+    border-left: 3px solid var(--purple);
+    padding: 14px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .ai-note strong {
+    color: var(--purple);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Function call — the black box, stepped through</h1>
+  <div class="sub">A function is a contract: you put values <em>in</em>, the body runs <em>privately</em>, a value comes <em>out</em>. The variables inside the function are NOT the same as the ones outside — they're local. Step through to see exactly when each thing happens.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="qb" onclick="setPreset(15, 5)">sum(15, 5) → 20</button>
+        <button class="qb" onclick="setPreset(7, 3)">sum(7, 3) → 10</button>
+        <button class="qb" onclick="setPreset(100, 250)">sum(100, 250) → 350</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox">
+<div class="cl" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</div>
+<div class="cl" id="c2">  <span class="kw">int</span> result = a + b;</div>
+<div class="cl" id="c3">  <span class="kw">return</span> result;</div>
+<div class="cl" id="c4">}</div>
+<div class="cl" id="c5"> </div>
+<div class="cl" id="c6"><span class="kw">int</span> x = <span id="vX">15</span>, y = <span id="vY">5</span>;</div>
+<div class="cl" id="c7"><span class="kw">int</span> total = <span class="meth">sum</span>(x, y);</div>
+<div class="cl" id="c8">System.out.println(total);</div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="ai-note">
+        <strong>AI angle →</strong> when AI tools "understand" a function, they're reading the contract: <em>name → parameters → return type</em>. The body is implementation detail they can re-derive. That's why naming matters so much when working with AI.
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION FLOW</div>
+      <div class="blackbox-stage">
+        <div class="caller-frame">
+          <div class="frame-label">CALLER FRAME — main()</div>
+          <div class="frame-vars">
+            <div class="var-pill" id="varX"><span class="vn">x</span><span class="vv" id="valX">15</span></div>
+            <div class="var-pill" id="varY"><span class="vn">y</span><span class="vv" id="valY">5</span></div>
+            <div class="var-pill" id="varTotal"><span class="vn">total</span><span class="vv" id="valTotal">?</span></div>
+          </div>
+        </div>
+
+        <div class="call-arrow-row">
+          <div class="arg-traveler" id="argTraveler">
+            arguments: (<span id="argVals">—</span>)
+            <span class="lbl">passed by value into sum</span>
+          </div>
+        </div>
+
+        <div class="fn-box idle" id="fnBox">
+          <div class="fn-header">
+            <span class="fn-name">sum(a, b)</span>
+            <span class="fn-tag" id="fnTag">— waiting to be called —</span>
+          </div>
+          <div class="fn-locals" id="fnLocals">
+            <div class="var-pill local" style="opacity: 0.4;"><span class="vn">a</span><span class="vv">?</span></div>
+            <div class="var-pill local" style="opacity: 0.4;"><span class="vn">b</span><span class="vv">?</span></div>
+            <div class="var-pill local" style="opacity: 0.4;"><span class="vn">result</span><span class="vv">?</span></div>
+          </div>
+          <div class="fn-body-state" id="fnBody">— function body inactive —</div>
+        </div>
+
+        <div class="return-arrow-row">
+          <div class="return-traveler" id="returnTraveler">
+            returns: <span id="returnVal">—</span>
+            <span class="lbl">flows back to caller</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let x = 15, y = 5;
+  let step_n = 0;
+  let timer = null;
+  // Steps: 0=idle, 1=evaluating args, 2=call begin, 3=copy a, 4=copy b, 5=compute result, 6=return, 7=assign total, 8=print
+  const TOTAL_STEPS = 8;
+
+  function setPreset(xx, yy) {
+    x = xx; y = yy;
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    step_n = 0;
+    document.getElementById('vX').textContent = x;
+    document.getElementById('vY').textContent = y;
+    document.getElementById('valX').textContent = x;
+    document.getElementById('valY').textContent = y;
+    document.getElementById('valTotal').textContent = '?';
+    document.getElementById('argTraveler').classList.remove('show');
+    document.getElementById('returnTraveler').classList.remove('show');
+    document.getElementById('fnBox').className = 'fn-box idle';
+    document.getElementById('fnTag').textContent = '— waiting to be called —';
+    document.getElementById('fnBody').className = 'fn-body-state';
+    document.getElementById('fnBody').textContent = '— function body inactive —';
+    document.getElementById('fnLocals').innerHTML = `
+      <div class="var-pill local" style="opacity: 0.4;"><span class="vn">a</span><span class="vv">?</span></div>
+      <div class="var-pill local" style="opacity: 0.4;"><span class="vn">b</span><span class="vv">?</span></div>
+      <div class="var-pill local" style="opacity: 0.4;"><span class="vn">result</span><span class="vv">?</span></div>
+    `;
+    ['c1','c2','c3','c4','c5','c6','c7','c8'].forEach(id => document.getElementById(id).className = 'cl');
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('stepLbl').textContent = '8 steps to walk through one function call';
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('varX').classList.remove('active');
+    document.getElementById('varY').classList.remove('active');
+    document.getElementById('varTotal').classList.remove('active');
+  }
+
+  function highlight(ids) {
+    ['c1','c2','c3','c4','c5','c6','c7','c8'].forEach(id => document.getElementById(id).className = 'cl');
+    ids.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'cl ' + cls;
+    });
+  }
+
+  function step() {
+    if (step_n >= TOTAL_STEPS) return;
+    step_n++;
+    document.getElementById('stepLbl').textContent = `step ${step_n} of ${TOTAL_STEPS}`;
+
+    if (step_n === 1) {
+      // Declare x, y in main
+      highlight([['c6', 'taken']]);
+      document.getElementById('varX').classList.add('active');
+      document.getElementById('varY').classList.add('active');
+      document.getElementById('traceText').innerHTML =
+        `Main declares <span class="formula-piece fp blue">x = ${x}</span> and <span class="formula-piece fp blue">y = ${y}</span>`;
+      return;
+    }
+    if (step_n === 2) {
+      // Encounter call, evaluate arguments
+      highlight([['c7', 'eval']]);
+      document.getElementById('argTraveler').classList.add('show');
+      document.getElementById('argVals').textContent = `${x}, ${y}`;
+      document.getElementById('traceText').innerHTML =
+        `Reach <span class="formula-piece fp orange">sum(x, y)</span> → evaluate arguments to values <span class="formula-piece fp orange">(${x}, ${y})</span>`;
+      return;
+    }
+    if (step_n === 3) {
+      // Enter function, copy a
+      highlight([['c7', 'eval'], ['c1', 'taken']]);
+      document.getElementById('fnBox').className = 'fn-box active';
+      document.getElementById('fnTag').textContent = '— call active —';
+      document.getElementById('fnLocals').innerHTML = `
+        <div class="var-pill local fresh"><span class="vn">a</span><span class="vv">${x}</span></div>
+        <div class="var-pill local" style="opacity: 0.4;"><span class="vn">b</span><span class="vv">?</span></div>
+        <div class="var-pill local" style="opacity: 0.4;"><span class="vn">result</span><span class="vv">?</span></div>
+      `;
+      document.getElementById('traceText').innerHTML =
+        `Enter sum's frame → parameter <span class="formula-piece fp purple">a</span> is a NEW local variable, copy of <span class="formula-piece fp orange">${x}</span>`;
+      return;
+    }
+    if (step_n === 4) {
+      // Copy b
+      highlight([['c1', 'taken']]);
+      document.getElementById('fnLocals').innerHTML = `
+        <div class="var-pill local"><span class="vn">a</span><span class="vv">${x}</span></div>
+        <div class="var-pill local fresh"><span class="vn">b</span><span class="vv">${y}</span></div>
+        <div class="var-pill local" style="opacity: 0.4;"><span class="vn">result</span><span class="vv">?</span></div>
+      `;
+      document.getElementById('argTraveler').classList.remove('show');
+      document.getElementById('traceText').innerHTML =
+        `Parameter <span class="formula-piece fp purple">b</span> is also a NEW local, copy of <span class="formula-piece fp orange">${y}</span>`;
+      return;
+    }
+    if (step_n === 5) {
+      // Compute result
+      highlight([['c2', 'taken']]);
+      const r = x + y;
+      document.getElementById('fnLocals').innerHTML = `
+        <div class="var-pill local"><span class="vn">a</span><span class="vv">${x}</span></div>
+        <div class="var-pill local"><span class="vn">b</span><span class="vv">${y}</span></div>
+        <div class="var-pill local fresh"><span class="vn">result</span><span class="vv">${r}</span></div>
+      `;
+      document.getElementById('fnBody').className = 'fn-body-state computing';
+      document.getElementById('fnBody').textContent = `computing: result = a + b = ${x} + ${y} = ${r}`;
+      document.getElementById('traceText').innerHTML =
+        `Inside sum: <span class="formula-piece fp purple">result = a + b = ${r}</span>`;
+      return;
+    }
+    if (step_n === 6) {
+      // Return
+      highlight([['c3', 'taken']]);
+      const r = x + y;
+      document.getElementById('returnTraveler').classList.add('show');
+      document.getElementById('returnVal').textContent = r;
+      document.getElementById('fnBody').textContent = `returning ${r}, frame about to be destroyed`;
+      document.getElementById('traceText').innerHTML =
+        `<span class="formula-piece fp green">return ${r}</span> — value flows back, sum's local variables are about to vanish`;
+      return;
+    }
+    if (step_n === 7) {
+      // Assign to total in caller
+      highlight([['c7', 'taken']]);
+      const r = x + y;
+      document.getElementById('valTotal').textContent = r;
+      document.getElementById('varTotal').classList.add('active');
+      document.getElementById('fnBox').className = 'fn-box idle';
+      document.getElementById('fnTag').textContent = '— frame discarded —';
+      document.getElementById('fnBody').className = 'fn-body-state';
+      document.getElementById('fnBody').textContent = '— function body inactive —';
+      document.getElementById('fnLocals').innerHTML = `
+        <div class="var-pill local" style="opacity: 0.4;"><span class="vn">a</span><span class="vv">—</span></div>
+        <div class="var-pill local" style="opacity: 0.4;"><span class="vn">b</span><span class="vv">—</span></div>
+        <div class="var-pill local" style="opacity: 0.4;"><span class="vn">result</span><span class="vv">—</span></div>
+      `;
+      document.getElementById('traceText').innerHTML =
+        `Back in main: <span class="formula-piece fp blue">total = ${r}</span>. sum's locals (a, b, result) no longer exist.`;
+      document.getElementById('returnTraveler').classList.remove('show');
+      return;
+    }
+    if (step_n === 8) {
+      // Print
+      highlight([['c8', 'taken']]);
+      const r = x + y;
+      document.getElementById('traceText').innerHTML =
+        `<span class="formula-piece fp green">println(${r})</span> — done`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      return;
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (step_n >= TOTAL_STEPS) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1200);
+  }
+
+  reset();
+</script>
+</body>
+</html>

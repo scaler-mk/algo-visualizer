@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Prime numbers — monolithic vs decomposed</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+  .mode-switcher {
+    display: flex;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--line);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .mode-btn:last-child { border-right: none; }
+  .mode-btn.active {
+    background: rgba(240, 160, 75, 0.12);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .mode-btn .tag {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0;
+  }
+  .mode-btn.active .tag { color: var(--accent); }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 5px;
+    width: 60px;
+    text-align: center;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 11.5px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    max-height: 460px;
+    overflow-y: auto;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.45;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.in-helper { background: rgba(192, 132, 232, 0.06); border-left: 2px solid rgba(192, 132, 232, 0.4); padding-left: 4px; opacity: 1; }
+  .cl.in-outer { background: rgba(93, 173, 236, 0.06); border-left: 2px solid rgba(93, 173, 236, 0.4); padding-left: 4px; opacity: 1; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+  .str { color: #a3d977; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 9px 10px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.n { border-left-color: var(--blue); }
+  .state-cell.i { border-left-color: var(--purple); }
+  .state-cell.f { border-left-color: var(--accent); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 16px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .state-cell.n .val { color: var(--blue); }
+  .state-cell.i .val { color: var(--purple); }
+  .state-cell.f .val { color: var(--accent); }
+
+  .candidates-row {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .cand-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .cand-name {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--blue);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .cand-grid {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    min-height: 60px;
+  }
+  .cand-cell {
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 2px solid var(--line);
+    transition: all 0.4s;
+  }
+  .cand-cell.current {
+    background: rgba(240, 160, 75, 0.3);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .cand-cell.prime {
+    background: rgba(163, 217, 119, 0.2);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .cand-cell.not-prime {
+    background: rgba(229, 115, 115, 0.05);
+    border-color: rgba(229, 115, 115, 0.3);
+    color: var(--muted);
+    opacity: 0.5;
+  }
+
+  .output-display {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .out-lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; font-weight: 600; }
+  .out-stream {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    color: var(--green);
+    min-height: 30px;
+    letter-spacing: 0.05em;
+  }
+  .out-stream .out-num {
+    display: inline-block;
+    margin-right: 10px;
+    animation: pop-in 0.4s ease-out;
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+
+  .ai-note {
+    background: linear-gradient(135deg, rgba(93, 173, 236, 0.08), rgba(192, 132, 232, 0.08));
+    border-left: 3px solid var(--purple);
+    padding: 14px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .ai-note strong {
+    color: var(--purple);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prime numbers — the decomposition that changes everything</h1>
+  <div class="sub">Two ways to print primes up to N. One mashes everything into one function. The other separates "is this number prime?" from "loop from 1 to N." Watch how the second version reads almost like English.</div>
+
+  <div class="mode-switcher">
+    <button class="mode-btn active" id="modeMono" onclick="setMode('mono')">
+      MONOLITHIC — one function, nested loops
+      <span class="tag">harder to read · harder to test · harder to reuse</span>
+    </button>
+    <button class="mode-btn" id="modeDecomp" onclick="setMode('decomp')">
+      DECOMPOSED — isPrime helper + main loop
+      <span class="tag">reads like English · helper is reusable · testable</span>
+    </button>
+  </div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">N</span>
+      <input type="number" class="num-input" id="nIn" value="10" oninput="reset()">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="qb" onclick="setN(10)">N = 10 → 2,3,5,7</button>
+        <button class="qb" onclick="setN(20)">N = 20</button>
+        <button class="qb" onclick="setN(5)">N = 5 → 2,3,5</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title" id="codeTitle">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="ai-note">
+        <strong>AI angle →</strong> ask AI to <em>"optimize isPrime to run faster"</em> and it can — because the helper is a well-defined block with one job. Ask AI to <em>"optimize this monolithic prime printer"</em> and it has to read the entire mess and guess what to keep. Modular functions give AI <em>scope</em> to work in.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION</div>
+      <div class="state-grid">
+        <div class="state-cell n">
+          <div class="lbl">num (outer)</div>
+          <div class="val" id="stateN">—</div>
+        </div>
+        <div class="state-cell i">
+          <div class="lbl">i (inner)</div>
+          <div class="val" id="stateI">—</div>
+        </div>
+        <div class="state-cell f">
+          <div class="lbl">factors</div>
+          <div class="val" id="stateF">0</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="candidates-row">
+        <div class="cand-header">
+          <span class="cand-name">candidates (1 to N)</span>
+        </div>
+        <div class="cand-grid" id="candGrid"></div>
+      </div>
+
+      <div class="output-display">
+        <div class="out-lbl">CONSOLE OUTPUT — primes found</div>
+        <div class="out-stream" id="outStream">— nothing printed yet —</div>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const codeMono = `
+<div class="cl" id="m1"><span class="kw">static void</span> <span class="meth">primeNumbers</span>(<span class="kw">int</span> n) {</div>
+<div class="cl" id="m2">  <span class="kw">for</span> (<span class="kw">int</span> num = <span class="num">1</span>; num &lt;= n; num++) {</div>
+<div class="cl" id="m3">    <span class="kw">int</span> factors = <span class="num">0</span>;</div>
+<div class="cl" id="m4">    <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= num; i++) {</div>
+<div class="cl" id="m5">      <span class="kw">if</span> (num % i == <span class="num">0</span>) factors++;</div>
+<div class="cl" id="m6">    }</div>
+<div class="cl" id="m7">    <span class="kw">if</span> (factors == <span class="num">2</span>) System.out.print(num + <span class="str">" "</span>);</div>
+<div class="cl" id="m8">  }</div>
+<div class="cl" id="m9">}</div>`;
+
+  const codeDecomp = `
+<div class="cl in-helper" id="d1"><span class="kw">static boolean</span> <span class="meth">isPrime</span>(<span class="kw">int</span> num) {</div>
+<div class="cl in-helper" id="d2">  <span class="kw">int</span> factors = <span class="num">0</span>;</div>
+<div class="cl in-helper" id="d3">  <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= num; i++) {</div>
+<div class="cl in-helper" id="d4">    <span class="kw">if</span> (num % i == <span class="num">0</span>) factors++;</div>
+<div class="cl in-helper" id="d5">  }</div>
+<div class="cl in-helper" id="d6">  <span class="kw">return</span> factors == <span class="num">2</span>;</div>
+<div class="cl in-helper" id="d7">}</div>
+<div class="cl" id="d8"> </div>
+<div class="cl in-outer" id="d9"><span class="kw">static void</span> <span class="meth">primeNumbers</span>(<span class="kw">int</span> n) {</div>
+<div class="cl in-outer" id="d10">  <span class="kw">for</span> (<span class="kw">int</span> num = <span class="num">1</span>; num &lt;= n; num++) {</div>
+<div class="cl in-outer" id="d11">    <span class="kw">if</span> (<span class="meth">isPrime</span>(num)) System.out.print(num + <span class="str">" "</span>);</div>
+<div class="cl in-outer" id="d12">  }</div>
+<div class="cl in-outer" id="d13">}</div>`;
+
+  let mode = 'mono';
+  let N = 10;
+  let num = 0;
+  let i = 0;
+  let factors = 0;
+  let cellStates = {};
+  let outputs = [];
+  let phase = 'idle'; // idle | outer-start | inner-loop | outer-decide
+  let timer = null;
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('modeMono').classList.toggle('active', m === 'mono');
+    document.getElementById('modeDecomp').classList.toggle('active', m === 'decomp');
+    document.getElementById('codeTitle').textContent = m === 'mono'
+      ? 'CODE — MONOLITHIC (9 lines, nested loops)'
+      : 'CODE — DECOMPOSED (isPrime helper + 5-line driver)';
+    document.getElementById('codebox').innerHTML = m === 'mono' ? codeMono : codeDecomp;
+    reset();
+  }
+
+  function setN(n) {
+    N = n;
+    document.getElementById('nIn').value = n;
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    N = parseInt(document.getElementById('nIn').value) || 10;
+    num = 0;
+    i = 0;
+    factors = 0;
+    cellStates = {};
+    outputs = [];
+    phase = 'idle';
+    document.getElementById('stateN').textContent = '—';
+    document.getElementById('stateI').textContent = '—';
+    document.getElementById('stateF').textContent = '0';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('outStream').textContent = '— nothing printed yet —';
+    document.getElementById('stepLbl').textContent = mode === 'mono'
+      ? `scanning ${N} candidates (one nested function)`
+      : `scanning ${N} candidates (driver calls isPrime helper)`;
+    document.getElementById('stepBtn').disabled = false;
+    clearHighlights();
+    renderCandidates();
+  }
+
+  function renderCandidates() {
+    const grid = document.getElementById('candGrid');
+    let h = '';
+    for (let k = 1; k <= N; k++) {
+      let cls = 'cand-cell';
+      if (k === num && phase !== 'done' && phase !== 'idle') cls += ' current';
+      else if (cellStates[k] === 'prime') cls += ' prime';
+      else if (cellStates[k] === 'not-prime') cls += ' not-prime';
+      h += `<div class="${cls}">${k}</div>`;
+    }
+    grid.innerHTML = h;
+  }
+
+  function renderOutputs() {
+    const s = document.getElementById('outStream');
+    if (outputs.length === 0) {
+      s.textContent = '— nothing printed yet —';
+      return;
+    }
+    let h = '';
+    for (const v of outputs) h += `<span class="out-num">${v}</span>`;
+    s.innerHTML = h;
+  }
+
+  function clearHighlights() {
+    const ids = mode === 'mono'
+      ? ['m1','m2','m3','m4','m5','m6','m7','m8','m9']
+      : ['d1','d2','d3','d4','d5','d6','d7','d8','d9','d10','d11','d12','d13'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        let baseline = 'cl';
+        if (mode === 'decomp') {
+          if (['d1','d2','d3','d4','d5','d6','d7'].includes(id)) baseline = 'cl in-helper';
+          if (['d9','d10','d11','d12','d13'].includes(id)) baseline = 'cl in-outer';
+        }
+        el.className = baseline;
+      }
+    });
+  }
+
+  function highlight(arr) {
+    clearHighlights();
+    arr.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) {
+        let prefix = '';
+        if (mode === 'decomp') {
+          if (['d1','d2','d3','d4','d5','d6','d7'].includes(id)) prefix = 'in-helper ';
+          if (['d9','d10','d11','d12','d13'].includes(id)) prefix = 'in-outer ';
+        }
+        el.className = 'cl ' + prefix + cls;
+      }
+    });
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    // Need to start outer loop or advance to next outer iteration
+    if (phase === 'idle' || phase === 'outer-decide') {
+      num++;
+      if (num > N) {
+        phase = 'done';
+        clearHighlights();
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">Scan complete. Primes printed: ${outputs.join(', ')}</span>`;
+        document.getElementById('stepLbl').textContent = 'complete';
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        return;
+      }
+      i = 0;
+      factors = 0;
+      phase = 'outer-start';
+      document.getElementById('stateN').textContent = num;
+      document.getElementById('stateI').textContent = '—';
+      document.getElementById('stateF').textContent = factors;
+
+      if (mode === 'mono') {
+        highlight([['m2', 'eval'], ['m3', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `Outer iteration: <span class="formula-piece fp blue">num = ${num}</span>, factors = 0, starting inner loop`;
+      } else {
+        highlight([['d10', 'eval'], ['d11', 'eval'], ['d1', 'in-helper taken'], ['d2', 'taken']]);
+        document.getElementById('traceText').innerHTML =
+          `Outer iteration: <span class="formula-piece fp blue">num = ${num}</span>, calling <span class="formula-piece fp purple">isPrime(${num})</span>`;
+      }
+      renderCandidates();
+      return;
+    }
+
+    // In the inner loop — one iteration per step
+    if (phase === 'outer-start' || phase === 'inner-loop') {
+      i++;
+      if (i > num) {
+        // Inner loop done; decide prime
+        const isPrimeRes = factors === 2;
+        cellStates[num] = isPrimeRes ? 'prime' : 'not-prime';
+        if (isPrimeRes) {
+          outputs.push(num);
+          renderOutputs();
+        }
+        if (mode === 'mono') {
+          highlight([['m7', isPrimeRes ? 'taken' : 'eval']]);
+          document.getElementById('traceText').innerHTML = isPrimeRes
+            ? `factors = 2 → <span class="formula-piece fp green">PRINT ${num}</span>`
+            : `factors = ${factors} ≠ 2 → <span class="formula-piece fp red">skip ${num}</span>`;
+        } else {
+          highlight([['d6', 'taken'], ['d11', isPrimeRes ? 'taken' : 'eval']]);
+          document.getElementById('traceText').innerHTML = isPrimeRes
+            ? `<span class="formula-piece fp purple">isPrime(${num}) → true</span> → <span class="formula-piece fp green">PRINT ${num}</span>`
+            : `<span class="formula-piece fp purple">isPrime(${num}) → false</span> → <span class="formula-piece fp red">skip ${num}</span>`;
+        }
+        phase = 'outer-decide';
+        renderCandidates();
+        return;
+      }
+      phase = 'inner-loop';
+      const isFactor = num % i === 0;
+      if (isFactor) factors++;
+      document.getElementById('stateI').textContent = i;
+      document.getElementById('stateF').textContent = factors;
+
+      if (mode === 'mono') {
+        highlight([['m4', 'eval'], ['m5', isFactor ? 'taken' : 'eval']]);
+      } else {
+        highlight([['d3', 'eval'], ['d4', isFactor ? 'taken' : 'eval']]);
+      }
+      document.getElementById('traceText').innerHTML = isFactor
+        ? `${num} % ${i} == 0 → <span class="formula-piece fp orange">factors++ → ${factors}</span>`
+        : `${num} % ${i} ≠ 0 — skip`;
+      return;
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 500);
+  }
+
+  setMode('mono');
+</script>
+</body>
+</html>

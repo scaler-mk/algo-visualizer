@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sum of digits — monolithic vs functions</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+  .mode-switcher {
+    display: flex;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 18px;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--line);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .mode-btn:last-child { border-right: none; }
+  .mode-btn.active {
+    background: rgba(240, 160, 75, 0.12);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .mode-btn .tag {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0;
+  }
+  .mode-btn.active .tag { color: var(--accent); }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 5px;
+    width: 80px;
+    text-align: center;
+  }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 11.5px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    max-height: 560px;
+    overflow-y: auto;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.in-fn { background: rgba(192, 132, 232, 0.08); opacity: 1; color: var(--purple); border-left: 2px solid var(--purple); padding-left: 4px; }
+  .cl.duplicate { background: rgba(229, 115, 115, 0.06); border-left: 2px dashed rgba(229, 115, 115, 0.4); opacity: 1; padding-left: 4px; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+  .str { color: #a3d977; }
+
+  .state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .state-cell {
+    padding: 9px 10px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    text-align: center;
+  }
+  .state-cell.a { border-left-color: var(--blue); }
+  .state-cell.s { border-left-color: var(--green); }
+  .state-cell .lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 4px; }
+  .state-cell .val { font-size: 16px; font-weight: 600; font-family: 'JetBrains Mono', monospace; transition: all 0.3s; }
+  .state-cell.a .val { color: var(--blue); }
+  .state-cell.s .val { color: var(--green); }
+  .state-cell.bumped .val { animation: bump 0.5s ease-out; }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+
+  .outputs {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+    min-height: 130px;
+  }
+  .out-lbl { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; font-weight: 600; }
+  .out-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    margin: 6px 0;
+    background: var(--panel-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    transition: all 0.3s;
+  }
+  .out-row.active {
+    background: rgba(163, 217, 119, 0.12);
+    border-left-color: var(--green);
+    color: var(--green);
+    animation: flash 0.5s ease-out;
+  }
+  @keyframes flash {
+    0% { transform: translateX(-6px); opacity: 0.5; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+  .out-num { color: var(--blue); font-weight: 600; }
+  .out-arrow { color: var(--muted); }
+  .out-result { color: var(--accent); font-weight: 600; }
+
+  .reuse-banner {
+    background: rgba(229, 115, 115, 0.08);
+    border-left: 3px solid var(--red);
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-bottom: 14px;
+    font-size: 11px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+  .reuse-banner.good {
+    background: rgba(163, 217, 119, 0.08);
+    border-left-color: var(--green);
+  }
+  .reuse-banner strong {
+    color: var(--accent);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .reuse-banner.good strong { color: var(--green); }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+
+  .ai-note {
+    background: linear-gradient(135deg, rgba(93, 173, 236, 0.08), rgba(192, 132, 232, 0.08));
+    border-left: 3px solid var(--purple);
+    padding: 14px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .ai-note strong {
+    color: var(--purple);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sum of digits — three numbers, two ways to write it</h1>
+  <div class="sub">Same task. Same input. Same output. But one version is three copies of the same loop. The other is one function called three times. Step through both — count the lines of duplication.</div>
+
+  <div class="mode-switcher">
+    <button class="mode-btn active" id="modeMono" onclick="setMode('mono')">
+      MONOLITHIC — copy the loop 3 times
+      <span class="tag">redundant · hard to read · hard to maintain</span>
+    </button>
+    <button class="mode-btn" id="modeFn" onclick="setMode('fn')">
+      WITH FUNCTION — write once, call 3 times
+      <span class="tag">DRY · readable · maintainable</span>
+    </button>
+  </div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="qb" onclick="setPreset(123, 456, 789)">123, 456, 789</button>
+        <button class="qb" onclick="setPreset(42, 7, 1000)">42, 7, 1000</button>
+        <button class="qb" onclick="setPreset(9, 99, 999)">9, 99, 999</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title" id="codeTitle">CODE — MONOLITHIC</div>
+      <div class="codebox" id="codebox"></div>
+      <div id="reuseBanner"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">EXECUTION</div>
+      <div class="state-grid">
+        <div class="state-cell a" id="cellA">
+          <div class="lbl" id="stateAlbl">current number</div>
+          <div class="val" id="stateA">—</div>
+        </div>
+        <div class="state-cell s" id="cellS">
+          <div class="lbl" id="stateSlbl">running sum</div>
+          <div class="val" id="stateS">0</div>
+        </div>
+      </div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="outputs">
+        <div class="out-lbl">CONSOLE OUTPUT</div>
+        <div id="outRows">
+          <div style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px;">— no output yet —</div>
+        </div>
+      </div>
+
+      <div class="ai-note">
+        <strong>AI angle →</strong> the function version is what AI tools <em>want</em> to read. A clear name like <span style="font-family: 'JetBrains Mono', monospace; color: var(--accent); font-style: normal;">sumOfDigits</span> tells AI what the block does in one read. Three copies of a loop tell AI nothing.
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Two code views
+  const codeMono = `
+<div class="cl" id="m1"><span class="kw">int</span> a = <span id="vA">123</span>, b = <span id="vB">456</span>, c = <span id="vC">789</span>;</div>
+<div class="cl" id="m2">  </div>
+<div class="cl duplicate" id="m3"><span class="kw">int</span> sum1 = <span class="num">0</span>;</div>
+<div class="cl duplicate" id="m4"><span class="kw">while</span> (a &gt; <span class="num">0</span>) {</div>
+<div class="cl duplicate" id="m5">  sum1 += a % <span class="num">10</span>;</div>
+<div class="cl duplicate" id="m6">  a /= <span class="num">10</span>;</div>
+<div class="cl duplicate" id="m7">}</div>
+<div class="cl duplicate" id="m8">System.out.println(sum1);</div>
+<div class="cl" id="m9">  </div>
+<div class="cl duplicate" id="m10"><span class="kw">int</span> sum2 = <span class="num">0</span>;</div>
+<div class="cl duplicate" id="m11"><span class="kw">while</span> (b &gt; <span class="num">0</span>) {</div>
+<div class="cl duplicate" id="m12">  sum2 += b % <span class="num">10</span>;</div>
+<div class="cl duplicate" id="m13">  b /= <span class="num">10</span>;</div>
+<div class="cl duplicate" id="m14">}</div>
+<div class="cl duplicate" id="m15">System.out.println(sum2);</div>
+<div class="cl" id="m16">  </div>
+<div class="cl duplicate" id="m17"><span class="kw">int</span> sum3 = <span class="num">0</span>;</div>
+<div class="cl duplicate" id="m18"><span class="kw">while</span> (c &gt; <span class="num">0</span>) {</div>
+<div class="cl duplicate" id="m19">  sum3 += c % <span class="num">10</span>;</div>
+<div class="cl duplicate" id="m20">  c /= <span class="num">10</span>;</div>
+<div class="cl duplicate" id="m21">}</div>
+<div class="cl duplicate" id="m22">System.out.println(sum3);</div>`;
+
+  const codeFn = `
+<div class="cl in-fn" id="f1"><span class="kw">static int</span> <span class="meth">sumOfDigits</span>(<span class="kw">int</span> n) {</div>
+<div class="cl in-fn" id="f2">  <span class="kw">int</span> sum = <span class="num">0</span>;</div>
+<div class="cl in-fn" id="f3">  <span class="kw">while</span> (n &gt; <span class="num">0</span>) {</div>
+<div class="cl in-fn" id="f4">    sum += n % <span class="num">10</span>;</div>
+<div class="cl in-fn" id="f5">    n /= <span class="num">10</span>;</div>
+<div class="cl in-fn" id="f6">  }</div>
+<div class="cl in-fn" id="f7">  <span class="kw">return</span> sum;</div>
+<div class="cl in-fn" id="f8">}</div>
+<div class="cl" id="f9">  </div>
+<div class="cl" id="f10"><span class="kw">int</span> a = <span id="vA2">123</span>, b = <span id="vB2">456</span>, c = <span id="vC2">789</span>;</div>
+<div class="cl" id="f11">System.out.println(<span class="meth">sumOfDigits</span>(a));</div>
+<div class="cl" id="f12">System.out.println(<span class="meth">sumOfDigits</span>(b));</div>
+<div class="cl" id="f13">System.out.println(<span class="meth">sumOfDigits</span>(c));</div>`;
+
+  let mode = 'mono';
+  let a = 123, b = 456, c = 789;
+  let phase = 'idle'; // idle | n1 | n2 | n3 | done
+  let currentN = 0; // working copy
+  let currentSum = 0;
+  let currentSlot = 0; // 1, 2, 3 for which block
+  let outputs = [];
+  let timer = null;
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('modeMono').classList.toggle('active', m === 'mono');
+    document.getElementById('modeFn').classList.toggle('active', m === 'fn');
+    document.getElementById('codeTitle').textContent = m === 'mono' ? 'CODE — MONOLITHIC (22 lines)' : 'CODE — FUNCTION (13 lines, no duplication)';
+    document.getElementById('codebox').innerHTML = m === 'mono' ? codeMono : codeFn;
+    const rb = document.getElementById('reuseBanner');
+    rb.innerHTML = m === 'mono'
+      ? `<div class="reuse-banner">🔴 The dashed-bordered blocks are <strong>three copies of the same algorithm</strong>. Fix a bug in one — you must fix it in three.</div>`
+      : `<div class="reuse-banner good">🟢 Algorithm written once. Three call sites just invoke it. Fix a bug in one place — fixed everywhere.</div>`;
+    reset();
+  }
+
+  function setPreset(x, y, z) {
+    a = x; b = y; c = z;
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    phase = 'idle';
+    currentN = 0;
+    currentSum = 0;
+    currentSlot = 0;
+    outputs = [];
+    document.getElementById('stateA').textContent = '—';
+    document.getElementById('stateS').textContent = '0';
+    document.getElementById('stateAlbl').textContent = mode === 'mono' ? 'a / b / c' : 'param n';
+    document.getElementById('stateSlbl').textContent = mode === 'mono' ? 'sum1 / sum2 / sum3' : 'local sum';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('outRows').innerHTML = '<div style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px;">— no output yet —</div>';
+    document.getElementById('stepLbl').textContent = mode === 'mono' ? '22 lines · 3 duplicated blocks' : '13 lines · 1 function · 3 calls';
+    document.getElementById('stepBtn').disabled = false;
+    // Refresh values shown in code
+    const va = document.getElementById('vA'); if (va) va.textContent = a;
+    const vb = document.getElementById('vB'); if (vb) vb.textContent = b;
+    const vc = document.getElementById('vC'); if (vc) vc.textContent = c;
+    const va2 = document.getElementById('vA2'); if (va2) va2.textContent = a;
+    const vb2 = document.getElementById('vB2'); if (vb2) vb2.textContent = b;
+    const vc2 = document.getElementById('vC2'); if (vc2) vc2.textContent = c;
+    clearHighlights();
+  }
+
+  function clearHighlights() {
+    const ids = mode === 'mono'
+      ? ['m1','m2','m3','m4','m5','m6','m7','m8','m9','m10','m11','m12','m13','m14','m15','m16','m17','m18','m19','m20','m21','m22']
+      : ['f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11','f12','f13'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        // preserve duplicate / in-fn baseline
+        let baseline = 'cl';
+        if (mode === 'mono' && ['m3','m4','m5','m6','m7','m8','m10','m11','m12','m13','m14','m15','m17','m18','m19','m20','m21','m22'].includes(id)) baseline = 'cl duplicate';
+        if (mode === 'fn' && ['f1','f2','f3','f4','f5','f6','f7','f8'].includes(id)) baseline = 'cl in-fn';
+        el.className = baseline;
+      }
+    });
+  }
+
+  function highlight(idCls) {
+    clearHighlights();
+    idCls.forEach(([id, cls]) => {
+      const el = document.getElementById(id);
+      if (el) {
+        let prefix = '';
+        if (mode === 'mono' && ['m3','m4','m5','m6','m7','m8','m10','m11','m12','m13','m14','m15','m17','m18','m19','m20','m21','m22'].includes(id)) prefix = 'duplicate ';
+        if (mode === 'fn' && ['f1','f2','f3','f4','f5','f6','f7','f8'].includes(id)) prefix = 'in-fn ';
+        el.className = 'cl ' + prefix + cls;
+      }
+    });
+  }
+
+  function bump(id) {
+    const el = document.getElementById(id);
+    if (el) { el.classList.add('bumped'); setTimeout(() => el.classList.remove('bumped'), 500); }
+  }
+
+  function renderOutputs() {
+    const r = document.getElementById('outRows');
+    if (outputs.length === 0) {
+      r.innerHTML = '<div style="color: var(--muted); font-style: italic; font-family: Georgia, serif; font-size: 12px;">— no output yet —</div>';
+      return;
+    }
+    let h = '';
+    for (let i = 0; i < outputs.length; i++) {
+      const cls = i === outputs.length - 1 && phase !== 'done' ? 'out-row active' : 'out-row';
+      h += `<div class="${cls}">
+        <span class="out-num">${outputs[i].input}</span>
+        <span class="out-arrow">→ sumOfDigits →</span>
+        <span class="out-result">${outputs[i].result}</span>
+      </div>`;
+    }
+    r.innerHTML = h;
+  }
+
+  function step() {
+    if (phase === 'done') return;
+
+    // Start a new block if needed
+    if (phase === 'idle' || phase === 'block-done') {
+      currentSlot++;
+      if (currentSlot > 3) {
+        phase = 'done';
+        clearHighlights();
+        document.getElementById('traceText').innerHTML =
+          `<span class="formula-piece fp green">All three sums printed. Done.</span>`;
+        document.getElementById('stepLbl').textContent = mode === 'mono'
+          ? 'complete — 22 lines, 3 duplicated blocks executed'
+          : 'complete — function called 3 times, no duplication';
+        document.getElementById('stepBtn').disabled = true;
+        if (timer) { clearInterval(timer); timer = null; }
+        return;
+      }
+      const original = currentSlot === 1 ? a : currentSlot === 2 ? b : c;
+      currentN = original;
+      currentSum = 0;
+      phase = 'in-block';
+      document.getElementById('stateA').textContent = currentN;
+      document.getElementById('stateS').textContent = currentSum;
+      bump('cellA'); bump('cellS');
+
+      if (mode === 'mono') {
+        const startIds = currentSlot === 1 ? ['m3','m4'] : currentSlot === 2 ? ['m10','m11'] : ['m17','m18'];
+        highlight([[startIds[0], 'taken'], [startIds[1], 'eval']]);
+        document.getElementById('traceText').innerHTML =
+          `Block ${currentSlot}: starting loop for <span class="formula-piece fp blue">${currentN}</span>, sum${currentSlot} = 0`;
+      } else {
+        const callId = currentSlot === 1 ? 'f11' : currentSlot === 2 ? 'f12' : 'f13';
+        highlight([[callId, 'eval'], ['f1', 'in-fn taken'], ['f2', 'taken'], ['f3', 'eval']]);
+        document.getElementById('traceText').innerHTML =
+          `Call ${currentSlot}: <span class="formula-piece fp purple">sumOfDigits(${currentN})</span> — parameter n = ${currentN}, local sum = 0`;
+      }
+      document.getElementById('stepLbl').textContent = `processing number #${currentSlot}: ${currentN}`;
+      return;
+    }
+
+    // In-block: do one iteration of the loop OR print the result
+    if (phase === 'in-block') {
+      if (currentN > 0) {
+        const digit = currentN % 10;
+        currentSum += digit;
+        currentN = Math.floor(currentN / 10);
+        document.getElementById('stateA').textContent = currentN;
+        document.getElementById('stateS').textContent = currentSum;
+        bump('cellA'); bump('cellS');
+
+        if (mode === 'mono') {
+          const loopIds = currentSlot === 1 ? ['m4','m5','m6'] : currentSlot === 2 ? ['m11','m12','m13'] : ['m18','m19','m20'];
+          highlight([[loopIds[0], 'eval'], [loopIds[1], 'taken'], [loopIds[2], 'taken']]);
+        } else {
+          highlight([['f3', 'eval'], ['f4', 'taken'], ['f5', 'taken']]);
+        }
+        document.getElementById('traceText').innerHTML =
+          `extract digit <span class="formula-piece fp orange">${digit}</span>, sum → <span class="formula-piece fp green">${currentSum}</span>, n → <span class="formula-piece fp blue">${currentN}</span>`;
+        return;
+      } else {
+        // Loop done, print
+        if (mode === 'mono') {
+          const printId = currentSlot === 1 ? 'm8' : currentSlot === 2 ? 'm15' : 'm22';
+          highlight([[printId, 'taken']]);
+        } else {
+          highlight([['f7', 'taken'], ['f8', 'taken']]);
+        }
+        const input = currentSlot === 1 ? a : currentSlot === 2 ? b : c;
+        outputs.push({ input: input, result: currentSum });
+        renderOutputs();
+        document.getElementById('traceText').innerHTML =
+          mode === 'mono'
+            ? `print sum${currentSlot} = <span class="formula-piece fp green">${currentSum}</span>`
+            : `<span class="formula-piece fp purple">return ${currentSum}</span> → printed`;
+        phase = 'block-done';
+        return;
+      }
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (phase === 'done') { clearInterval(timer); timer = null; return; }
+      step();
+    }, 650);
+  }
+
+  setMode('mono');
+</script>
+</body>
+</html>

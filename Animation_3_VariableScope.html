@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Variable scope — main's 'a' vs sum's 'a'</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .step-btn {
+    background: var(--accent);
+    color: #1a1d23;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .step-btn:hover { background: #ffb866; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .codebox {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.85;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .cl {
+    padding: 1px 6px;
+    border-radius: 3px;
+    transition: all 0.3s;
+    opacity: 0.4;
+  }
+  .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
+  .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
+  .cl.scope-main { background: rgba(93, 173, 236, 0.06); border-left: 2px solid rgba(93, 173, 236, 0.4); padding-left: 4px; opacity: 1; }
+  .cl.scope-fn { background: rgba(192, 132, 232, 0.06); border-left: 2px solid rgba(192, 132, 232, 0.4); padding-left: 4px; opacity: 1; }
+  .kw { color: #5dadec; }
+  .num { color: #f0a04b; }
+  .com { color: #8b8d93; font-style: italic; }
+  .meth { color: #c084e8; }
+
+  /* Scope boxes - the central visualization */
+  .scope-stage {
+    background: #0d1117;
+    border-radius: 10px;
+    padding: 22px 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    min-height: 380px;
+  }
+  .scope-box {
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    transition: all 0.3s;
+  }
+  .scope-box.main-scope {
+    background: rgba(93, 173, 236, 0.06);
+    border: 2px solid rgba(93, 173, 236, 0.5);
+  }
+  .scope-box.fn-scope {
+    background: rgba(192, 132, 232, 0.06);
+    border: 2px solid rgba(192, 132, 232, 0.5);
+  }
+  .scope-box.fn-scope.dormant {
+    opacity: 0.35;
+    background: rgba(192, 132, 232, 0.02);
+    border-style: dashed;
+  }
+
+  .scope-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px dashed currentColor;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .scope-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .main-scope .scope-title { color: var(--blue); }
+  .fn-scope .scope-title { color: var(--purple); }
+  .scope-state {
+    font-size: 11px;
+    font-style: italic;
+    font-family: Georgia, serif;
+    color: var(--muted);
+  }
+
+  .vars-row {
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .var-card {
+    background: #1a1d23;
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-width: 80px;
+    text-align: center;
+    border: 2px solid var(--line);
+    transition: all 0.3s;
+  }
+  .main-scope .var-card { border-color: rgba(93, 173, 236, 0.3); }
+  .fn-scope .var-card { border-color: rgba(192, 132, 232, 0.3); }
+  .var-card.highlight-main {
+    border-color: var(--blue);
+    background: rgba(93, 173, 236, 0.1);
+    box-shadow: 0 0 0 2px rgba(93, 173, 236, 0.25);
+  }
+  .var-card.highlight-fn {
+    border-color: var(--purple);
+    background: rgba(192, 132, 232, 0.1);
+    box-shadow: 0 0 0 2px rgba(192, 132, 232, 0.25);
+  }
+  .var-card.fresh {
+    animation: pop-in 0.4s ease-out;
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .var-card .vname {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .var-card .vval {
+    font-size: 20px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 4px;
+  }
+  .main-scope .var-card .vval { color: var(--blue); }
+  .fn-scope .var-card .vval { color: var(--purple); }
+
+  .conflict-note {
+    background: rgba(229, 115, 115, 0.06);
+    border: 1px dashed var(--red);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--ink);
+    font-family: Georgia, serif;
+    font-style: italic;
+    display: none;
+  }
+  .conflict-note.show { display: block; }
+  .conflict-note strong {
+    color: var(--red);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .step-trace {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    font-size: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.6;
+  }
+  .formula-piece {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .fp.green { background: rgba(163, 217, 119, 0.18); color: var(--green); }
+  .fp.blue { background: rgba(93, 173, 236, 0.18); color: var(--blue); }
+  .fp.red { background: rgba(229, 115, 115, 0.15); color: var(--red); }
+  .fp.orange { background: rgba(240, 160, 75, 0.18); color: var(--accent); }
+  .fp.purple { background: rgba(192, 132, 232, 0.18); color: var(--purple); }
+
+  .step-counter { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; font-family: Georgia, serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Variable scope — same name, different worlds</h1>
+  <div class="sub">When a function takes parameters named <span style="color: var(--purple); font-family: 'JetBrains Mono', monospace;">a, b</span> and the caller has its own <span style="color: var(--blue); font-family: 'JetBrains Mono', monospace;">a, b</span> — these are DIFFERENT variables. They live in separate scopes. Changing one doesn't change the other. This is the most-missed concept in the Quiz section.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">SCENARIO</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="qb" onclick="loadScenario(1)">sum(a, 10) — Quiz 1</button>
+        <button class="qb" onclick="loadScenario(2)">sum(6, 10) — Quiz 5</button>
+        <button class="qb" onclick="loadScenario(3)">sum(20, b) — Quiz 4</button>
+      </div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="qb" onclick="autoplay()">Auto-play</button>
+      <button class="qb" onclick="reset()">Reset</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">CODE</div>
+      <div class="codebox" id="codebox"></div>
+
+      <div class="step-trace" id="stepTrace">
+        <span id="traceText">— press Step to begin —</span>
+      </div>
+
+      <div class="step-counter" id="stepLbl">not started</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">SCOPES</div>
+      <div class="scope-stage">
+        <div class="scope-box main-scope">
+          <div class="scope-header">
+            <span class="scope-title">main() — caller scope</span>
+            <span class="scope-state" id="mainState">— active —</span>
+          </div>
+          <div class="vars-row" id="mainVars"></div>
+        </div>
+
+        <div class="scope-box fn-scope dormant" id="fnScope">
+          <div class="scope-header">
+            <span class="scope-title">sum(a, b) — function scope</span>
+            <span class="scope-state" id="fnState">— not yet called —</span>
+          </div>
+          <div class="vars-row" id="fnVars"></div>
+        </div>
+
+        <div class="conflict-note" id="conflictNote">
+          <strong>Notice →</strong> main has its own <code style="color: var(--blue);">a</code> and the function has its own <code style="color: var(--purple);">a</code>. They share a name. They do NOT share a value. The function sees only what was passed in.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Three scenarios mirroring quizzes
+  const scenarios = {
+    1: { // sum(a, 10)
+      label: 'sum(a, 10)',
+      mainA: 15, mainB: 5,
+      arg1: 'a', arg2: '10',
+      paramA: 15, paramB: 10,
+      result: 25,
+      code: `
+<div class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</div>
+<div class="cl scope-fn" id="c2">  <span class="kw">return</span> a + b;</div>
+<div class="cl" id="c3">}</div>
+<div class="cl" id="c4"> </div>
+<div class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</div>
+<div class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(a, <span class="num">10</span>));</div>`
+    },
+    2: { // sum(6, 10)
+      label: 'sum(6, 10)',
+      mainA: 15, mainB: 5,
+      arg1: '6', arg2: '10',
+      paramA: 6, paramB: 10,
+      result: 16,
+      code: `
+<div class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</div>
+<div class="cl scope-fn" id="c2">  <span class="kw">return</span> a + b;</div>
+<div class="cl" id="c3">}</div>
+<div class="cl" id="c4"> </div>
+<div class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</div>
+<div class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(<span class="num">6</span>, <span class="num">10</span>));</div>`
+    },
+    3: { // sum(20, b)
+      label: 'sum(20, b)',
+      mainA: 15, mainB: 5,
+      arg1: '20', arg2: 'b',
+      paramA: 20, paramB: 5,
+      result: 25,
+      code: `
+<div class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</div>
+<div class="cl scope-fn" id="c2">  <span class="kw">return</span> a + b;</div>
+<div class="cl" id="c3">}</div>
+<div class="cl" id="c4"> </div>
+<div class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</div>
+<div class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(<span class="num">20</span>, b));</div>`
+    }
+  };
+
+  let scn = scenarios[1];
+  let step_n = 0;
+  let timer = null;
+  const TOTAL_STEPS = 6;
+
+  function loadScenario(id) {
+    scn = scenarios[id];
+    reset();
+  }
+
+  function reset() {
+    if (timer) { clearInterval(timer); timer = null; }
+    step_n = 0;
+    document.getElementById('codebox').innerHTML = scn.code;
+    document.getElementById('mainVars').innerHTML = `
+      <div class="var-card" id="mA"><span class="vname">a</span><div class="vval">?</div></div>
+      <div class="var-card" id="mB"><span class="vname">b</span><div class="vval">?</div></div>
+    `;
+    document.getElementById('fnVars').innerHTML = `
+      <div class="var-card" style="opacity: 0.4;"><span class="vname">a</span><div class="vval">?</div></div>
+      <div class="var-card" style="opacity: 0.4;"><span class="vname">b</span><div class="vval">?</div></div>
+    `;
+    document.getElementById('fnScope').className = 'scope-box fn-scope dormant';
+    document.getElementById('mainState').textContent = '— active —';
+    document.getElementById('fnState').textContent = '— not yet called —';
+    document.getElementById('conflictNote').className = 'conflict-note';
+    document.getElementById('traceText').textContent = '— press Step to begin —';
+    document.getElementById('stepLbl').textContent = `scenario: ${scn.label}`;
+    document.getElementById('stepBtn').disabled = false;
+  }
+
+  function step() {
+    if (step_n >= TOTAL_STEPS) return;
+    step_n++;
+    document.getElementById('stepLbl').textContent = `scenario: ${scn.label} — step ${step_n}/${TOTAL_STEPS}`;
+
+    if (step_n === 1) {
+      // Declare main's a and b
+      document.getElementById('mainVars').innerHTML = `
+        <div class="var-card highlight-main fresh"><span class="vname">a</span><div class="vval">${scn.mainA}</div></div>
+        <div class="var-card highlight-main fresh"><span class="vname">b</span><div class="vval">${scn.mainB}</div></div>
+      `;
+      document.getElementById('traceText').innerHTML =
+        `main declares its own variables: <span class="formula-piece fp blue">a = ${scn.mainA}</span>, <span class="formula-piece fp blue">b = ${scn.mainB}</span>`;
+      return;
+    }
+
+    if (step_n === 2) {
+      // Evaluate arguments
+      const arg1Display = scn.arg1 === 'a' ? `<span style="color: var(--blue);">a</span> → ${scn.paramA}` :
+                          scn.arg1 === 'b' ? `<span style="color: var(--blue);">b</span> → ${scn.paramA}` :
+                          scn.arg1;
+      const arg2Display = scn.arg2 === 'a' ? `<span style="color: var(--blue);">a</span> → ${scn.paramB}` :
+                          scn.arg2 === 'b' ? `<span style="color: var(--blue);">b</span> → ${scn.paramB}` :
+                          scn.arg2;
+      // Highlight main's vars used in args
+      let mainHTML = `
+        <div class="var-card ${scn.arg1 === 'a' || scn.arg2 === 'a' ? 'highlight-main' : ''}"><span class="vname">a</span><div class="vval">${scn.mainA}</div></div>
+        <div class="var-card ${scn.arg1 === 'b' || scn.arg2 === 'b' ? 'highlight-main' : ''}"><span class="vname">b</span><div class="vval">${scn.mainB}</div></div>
+      `;
+      document.getElementById('mainVars').innerHTML = mainHTML;
+      document.getElementById('traceText').innerHTML =
+        `Reach <span class="formula-piece fp orange">${scn.label}</span> — evaluate arguments to values: (${arg1Display}, ${arg2Display})`;
+      return;
+    }
+
+    if (step_n === 3) {
+      // Enter function scope
+      document.getElementById('fnScope').className = 'scope-box fn-scope';
+      document.getElementById('fnState').textContent = '— call active —';
+      document.getElementById('mainState').textContent = '— paused —';
+      document.getElementById('fnVars').innerHTML = `
+        <div class="var-card highlight-fn fresh"><span class="vname">a</span><div class="vval">${scn.paramA}</div></div>
+        <div class="var-card highlight-fn fresh"><span class="vname">b</span><div class="vval">${scn.paramB}</div></div>
+      `;
+      document.getElementById('conflictNote').className = 'conflict-note show';
+      document.getElementById('traceText').innerHTML =
+        `sum's frame opens. Parameters <span class="formula-piece fp purple">a = ${scn.paramA}</span>, <span class="formula-piece fp purple">b = ${scn.paramB}</span> are NEW local variables — they shadow main's a and b.`;
+      return;
+    }
+
+    if (step_n === 4) {
+      // Compute
+      document.getElementById('traceText').innerHTML =
+        `sum body: <span class="formula-piece fp purple">return a + b = ${scn.paramA} + ${scn.paramB}</span> = <span class="formula-piece fp green">${scn.result}</span>`;
+      return;
+    }
+
+    if (step_n === 5) {
+      // Return + frame discarded
+      document.getElementById('fnScope').className = 'scope-box fn-scope dormant';
+      document.getElementById('fnState').textContent = '— returned, frame discarded —';
+      document.getElementById('mainState').textContent = '— active again —';
+      document.getElementById('fnVars').innerHTML = `
+        <div class="var-card" style="opacity: 0.4;"><span class="vname">a</span><div class="vval">—</div></div>
+        <div class="var-card" style="opacity: 0.4;"><span class="vname">b</span><div class="vval">—</div></div>
+      `;
+      // Confirm main's vars unchanged
+      document.getElementById('mainVars').innerHTML = `
+        <div class="var-card highlight-main"><span class="vname">a</span><div class="vval">${scn.mainA}</div></div>
+        <div class="var-card highlight-main"><span class="vname">b</span><div class="vval">${scn.mainB}</div></div>
+      `;
+      document.getElementById('traceText').innerHTML =
+        `<span class="formula-piece fp green">return ${scn.result}</span> — function's locals vanish. main's <span class="formula-piece fp blue">a = ${scn.mainA}</span>, <span class="formula-piece fp blue">b = ${scn.mainB}</span> are UNCHANGED.`;
+      return;
+    }
+
+    if (step_n === 6) {
+      document.getElementById('traceText').innerHTML =
+        `<span class="formula-piece fp green">println(${scn.result})</span> — final answer`;
+      document.getElementById('stepBtn').disabled = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      return;
+    }
+  }
+
+  function autoplay() {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(() => {
+      if (step_n >= TOTAL_STEPS) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 1300);
+  }
+
+  reset();
+</script>
+</body>
+</html>
