@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Python type() — detect any value's type</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .repl {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 18px;
+  }
+
+  .repl-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .repl-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .repl-prompt {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .repl-call {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--purple);
+    font-size: 16px;
+  }
+  .repl-paren {
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+  }
+  .repl-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    outline: none;
+  }
+  .repl-input::placeholder { color: var(--muted); }
+
+  .verdict-box {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    text-align: center;
+    transition: all 0.3s;
+    margin-bottom: 16px;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .verdict-box.int { border-color: var(--green); background: rgba(163, 217, 119, 0.04); }
+  .verdict-box.float { border-color: var(--purple); background: rgba(192, 132, 232, 0.04); }
+  .verdict-box.str { border-color: var(--blue); background: rgba(93, 173, 236, 0.04); }
+  .verdict-box.bool { border-color: var(--accent); background: rgba(240, 160, 75, 0.04); }
+  .verdict-box.none { border-color: var(--muted); background: rgba(139, 141, 147, 0.04); }
+  .verdict-box.error { border-color: var(--red); background: rgba(229, 115, 115, 0.04); }
+
+  .verdict-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .verdict-result {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .verdict-box.int .verdict-result { color: var(--green); }
+  .verdict-box.float .verdict-result { color: var(--purple); }
+  .verdict-box.str .verdict-result { color: var(--blue); }
+  .verdict-box.bool .verdict-result { color: var(--accent); }
+  .verdict-box.none .verdict-result { color: var(--muted); }
+  .verdict-box.error .verdict-result { color: var(--red); font-size: 18px; }
+  .verdict-explain {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink);
+    max-width: 600px;
+    line-height: 1.5;
+  }
+
+  .examples-section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .ex-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 14px;
+    font-weight: 600;
+  }
+  .ex-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  .ex-btn {
+    background: var(--panel-2);
+    border: 1.5px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .ex-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .ex-btn .ex-type {
+    display: block;
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 3px;
+    letter-spacing: 0.05em;
+  }
+  .ex-btn.int .ex-type { color: var(--green); }
+  .ex-btn.float .ex-type { color: var(--purple); }
+  .ex-btn.str .ex-type { color: var(--blue); }
+  .ex-btn.bool .ex-type { color: var(--accent); }
+  .ex-btn.none .ex-type { color: var(--muted); }
+  .ex-btn.error .ex-type { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>type() — Python's built-in type detector</h1>
+  <div class="sub">Type any Python value below. See what type Python assigns to it. The same function works on integers, floats, strings, booleans — anything.</div>
+
+  <div class="repl">
+    <div class="repl-label">PYTHON REPL — try any value</div>
+    <div class="repl-input-row">
+      <span class="repl-prompt">&gt;&gt;&gt;</span>
+      <span class="repl-call">type</span>
+      <span class="repl-paren">(</span>
+      <input type="text" class="repl-input" id="valInput" value="23" oninput="detect()" placeholder="try: 23, 3.14, &quot;hello&quot;, True, None">
+      <span class="repl-paren">)</span>
+    </div>
+
+    <div class="verdict-box int" id="verdictBox">
+      <div class="verdict-label">PYTHON RESPONDS</div>
+      <div class="verdict-result" id="verdictResult">&lt;class 'int'&gt;</div>
+      <div class="verdict-explain" id="verdictExplain">23 is a whole number with no decimal — Python classifies it as an integer.</div>
+    </div>
+  </div>
+
+  <div class="examples-section">
+    <div class="ex-title">CLICK TO TRY — predict the type before clicking</div>
+    <div class="ex-grid">
+      <button class="ex-btn int" onclick="tryVal('23')">23<span class="ex-type">int</span></button>
+      <button class="ex-btn int" onclick="tryVal('-122')">-122<span class="ex-type">int</span></button>
+      <button class="ex-btn float" onclick="tryVal('12.5')">12.5<span class="ex-type">float</span></button>
+      <button class="ex-btn float" onclick="tryVal('12.0')">12.0<span class="ex-type">float</span></button>
+      <button class="ex-btn float" onclick="tryVal('-0.5')">-0.5<span class="ex-type">float</span></button>
+      <button class="ex-btn str" onclick="tryVal('&quot;hello&quot;')">"hello"<span class="ex-type">str</span></button>
+      <button class="ex-btn str" onclick="tryVal(&quot;'Python'&quot;)">'Python'<span class="ex-type">str</span></button>
+      <button class="ex-btn str" onclick="tryVal('&quot;123&quot;')">"123"<span class="ex-type">str (!)</span></button>
+      <button class="ex-btn bool" onclick="tryVal('True')">True<span class="ex-type">bool</span></button>
+      <button class="ex-btn bool" onclick="tryVal('False')">False<span class="ex-type">bool</span></button>
+      <button class="ex-btn none" onclick="tryVal('None')">None<span class="ex-type">NoneType</span></button>
+      <button class="ex-btn error" onclick="tryVal('true')">true<span class="ex-type">Error</span></button>
+      <button class="ex-btn error" onclick="tryVal('hello')">hello<span class="ex-type">Error</span></button>
+      <button class="ex-btn error" onclick="tryVal(&quot;'mix&quot;+'&quot;')">'mix"<span class="ex-type">SyntaxError</span></button>
+      <button class="ex-btn int" onclick="tryVal('0')">0<span class="ex-type">int</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function tryVal(v) {
+    document.getElementById('valInput').value = v;
+    detect();
+  }
+
+  function detect() {
+    const raw = document.getElementById('valInput').value.trim();
+    const box = document.getElementById('verdictBox');
+    const result = document.getElementById('verdictResult');
+    const explain = document.getElementById('verdictExplain');
+
+    // Strip surrounding whitespace
+    if (raw === '') {
+      box.className = 'verdict-box none';
+      result.textContent = '— enter a value —';
+      explain.textContent = '';
+      return;
+    }
+
+    // Check for None
+    if (raw === 'None') {
+      box.className = 'verdict-box none';
+      result.innerHTML = `&lt;class 'NoneType'&gt;`;
+      explain.textContent = 'None is Python\'s "nothing" value. Its type is NoneType. There is only one None.';
+      return;
+    }
+
+    // Check for True/False (must be exact case)
+    if (raw === 'True' || raw === 'False') {
+      box.className = 'verdict-box bool';
+      result.innerHTML = `&lt;class 'bool'&gt;`;
+      explain.textContent = `${raw} is a boolean. Note the capital ${raw[0]} — lowercase "${raw.toLowerCase()}" would be an error in Python.`;
+      return;
+    }
+
+    // Check for invalid case-bool
+    if (raw === 'true' || raw === 'false') {
+      box.className = 'verdict-box error';
+      result.textContent = `NameError: name '${raw}' is not defined`;
+      explain.innerHTML = `Python is case-sensitive. Booleans must be capitalized: <strong style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">True</strong> and <strong style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">False</strong>.`;
+      return;
+    }
+
+    // Check string literal (quoted)
+    if ((raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) ||
+        (raw.startsWith("'") && raw.endsWith("'") && raw.length >= 2)) {
+      // Check mismatched quotes
+      if (raw.length >= 2 && raw[0] !== raw[raw.length - 1]) {
+        box.className = 'verdict-box error';
+        result.textContent = 'SyntaxError: invalid syntax';
+        explain.textContent = `Mismatched quotes. A string must start AND end with the same quote type — both " or both '.`;
+        return;
+      }
+      box.className = 'verdict-box str';
+      result.innerHTML = `&lt;class 'str'&gt;`;
+      const inner = raw.substring(1, raw.length - 1);
+      explain.innerHTML = `"${inner}" is a string. Anything in matching quotes is text — even if it looks like a number, like <code style="color: var(--accent); font-style: normal; font-family: 'JetBrains Mono', monospace;">"123"</code>.`;
+      return;
+    }
+
+    // Check mismatched quotes  
+    if ((raw.startsWith("'") && raw.endsWith('"')) || (raw.startsWith('"') && raw.endsWith("'"))) {
+      box.className = 'verdict-box error';
+      result.textContent = 'SyntaxError: invalid syntax';
+      explain.textContent = 'Mismatched quotes. A string must start AND end with the same quote type.';
+      return;
+    }
+
+    // Try to parse as integer (no decimal)
+    if (/^-?\d+$/.test(raw)) {
+      box.className = 'verdict-box int';
+      result.innerHTML = `&lt;class 'int'&gt;`;
+      explain.textContent = `${raw} is a whole number with no decimal — Python classifies it as an integer.`;
+      return;
+    }
+
+    // Try to parse as float (has decimal)
+    if (/^-?\d+\.\d*$/.test(raw) || /^-?\d*\.\d+$/.test(raw)) {
+      box.className = 'verdict-box float';
+      result.innerHTML = `&lt;class 'float'&gt;`;
+      explain.innerHTML = `${raw} has a decimal point — Python classifies it as a float. Even <code style="color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace;">12.0</code> is a float, not an int.`;
+      return;
+    }
+
+    // Bare identifier (no quotes, not number, not None/True/False)
+    box.className = 'verdict-box error';
+    result.textContent = `NameError: name '${raw}' is not defined`;
+    explain.innerHTML = `Without quotes, Python treats <code style="color: var(--red); font-style: normal; font-family: 'JetBrains Mono', monospace;">${raw}</code> as a variable name — and there's no variable with this name defined. To make it a string, wrap it in quotes: <code style="color: var(--blue); font-style: normal; font-family: 'JetBrains Mono', monospace;">"${raw}"</code>.`;
+  }
+
+  detect();
+</script>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>print() — sep and end playground</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap;
+  }
+  .ctl-grp {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .ctl-label .keyword {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .num-input, .text-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 5px;
+    text-align: center;
+  }
+  .num-input { width: 70px; }
+  .text-input { width: 100px; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .panel-title { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 14px; }
+
+  .live-code {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.8;
+    min-height: 100px;
+  }
+  .code-line { padding: 2px 0; }
+  .code-meth { color: var(--purple); font-weight: 600; }
+  .code-paren { color: var(--muted); }
+  .code-arg { color: var(--green); }
+  .code-kwarg-name { color: var(--blue); }
+  .code-kwarg-val { color: var(--accent); }
+  .code-eq { color: var(--muted); }
+  .code-comma { color: var(--muted); }
+
+  .output-display {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    margin-bottom: 16px;
+    min-height: 110px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    color: var(--green);
+    line-height: 1.6;
+  }
+  .out-label {
+    font-family: inherit;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .out-text {
+    color: var(--green);
+    font-size: 17px;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .out-text .sep-marker {
+    display: inline-block;
+    background: rgba(240, 160, 75, 0.15);
+    border: 1px dashed var(--accent);
+    color: var(--accent);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin: 0 1px;
+    vertical-align: middle;
+  }
+  .out-text .end-marker {
+    display: inline-block;
+    background: rgba(192, 132, 232, 0.15);
+    border: 1px dashed var(--purple);
+    color: var(--purple);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin: 0 1px;
+    vertical-align: middle;
+  }
+
+  .explain-box {
+    background: rgba(240, 160, 75, 0.05);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .explain-box strong {
+    color: var(--accent);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .preset-section {
+    margin-top: 18px;
+  }
+  .preset-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .multi-line {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+  .multi-line .lbl {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .multi-line .ans {
+    color: var(--green);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    white-space: pre;
+  }
+  .next-print-marker {
+    display: inline-block;
+    background: var(--panel-2);
+    color: var(--muted);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    margin-left: 4px;
+    font-style: italic;
+    font-family: Georgia, serif;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>print() — sep and end, hands-on</h1>
+  <div class="sub"><strong style="color: var(--accent); font-family: 'JetBrains Mono', monospace;">sep</strong> is the glue between items inside one print(). <strong style="color: var(--purple); font-family: 'JetBrains Mono', monospace;">end</strong> is what comes after the print finishes. Change either — see the output update live.</div>
+
+  <div class="controls">
+    <div class="ctl-grp">
+      <span class="ctl-label">ITEMS TO PRINT</span>
+      <div style="display:flex; gap: 6px;">
+        <input type="text" class="text-input" id="item1" value="I" oninput="render()" style="width: 60px;">
+        <input type="text" class="text-input" id="item2" value="Love" oninput="render()" style="width: 80px;">
+        <input type="text" class="text-input" id="item3" value="Python" oninput="render()" style="width: 90px;">
+      </div>
+    </div>
+    <div class="ctl-grp">
+      <span class="ctl-label"><span class="keyword">sep</span> (between items)</span>
+      <input type="text" class="text-input" id="sep" value=" " oninput="render()">
+    </div>
+    <div class="ctl-grp">
+      <span class="ctl-label"><span class="keyword">end</span> (after print)</span>
+      <input type="text" class="text-input" id="end" value="\n" oninput="render()">
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title">YOUR PRINT() CALL</div>
+      <div class="live-code" id="liveCode"></div>
+
+      <div class="panel-title">CONSOLE OUTPUT</div>
+      <div class="output-display">
+        <div class="out-text" id="outText"></div>
+      </div>
+
+      <div class="explain-box" id="explainBox">
+        Default values: <strong>sep=" "</strong> (space), <strong>end="\n"</strong> (newline). Change either to see how the output transforms.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">QUICK SCENARIOS — CLICK TO TRY</div>
+      <div class="preset-section">
+        <div class="preset-grid">
+          <button class="qb" onclick="setScenario('default')">defaults (space + newline)</button>
+          <button class="qb" onclick="setScenario('dash')">sep="-"</button>
+          <button class="qb" onclick="setScenario('newline')">sep="\\n" (vertical)</button>
+          <button class="qb" onclick="setScenario('at')">sep="@"</button>
+          <button class="qb" onclick="setScenario('end-space')">end=" " (no newline)</button>
+          <button class="qb" onclick="setScenario('combo')">sep="-", end="+"</button>
+        </div>
+      </div>
+
+      <div class="panel-title" style="margin-top: 22px;">CHAINED print() CALLS — SEE end IN ACTION</div>
+      <div class="multi-line">
+        <div class="lbl">CODE</div>
+        <div style="color: var(--ink);">print(1, 2, 3, <span style="color: var(--blue);">end</span><span style="color: var(--muted);">=</span><span style="color: var(--accent);" id="chainEnd">" "</span>)<br>print(4)</div>
+        <div class="lbl" style="margin-top: 14px;">OUTPUT</div>
+        <div class="ans" id="chainOutput">1 2 3 4
+</div>
+      </div>
+
+      <div class="explain-box">
+        <strong>The big idea →</strong> with the default <strong>end="\n"</strong>, every print() finishes by starting a new line. Change end to <strong>" "</strong> (space) and the NEXT print() continues on the same line. This is how you build output across multiple print() calls.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function escapeForCode(s) {
+    return s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+  }
+
+  function escapeForOutput(s) {
+    // We render newline as a marker
+    return s.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+  }
+
+  function setScenario(s) {
+    const presets = {
+      'default': { sep: ' ', end: '\\n', items: ['I', 'Love', 'Python'] },
+      'dash': { sep: '-', end: '\\n', items: ['I', 'Love', 'Python'] },
+      'newline': { sep: '\\n', end: '\\n', items: ['10', '20', '30'] },
+      'at': { sep: '@', end: '\\n', items: ['10', '20'] },
+      'end-space': { sep: ' ', end: ' ', items: ['1', '2', '3'] },
+      'combo': { sep: '-', end: '+', items: ['1', '2', '3', '4'] }
+    };
+    const p = presets[s];
+    if (!p) return;
+    document.getElementById('item1').value = p.items[0] || '';
+    document.getElementById('item2').value = p.items[1] || '';
+    document.getElementById('item3').value = p.items[2] || '';
+    document.getElementById('sep').value = p.sep;
+    document.getElementById('end').value = p.end;
+    render();
+  }
+
+  function render() {
+    const items = [
+      document.getElementById('item1').value,
+      document.getElementById('item2').value,
+      document.getElementById('item3').value
+    ].filter(s => s !== '');
+
+    const sepRaw = document.getElementById('sep').value;
+    const endRaw = document.getElementById('end').value;
+
+    // Build the code call
+    let codeHtml = '<span class="code-line"><span class="code-meth">print</span><span class="code-paren">(</span>';
+    codeHtml += items.map(i => `"<span class="code-arg">${i}</span>"`).join('<span class="code-comma">, </span>');
+    if (sepRaw !== ' ') {
+      codeHtml += `<span class="code-comma">, </span><span class="code-kwarg-name">sep</span><span class="code-eq">=</span>"<span class="code-kwarg-val">${sepRaw === '\\n' ? '\\\\n' : sepRaw === '\\t' ? '\\\\t' : sepRaw}</span>"`;
+    }
+    if (endRaw !== '\\n') {
+      codeHtml += `<span class="code-comma">, </span><span class="code-kwarg-name">end</span><span class="code-eq">=</span>"<span class="code-kwarg-val">${endRaw === '\\n' ? '\\\\n' : endRaw === '\\t' ? '\\\\t' : endRaw}</span>"`;
+    }
+    codeHtml += '<span class="code-paren">)</span></span>';
+    document.getElementById('liveCode').innerHTML = codeHtml;
+
+    // Build the output
+    // sep and end - interpret \n as real newline, but mark visually
+    const sepReal = sepRaw === '\\n' ? '\n' : sepRaw === '\\t' ? '\t' : sepRaw;
+    const endReal = endRaw === '\\n' ? '\n' : endRaw === '\\t' ? '\t' : endRaw;
+
+    let outHtml = '';
+    for (let i = 0; i < items.length; i++) {
+      outHtml += items[i];
+      if (i < items.length - 1) {
+        if (sepReal === '\n') outHtml += '<span class="sep-marker">↵</span>\n';
+        else if (sepReal === ' ') outHtml += '<span class="sep-marker">SP</span>';
+        else outHtml += `<span class="sep-marker">${sepReal}</span>`;
+      }
+    }
+    // Append end marker
+    if (endReal === '\n') outHtml += '<span class="end-marker">↵</span>\n';
+    else if (endReal === ' ') outHtml += '<span class="end-marker">SP</span>';
+    else outHtml += `<span class="end-marker">${endReal}</span>`;
+
+    document.getElementById('outText').innerHTML = outHtml;
+
+    // Update chained example based on current end (if it's '\n', shows it on new line)
+    const chainEnd = endRaw;
+    document.getElementById('chainEnd').textContent = `"${chainEnd}"`;
+    let chainOut = '';
+    chainOut += '1 2 3';
+    chainOut += '<span class="end-marker">';
+    if (chainEnd === '\\n') chainOut += '↵</span>\n';
+    else if (chainEnd === ' ') chainOut += 'SP</span>';
+    else chainOut += chainEnd + '</span>';
+    chainOut += '4';
+    chainOut += '<span class="end-marker">↵</span>\n';
+    document.getElementById('chainOutput').innerHTML = chainOut;
+
+    // Update explanation based on current sep/end
+    let explainText = '';
+    if (sepRaw === ' ' && endRaw === '\\n') {
+      explainText = 'Using <strong>defaults</strong>: sep=" " (space), end="\\n" (newline).';
+    } else {
+      const parts = [];
+      if (sepRaw !== ' ') {
+        if (sepRaw === '\\n') parts.push('<strong>sep="\\n"</strong> puts each item on its own line');
+        else parts.push(`<strong>sep="${sepRaw}"</strong> means "${sepRaw}" goes BETWEEN items`);
+      }
+      if (endRaw !== '\\n') {
+        if (endRaw === ' ') parts.push('<strong>end=" "</strong> means the next print() continues on the same line');
+        else parts.push(`<strong>end="${endRaw}"</strong> means "${endRaw}" gets added AFTER the print finishes`);
+      }
+      explainText = parts.join(' &nbsp;·&nbsp; ');
+    }
+    document.getElementById('explainBox').innerHTML = explainText;
+  }
+
+  render();
+</script>
+</body>
+</html>
