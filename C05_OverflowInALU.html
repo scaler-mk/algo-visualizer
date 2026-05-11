@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Overflow in the ALU</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fcf3e3;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 760px;
+  }
+
+  /* Scenario picker */
+  .scenarios {
+    max-width: 1100px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .scenarios-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 6px;
+  }
+  .scenario {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 7px 11px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .scenario:hover { background: #fff8d6; }
+  .scenario.active { background: #1a1a1a; color: #ffd95c; }
+
+  /* Stage */
+  .stage {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 20px 22px;
+    min-height: 320px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title .icon {
+    width: 28px;
+    height: 28px;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+  }
+
+  /* RAM cells */
+  .ram-cells {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ram-cell {
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 10px 14px;
+    background: #f5efe2;
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    transition: all 0.3s;
+  }
+  .ram-cell.empty {
+    background: #f0ebde;
+    opacity: 0.4;
+    border-style: dashed;
+  }
+  .ram-cell.populated {
+    background: #fff8d6;
+  }
+  .ram-cell.pulse {
+    animation: pulse 0.6s;
+  }
+  .ram-cell.overflow {
+    background: #ffd0d0;
+    border-color: #c41e3a;
+  }
+  .ram-cell.correct {
+    background: #cfe8d3;
+    border-color: #2d6e3e;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); box-shadow: 0 0 0 4px rgba(255, 217, 92, 0.3); }
+  }
+  .ram-cell .var-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 16px;
+    color: #1a1a1a;
+  }
+  .ram-cell .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: #1f5a8a;
+    text-align: right;
+  }
+  .ram-cell.empty .value { color: #aaa; }
+  .ram-cell.overflow .value { color: #c41e3a; }
+  .ram-cell.correct .value { color: #2d6e3e; }
+  .ram-cell .type-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 100px;
+    background: #1a1a1a;
+    color: #ffd95c;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .ram-cell .type-pill.int { background: #8a6a1f; color: #fff8d6; }
+  .ram-cell .type-pill.long { background: #c47b00; color: #fff; }
+
+  /* ALU */
+  .alu-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+  }
+  .alu-registers {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .register {
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 8px 16px;
+    min-width: 140px;
+    background: #fff;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .register .reg-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 4px;
+  }
+  .register .reg-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: #1a1a1a;
+    min-height: 18px;
+  }
+  .register.loaded {
+    background: #fff8d6;
+    transform: scale(1.05);
+  }
+  .register.cast {
+    background: #ffe9b3;
+    border-color: #c47b00;
+  }
+  .alu-mode {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+    padding: 5px 12px;
+    background: #f5efe2;
+    border-radius: 100px;
+    margin-top: 6px;
+  }
+  .alu-mode.active {
+    background: #1a1a1a;
+    color: #ffd95c;
+    font-weight: 700;
+  }
+  .alu-result-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-top: 4px;
+  }
+  .op-symbol {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 900;
+    font-size: 24px;
+    color: #d62828;
+  }
+  .equals-symbol {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 20px;
+    color: #888;
+    margin: 0 6px;
+  }
+
+  /* Bus arrow visualization */
+  .data-bus {
+    margin: 14px 0;
+    padding: 12px 16px;
+    background: #161b22;
+    border-radius: 6px;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    border-left: 4px solid #ffd95c;
+    transition: opacity 0.3s;
+  }
+  .data-bus.idle { opacity: 0.5; }
+
+  /* Code + narration row */
+  .narration-area {
+    max-width: 1100px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .narration-area { grid-template-columns: 1fr; } }
+
+  .code-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+  }
+  .code-panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+  }
+  .code-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: #e6edf3;
+    padding: 6px 10px;
+    margin: 2px -10px;
+    border-left: 3px solid transparent;
+    transition: all 0.3s;
+  }
+  .code-line.active {
+    background: rgba(255, 217, 92, 0.1);
+    border-left-color: #ffd95c;
+  }
+  .code-line.done { opacity: 0.5; }
+  .code-line.error {
+    background: rgba(255, 107, 107, 0.1);
+    border-left-color: #ff6b6b;
+  }
+  .code-line .kw { color: #ff7b72; }
+  .code-line .type { color: #56d364; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .num { color: #ffa657; }
+  .code-line .cast { color: #ffd95c; font-weight: 700; }
+  .code-line .comment { color: #6e7681; font-style: italic; }
+
+  .narration {
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border: 2px solid #1a1a1a;
+    box-shadow: 6px 6px 0 #d62828;
+    line-height: 1.55;
+    font-size: 14.5px;
+  }
+  .narration-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 10px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-bottom: 8px;
+  }
+  .narration-tag.success { background: #56d364; color: #1a1a1a; }
+  .narration-tag.error { background: #ff6b6b; color: #fff; }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  /* Controls */
+  .controls {
+    max-width: 1100px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+  <h1>Overflow <span class="accent">in the ALU</span></h1>
+  <p class="subtitle">Watch where multiplication actually happens, and why <code style="font-family:monospace">100000 × 400000</code> can produce a garbage value even when the destination is a long.</p>
+
+  <div class="scenarios" id="scenariosRow">
+    <span class="scenarios-label">Scenario:</span>
+    <!-- injected -->
+  </div>
+
+  <div class="stage">
+    <div class="panel">
+      <div class="panel-title"><span class="icon">R</span>RAM (where variables live)</div>
+      <div class="ram-cells" id="ramCells">
+        <!-- injected -->
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span class="icon">A</span>ALU (where math happens)</div>
+      <div class="alu-body">
+        <div class="alu-registers">
+          <div class="register" id="regL">
+            <div class="reg-label">Register L</div>
+            <div class="reg-value">—</div>
+          </div>
+          <div class="op-symbol" id="opSymbol">×</div>
+          <div class="register" id="regR">
+            <div class="reg-label">Register R</div>
+            <div class="reg-value">—</div>
+          </div>
+        </div>
+        <div class="alu-mode" id="aluMode">Mode: idle</div>
+        <div class="alu-result-row">
+          <div class="register" id="regOut">
+            <div class="reg-label">Output Register</div>
+            <div class="reg-value">—</div>
+          </div>
+        </div>
+        <div class="data-bus idle" id="bus">No data flowing yet. Click Next step to begin.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration-area">
+    <div class="code-panel">
+      <div class="code-panel-title">Source code</div>
+      <div id="codeLines">
+        <!-- injected -->
+      </div>
+    </div>
+    <div class="narration">
+      <div class="narration-title">Step narration</div>
+      <div id="narrationContent">
+        <span class="narration-tag">Ready</span>
+        Pick a scenario above and click <strong>Next step</strong>. We'll trace each variable from RAM into the ALU, watch the multiplication happen at the chosen precision, then see what comes back to RAM.
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+<script>
+  // Real Java result for 100000 * 400000:
+  // - Full math: 40,000,000,000
+  // - As int (32-bit signed): wraps to 1,345,294,336
+  // - As long: 40,000,000,000 (no overflow)
+  const FULL_PRODUCT = 40000000000;
+  const INT_OVERFLOW = 1345294336;
+
+  const SCENARIOS = [
+    {
+      id: 'q10',
+      label: 'Quiz 10: int c = a * b;  (no help)',
+      ram: [
+        { var: 'a', type: 'int', value: '100000' },
+        { var: 'b', type: 'int', value: '400000' },
+        { var: 'c', type: 'int', value: '?' }
+      ],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">100000</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">400000</span>;',
+        '<span class="type">int</span> <span class="var">c</span> = <span class="var">a</span> * <span class="var">b</span>;',
+        '<span class="kw">System</span>.out.print(<span class="var">c</span>);'
+      ],
+      steps: [
+        {
+          codeLine: 0,
+          ramUpdate: { a: { value: '100000', state: 'populated' } },
+          narrate: '<strong>Line 1:</strong> Java allocates a 32-bit int slot in RAM for <code>a</code>, stores <code>100000</code>.',
+          tag: 'load'
+        },
+        {
+          codeLine: 1,
+          ramUpdate: { b: { value: '400000', state: 'populated' } },
+          narrate: '<strong>Line 2:</strong> Same for <code>b</code> — 32-bit int slot, stores <code>400000</code>.',
+          tag: 'load'
+        },
+        {
+          codeLine: 2,
+          alu: { left: '100000 (int)', right: '400000 (int)', mode: 'int-mode (32-bit)' },
+          bus: 'RAM → ALU: copying a and b into registers as int. ALU will work in 32-bit mode.',
+          narrate: '<strong>Line 3a:</strong> Before <code>c</code> can be assigned, the ALU needs to compute <code>a * b</code>. The values travel via the data bus into ALU registers — as <strong>int</strong>, because that\'s what they are.',
+          tag: 'fetch'
+        },
+        {
+          codeLine: 2,
+          alu: { output: INT_OVERFLOW.toLocaleString(), mode: 'int-mode (32-bit)' },
+          bus: 'ALU multiplied in int-mode → output register holds wrong value!',
+          narrate: '<strong>Line 3b:</strong> ALU multiplies in int-mode. The true answer is <strong>40,000,000,000</strong>, but that doesn\'t fit in 32 bits. The output register only keeps the low 32 bits → <code>' + INT_OVERFLOW.toLocaleString() + '</code>. <em>This is overflow.</em>',
+          tag: 'overflow',
+          tagClass: 'error'
+        },
+        {
+          codeLine: 2,
+          ramUpdate: { c: { value: INT_OVERFLOW.toLocaleString(), state: 'overflow' } },
+          bus: 'ALU output → RAM: storing the (wrong) int value into c.',
+          narrate: '<strong>Line 3c:</strong> The garbage value travels back to RAM, stored in <code>c</code>. The compiler never saw a problem — destination is int, ALU returned int, types match.',
+          tag: 'store',
+          tagClass: 'error'
+        },
+        {
+          codeLine: 3,
+          narrate: '<strong>Line 4:</strong> Prints <code>' + INT_OVERFLOW.toLocaleString() + '</code>. The damage was done back at the multiplication.',
+          tag: 'output',
+          tagClass: 'error'
+        }
+      ]
+    },
+    {
+      id: 'q11',
+      label: 'Quiz 11: long c = a * b;  (long destination — doesn\'t help!)',
+      ram: [
+        { var: 'a', type: 'int', value: '100000' },
+        { var: 'b', type: 'int', value: '400000' },
+        { var: 'c', type: 'long', value: '?' }
+      ],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">100000</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">400000</span>;',
+        '<span class="type">long</span> <span class="var">c</span> = <span class="var">a</span> * <span class="var">b</span>;',
+        '<span class="kw">System</span>.out.print(<span class="var">c</span>);'
+      ],
+      steps: [
+        {
+          codeLine: 0,
+          ramUpdate: { a: { value: '100000', state: 'populated' } },
+          narrate: '<strong>Line 1:</strong> Allocate int slot for <code>a</code>, store <code>100000</code>.',
+          tag: 'load'
+        },
+        {
+          codeLine: 1,
+          ramUpdate: { b: { value: '400000', state: 'populated' } },
+          narrate: '<strong>Line 2:</strong> Allocate int slot for <code>b</code>, store <code>400000</code>.',
+          tag: 'load'
+        },
+        {
+          codeLine: 2,
+          alu: { left: '100000 (int)', right: '400000 (int)', mode: 'int-mode (32-bit)' },
+          bus: 'RAM → ALU: a and b loaded as int. ALU works in int-mode.',
+          narrate: '<strong>Line 3a:</strong> ALU only sees the operands — both int. The destination (<code>c</code> is long) <strong>doesn\'t reach the ALU</strong>. So ALU still works in int-mode.',
+          tag: 'fetch'
+        },
+        {
+          codeLine: 2,
+          alu: { output: INT_OVERFLOW.toLocaleString(), mode: 'int-mode (32-bit)' },
+          bus: 'ALU output (in int) = ' + INT_OVERFLOW.toLocaleString() + '. Overflow happened here.',
+          narrate: '<strong>Line 3b:</strong> Same overflow as Quiz 10. The ALU produces <code>' + INT_OVERFLOW.toLocaleString() + '</code> — the wrong value.',
+          tag: 'overflow',
+          tagClass: 'error'
+        },
+        {
+          codeLine: 2,
+          ramUpdate: { c: { value: INT_OVERFLOW.toLocaleString(), state: 'overflow' } },
+          bus: 'ALU → RAM: int result widened to long, stored in c. But the damage is already done.',
+          narrate: '<strong>Line 3c:</strong> Now Java widens the (already wrong) int to long, stores in <code>c</code>. The long has room, but the multiplication already corrupted the value. <strong>The long destination is too late.</strong>',
+          tag: 'store',
+          tagClass: 'error'
+        },
+        {
+          codeLine: 3,
+          narrate: '<strong>Line 4:</strong> Prints <code>' + INT_OVERFLOW.toLocaleString() + '</code>. <em>Lesson: changing the destination type doesn\'t change how the math is done.</em>',
+          tag: 'output',
+          tagClass: 'error'
+        }
+      ]
+    },
+    {
+      id: 'q14',
+      label: 'Quiz 14: long c = (long)(a * b);  (cast after — too late)',
+      ram: [
+        { var: 'a', type: 'int', value: '100000' },
+        { var: 'b', type: 'int', value: '400000' },
+        { var: 'c', type: 'long', value: '?' }
+      ],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">100000</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">400000</span>;',
+        '<span class="type">long</span> <span class="var">c</span> = <span class="cast">(long)</span>(<span class="var">a</span> * <span class="var">b</span>);',
+        '<span class="kw">System</span>.out.print(<span class="var">c</span>);'
+      ],
+      steps: [
+        {
+          codeLine: 0,
+          ramUpdate: { a: { value: '100000', state: 'populated' } },
+          narrate: '<strong>Line 1:</strong> int slot for <code>a</code>.',
+          tag: 'load'
+        },
+        {
+          codeLine: 1,
+          ramUpdate: { b: { value: '400000', state: 'populated' } },
+          narrate: '<strong>Line 2:</strong> int slot for <code>b</code>.',
+          tag: 'load'
+        },
+        {
+          codeLine: 2,
+          alu: { left: '100000 (int)', right: '400000 (int)', mode: 'int-mode (32-bit)' },
+          bus: 'RAM → ALU: a and b in their original int form.',
+          narrate: '<strong>Line 3a:</strong> The cast <code>(long)</code> applies to the <em>parentheses</em>, not the individual operands. So Java first computes <code>a * b</code> — both still int. ALU works in int-mode.',
+          tag: 'fetch'
+        },
+        {
+          codeLine: 2,
+          alu: { output: INT_OVERFLOW.toLocaleString(), mode: 'int-mode (32-bit)' },
+          bus: 'ALU output = ' + INT_OVERFLOW.toLocaleString() + ' (already overflowed).',
+          narrate: '<strong>Line 3b:</strong> Multiplication overflows in int-mode — same garbage value <code>' + INT_OVERFLOW.toLocaleString() + '</code>.',
+          tag: 'overflow',
+          tagClass: 'error'
+        },
+        {
+          codeLine: 2,
+          ramUpdate: { c: { value: INT_OVERFLOW.toLocaleString(), state: 'overflow' } },
+          bus: 'Cast (long) applied: int → long widening of the already-wrong value.',
+          narrate: '<strong>Line 3c:</strong> Now the <code>(long)</code> cast kicks in. But it casts the <strong>result</strong>, which is already corrupted. Widening garbage gives you long-sized garbage.',
+          tag: 'store',
+          tagClass: 'error'
+        },
+        {
+          codeLine: 3,
+          narrate: '<strong>Line 4:</strong> Prints <code>' + INT_OVERFLOW.toLocaleString() + '</code>. The cast was placed in the wrong spot.',
+          tag: 'output',
+          tagClass: 'error'
+        }
+      ]
+    },
+    {
+      id: 'q15',
+      label: 'Quiz 15: long c = (long)a * b;  (cast before — CORRECT)',
+      ram: [
+        { var: 'a', type: 'int', value: '100000' },
+        { var: 'b', type: 'int', value: '400000' },
+        { var: 'c', type: 'long', value: '?' }
+      ],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">100000</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">400000</span>;',
+        '<span class="type">long</span> <span class="var">c</span> = <span class="cast">(long)</span><span class="var">a</span> * <span class="var">b</span>;',
+        '<span class="kw">System</span>.out.print(<span class="var">c</span>);'
+      ],
+      steps: [
+        {
+          codeLine: 0,
+          ramUpdate: { a: { value: '100000', state: 'populated' } },
+          narrate: '<strong>Line 1:</strong> int slot for <code>a</code>.',
+          tag: 'load'
+        },
+        {
+          codeLine: 1,
+          ramUpdate: { b: { value: '400000', state: 'populated' } },
+          narrate: '<strong>Line 2:</strong> int slot for <code>b</code>.',
+          tag: 'load'
+        },
+        {
+          codeLine: 2,
+          alu: { left: '100000 (long, cast)', right: '400000 (int → long)', mode: 'long-mode (64-bit)', leftCast: true, rightCast: true },
+          bus: 'Cast (long) applied to a BEFORE the operation. b promoted via Rule 2.',
+          narrate: '<strong>Line 3a:</strong> The cast <code>(long)</code> applies to <code>a</code> alone. So <code>a</code> enters the ALU as <strong>long</strong>. By Rule 2, <code>b</code> gets promoted to long too. ALU switches to <strong>long-mode (64-bit)</strong>.',
+          tag: 'fetch'
+        },
+        {
+          codeLine: 2,
+          alu: { output: FULL_PRODUCT.toLocaleString(), mode: 'long-mode (64-bit)' },
+          bus: 'ALU multiplied in 64-bit mode → full result fits.',
+          narrate: '<strong>Line 3b:</strong> In long-mode the ALU has 64 bits to work with. <code>100000 × 400000 = 40,000,000,000</code> fits comfortably. <strong>No overflow.</strong>',
+          tag: 'compute',
+          tagClass: 'success'
+        },
+        {
+          codeLine: 2,
+          ramUpdate: { c: { value: FULL_PRODUCT.toLocaleString(), state: 'correct' } },
+          bus: 'ALU → RAM: long result stored in c. Types match.',
+          narrate: '<strong>Line 3c:</strong> Long result lands in long-sized <code>c</code>. Correct value preserved end-to-end.',
+          tag: 'store',
+          tagClass: 'success'
+        },
+        {
+          codeLine: 3,
+          narrate: '<strong>Line 4:</strong> Prints <code>' + FULL_PRODUCT.toLocaleString() + '</code>. <strong>Rule:</strong> cast at least one operand <em>before</em> the operation, not after.',
+          tag: 'output',
+          tagClass: 'success'
+        }
+      ]
+    }
+  ];
+
+  // State
+  let currentScenarioIdx = 0;
+  let currentStep = -1;
+  let ramState = {};
+
+  function renderScenarios() {
+    const wrap = document.getElementById('scenariosRow');
+    let html = '<span class="scenarios-label">Scenario:</span>';
+    SCENARIOS.forEach((s, i) => {
+      html += `<span class="scenario ${i === currentScenarioIdx ? 'active' : ''}" data-i="${i}">${s.label}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.scenario').forEach(el => {
+      el.addEventListener('click', () => {
+        currentScenarioIdx = parseInt(el.dataset.i, 10);
+        loadScenario();
+      });
+    });
+  }
+
+  function loadScenario() {
+    currentStep = -1;
+    const s = SCENARIOS[currentScenarioIdx];
+
+    // Reset RAM
+    ramState = {};
+    s.ram.forEach(r => {
+      ramState[r.var] = { ...r, state: 'empty' };
+    });
+    renderRam();
+
+    // Reset ALU
+    setRegister('regL', '—', false);
+    setRegister('regR', '—', false);
+    setRegister('regOut', '—', false);
+    setAluMode('Mode: idle', false);
+    document.getElementById('opSymbol').textContent = '×';
+    setBus('No data flowing yet. Click Next step to begin.', true);
+
+    // Code
+    const wrap = document.getElementById('codeLines');
+    wrap.innerHTML = s.code.map((c, i) =>
+      `<div class="code-line" data-i="${i}">${c}</div>`
+    ).join('');
+
+    // Narration
+    document.getElementById('narrationContent').innerHTML =
+      '<span class="narration-tag">Ready</span>Click <strong>Next step</strong> to begin walking through this scenario.';
+
+    // Scenario buttons
+    document.querySelectorAll('.scenario').forEach((el, i) => {
+      el.classList.toggle('active', i === currentScenarioIdx);
+    });
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('stepInfo').textContent = `step 0 / ${s.steps.length}`;
+  }
+
+  function renderRam() {
+    const wrap = document.getElementById('ramCells');
+    wrap.innerHTML = Object.values(ramState).map(r => {
+      const stateClass = r.state || 'empty';
+      const value = r.state === 'empty' ? '(uninitialized)' : r.value;
+      return `
+        <div class="ram-cell ${stateClass}" data-var="${r.var}">
+          <div class="var-name">${r.var}</div>
+          <div class="value">${value}</div>
+          <div class="type-pill ${r.type}">${r.type}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function pulseRam(varName) {
+    setTimeout(() => {
+      const el = document.querySelector(`.ram-cell[data-var="${varName}"]`);
+      if (el) {
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 600);
+      }
+    }, 20);
+  }
+
+  function setRegister(id, value, loaded, cast) {
+    const reg = document.getElementById(id);
+    reg.querySelector('.reg-value').textContent = value;
+    reg.classList.toggle('loaded', !!loaded);
+    reg.classList.toggle('cast', !!cast);
+  }
+  function setAluMode(text, active) {
+    const m = document.getElementById('aluMode');
+    m.textContent = text;
+    m.classList.toggle('active', !!active);
+  }
+  function setBus(text, idle) {
+    const b = document.getElementById('bus');
+    b.textContent = text;
+    b.classList.toggle('idle', !!idle);
+  }
+  function highlightCodeLine(idx, errored) {
+    document.querySelectorAll('.code-line').forEach((el, i) => {
+      el.classList.remove('active', 'done', 'error');
+      if (i < idx) el.classList.add('done');
+      if (i === idx) el.classList.add(errored ? 'error' : 'active');
+    });
+  }
+
+  function nextStep() {
+    const s = SCENARIOS[currentScenarioIdx];
+    currentStep++;
+    if (currentStep >= s.steps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      return;
+    }
+    const step = s.steps[currentStep];
+    const errored = step.tagClass === 'error';
+
+    // Code highlight
+    if (step.codeLine !== undefined) highlightCodeLine(step.codeLine, errored);
+
+    // RAM updates
+    if (step.ramUpdate) {
+      Object.entries(step.ramUpdate).forEach(([varName, update]) => {
+        if (ramState[varName]) {
+          Object.assign(ramState[varName], update);
+        }
+      });
+      renderRam();
+      Object.keys(step.ramUpdate).forEach(pulseRam);
+    }
+
+    // ALU updates
+    if (step.alu) {
+      if (step.alu.left !== undefined) setRegister('regL', step.alu.left, true, step.alu.leftCast);
+      if (step.alu.right !== undefined) setRegister('regR', step.alu.right, true, step.alu.rightCast);
+      if (step.alu.output !== undefined) {
+        setRegister('regOut', step.alu.output, true);
+        if (errored) {
+          document.getElementById('regOut').style.borderColor = '#c41e3a';
+          document.getElementById('regOut').style.background = '#ffd0d0';
+        } else if (step.tagClass === 'success') {
+          document.getElementById('regOut').style.borderColor = '#2d6e3e';
+          document.getElementById('regOut').style.background = '#cfe8d3';
+        } else {
+          document.getElementById('regOut').style.borderColor = '#1a1a1a';
+          document.getElementById('regOut').style.background = '#fff8d6';
+        }
+      }
+      if (step.alu.mode !== undefined) setAluMode('Mode: ' + step.alu.mode, true);
+    }
+    if (step.bus) setBus(step.bus, false);
+
+    // Narration
+    const tag = step.tag || 'step';
+    const tagCls = step.tagClass || '';
+    document.getElementById('narrationContent').innerHTML =
+      `<span class="narration-tag ${tagCls}">${tag}</span>${step.narrate}`;
+
+    document.getElementById('stepInfo').textContent = `step ${currentStep + 1} / ${s.steps.length}`;
+
+    if (currentStep === s.steps.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+    }
+  }
+
+  // Init
+  renderScenarios();
+  loadScenario();
+
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+</script>
+</body>
+</html>

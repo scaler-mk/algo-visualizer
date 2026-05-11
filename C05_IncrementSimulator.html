@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pre vs Post Increment Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fef6e7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 760px;
+  }
+
+  .scenarios {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .scenarios-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 6px;
+  }
+  .scenario {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .scenario:hover { background: #fff8d6; }
+  .scenario.active { background: #1a1a1a; color: #ffd95c; }
+
+  /* Stage */
+  .stage {
+    max-width: 1080px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  .code-panel {
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    color: #e6edf3;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+  }
+  .code-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 8px 14px;
+    margin: 4px -14px;
+    border-left: 3px solid transparent;
+    transition: all 0.3s;
+    border-radius: 3px;
+  }
+  .code-line.active {
+    background: rgba(255, 217, 92, 0.1);
+    border-left-color: #ffd95c;
+  }
+  .code-line.done { opacity: 0.45; }
+  .code-line .kw { color: #ff7b72; }
+  .code-line .type { color: #56d364; }
+  .code-line .var { color: #d2a8ff; }
+  .code-line .num { color: #ffa657; }
+  .code-line .op { color: #ffd95c; font-weight: 700; }
+  .code-line .method { color: #ffd95c; }
+  .code-line .comment { color: #6e7681; font-style: italic; }
+  .code-line .substep {
+    display: block;
+    margin-left: 30px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    padding: 4px 10px;
+    background: rgba(255, 217, 92, 0.06);
+    border-left: 2px solid rgba(255, 217, 92, 0.4);
+    border-radius: 3px;
+    font-size: 13px;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  .code-line .substep.show {
+    opacity: 1;
+    max-height: 80px;
+  }
+
+  /* State panel */
+  .state-panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .vars-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .var-box {
+    background: #f5efe2;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s;
+  }
+  .var-box.pulse {
+    animation: pulse 0.5s;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); box-shadow: 0 0 0 4px rgba(255, 217, 92, 0.3); }
+  }
+  .var-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 18px;
+    color: #d2a8ff;
+    background: #1a1a1a;
+    border-radius: 4px;
+    padding: 4px 8px;
+    text-align: center;
+  }
+  .var-display {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .var-current {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1f5a8a;
+  }
+  .var-history {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+  }
+  .var-history .arrow { color: #1a1a1a; margin: 0 4px; }
+  .var-history .changed { color: #d62828; font-weight: 700; }
+
+  /* Output panel */
+  .output-section {
+    background: #161b22;
+    border-radius: 6px;
+    padding: 14px 16px;
+    color: #e6edf3;
+  }
+  .output-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  .output-content {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    color: #e6edf3;
+    min-height: 30px;
+    line-height: 1.5;
+  }
+  .output-content .empty {
+    color: #555;
+    font-style: italic;
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+  }
+  .output-line {
+    padding: 2px 0;
+  }
+  .output-line.fresh {
+    color: #ffd95c;
+    font-weight: 700;
+    animation: highlight 0.6s;
+  }
+  @keyframes highlight {
+    0% { background: rgba(255, 217, 92, 0.3); }
+    100% { background: transparent; }
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 1080px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    border-left: 5px solid #ffd95c;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    font-size: 14.5px;
+    min-height: 70px;
+  }
+  .narration-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    margin-right: 10px;
+  }
+  .narration strong { color: #ffd95c; }
+  .narration code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+
+  /* Controls */
+  .controls {
+    max-width: 1080px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Rules summary card */
+  .rules-card {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 22px 26px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 700px) { .rules-card { grid-template-columns: 1fr; } }
+  .rules-card h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 10px;
+    color: #888;
+  }
+  .rule-block {
+    padding: 14px 16px;
+    background: #f5efe2;
+    border-radius: 6px;
+    border-left: 4px solid #1a1a1a;
+  }
+  .rule-block.pre { border-left-color: #2d6e3e; }
+  .rule-block.post { border-left-color: #1f5a8a; }
+  .rule-block .title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #1a1a1a;
+  }
+  .rule-block .body {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #444;
+  }
+  .rule-block code {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+  }
+</style>
+</head>
+<body>
+  <h1>Pre vs Post: <span class="accent">increment simulator</span></h1>
+  <p class="subtitle">Step through real Java code involving <code>a++</code> and <code>++a</code>. See exactly when the value is used vs when it gets bumped.</p>
+
+  <div class="scenarios" id="scenariosRow">
+    <span class="scenarios-label">Example:</span>
+    <!-- injected -->
+  </div>
+
+  <div class="stage">
+    <div class="code-panel">
+      <div class="panel-title">Source code</div>
+      <div id="codeLines">
+        <!-- injected -->
+      </div>
+    </div>
+
+    <div class="state-panel">
+      <div class="panel-title">Variables &amp; output</div>
+      <div class="vars-grid" id="varsGrid">
+        <!-- injected -->
+      </div>
+      <div class="output-section">
+        <div class="output-label">stdout (println output)</div>
+        <div class="output-content" id="outputContent">
+          <span class="empty">No output yet…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">
+    <span class="narration-tag">Ready</span>
+    Pick a scenario and click <strong>Next step</strong>. Each <code>a++</code> or <code>++a</code> will be broken down into the two operations it actually performs.
+  </div>
+
+  <div class="controls">
+    <button class="btn secondary" id="resetBtn">↻ Reset</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <span class="step-info" id="stepInfo">step 0 / —</span>
+  </div>
+
+  <div class="rules-card">
+    <div class="rule-block post">
+      <div class="title">a++  (post-increment)</div>
+      <div class="body">
+        <strong>Use the value first, then bump.</strong><br>
+        <code>System.out.print(a++)</code> is equivalent to:<br>
+        <code>System.out.print(a); a = a + 1;</code><br>
+        Print sees the OLD value.
+      </div>
+    </div>
+    <div class="rule-block pre">
+      <div class="title">++a  (pre-increment)</div>
+      <div class="body">
+        <strong>Bump first, then use the new value.</strong><br>
+        <code>System.out.print(++a)</code> is equivalent to:<br>
+        <code>a = a + 1; System.out.print(a);</code><br>
+        Print sees the NEW value.
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Each scenario:
+  //   vars: initial variable state (object)
+  //   code: array of html lines
+  //   steps: each step has { line, narrate, tag, action: fn(state) => updates }
+  //
+  // Variable updates use { name, newValue } and we track history.
+
+  const SCENARIOS = [
+    {
+      id: 'ex1-pre',
+      label: 'Standalone ++b',
+      initialVars: [{ name: 'b', value: 10 }],
+      code: [
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">10</span>;',
+        '<span class="op">++</span><span class="var">b</span>;',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">b</span>);'
+      ],
+      steps: [
+        { line: 0, narrate: 'Allocate <code>b</code> with value <strong>10</strong>.', tag: 'init' },
+        { line: 1, narrate: 'Pre-increment <code>++b</code>: bump <code>b</code> by 1 → now <strong>11</strong>. As a standalone statement (no use of the value), pre and post behave the same.', tag: 'increment',
+          update: { name: 'b', value: 11 } },
+        { line: 2, narrate: 'Print <code>b</code> → <strong>11</strong>.', tag: 'print',
+          print: '11' }
+      ]
+    },
+    {
+      id: 'ex1-post',
+      label: 'Standalone a++',
+      initialVars: [{ name: 'a', value: 10 }],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+        '<span class="var">a</span><span class="op">++</span>;',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">a</span>);'
+      ],
+      steps: [
+        { line: 0, narrate: 'Allocate <code>a</code> with value <strong>10</strong>.', tag: 'init' },
+        { line: 1, narrate: 'Post-increment <code>a++</code>: bump <code>a</code> by 1 → now <strong>11</strong>. Standalone, so same effect as <code>++a</code>.', tag: 'increment',
+          update: { name: 'a', value: 11 } },
+        { line: 2, narrate: 'Print <code>a</code> → <strong>11</strong>.', tag: 'print',
+          print: '11' }
+      ]
+    },
+    {
+      id: 'print-post',
+      label: 'println(a++)  → prints 10',
+      initialVars: [{ name: 'a', value: 10 }],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">a</span><span class="op">++</span>);'
+      ],
+      steps: [
+        { line: 0, narrate: 'Allocate <code>a</code> with value <strong>10</strong>.', tag: 'init' },
+        { line: 1, narrate: '<code>a++</code> means: <strong>use the value of a, then bump it</strong>. So <code>println</code> sees the OLD value first.', tag: 'eval' },
+        { line: 1, narrate: 'Step 2a — Print uses the current value of <code>a</code>, which is <strong>10</strong>.', tag: 'use',
+          print: '10' },
+        { line: 1, narrate: 'Step 2b — Now bump <code>a</code> from 10 to <strong>11</strong>. Too late to affect what was printed.', tag: 'bump',
+          update: { name: 'a', value: 11 } }
+      ]
+    },
+    {
+      id: 'print-pre',
+      label: 'println(++b)  → prints 11',
+      initialVars: [{ name: 'b', value: 10 }],
+      code: [
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">10</span>;',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="op">++</span><span class="var">b</span>);'
+      ],
+      steps: [
+        { line: 0, narrate: 'Allocate <code>b</code> with value <strong>10</strong>.', tag: 'init' },
+        { line: 1, narrate: '<code>++b</code> means: <strong>bump first, then use the value</strong>.', tag: 'eval' },
+        { line: 1, narrate: 'Step 2a — Bump <code>b</code> from 10 to <strong>11</strong>.', tag: 'bump',
+          update: { name: 'b', value: 11 } },
+        { line: 1, narrate: 'Step 2b — Print uses the now-updated value <strong>11</strong>.', tag: 'use',
+          print: '11' }
+      ]
+    },
+    {
+      id: 'ex1-combined',
+      label: 'Example 1: c = a++ + b++  → prints 62',
+      initialVars: [{ name: 'a', value: 10 }, { name: 'b', value: 20 }, { name: 'c', value: null }],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="num">20</span>;',
+        '<span class="type">int</span> <span class="var">c</span> = <span class="var">a</span><span class="op">++</span> + <span class="var">b</span><span class="op">++</span>;',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">a</span> + <span class="var">b</span> + <span class="var">c</span>);'
+      ],
+      steps: [
+        { line: 0, narrate: 'Allocate <code>a</code> = <strong>10</strong>.', tag: 'init' },
+        { line: 1, narrate: 'Allocate <code>b</code> = <strong>20</strong>.', tag: 'init' },
+        { line: 2, narrate: 'Line 3 — compute <code>a++ + b++</code>. Both are <strong>post</strong>-increment, so values are used first.', tag: 'eval' },
+        { line: 2, narrate: 'Use <code>a</code>\'s current value: <strong>10</strong>. (Bump happens after.)', tag: 'use' },
+        { line: 2, narrate: 'Use <code>b</code>\'s current value: <strong>20</strong>. (Bump happens after.)', tag: 'use' },
+        { line: 2, narrate: 'Add: <code>10 + 20</code> = <strong>30</strong>. Store in <code>c</code>.', tag: 'compute',
+          update: { name: 'c', value: 30 } },
+        { line: 2, narrate: 'Now bump <code>a</code> from 10 to <strong>11</strong> (post-increment kicks in).', tag: 'bump',
+          update: { name: 'a', value: 11 } },
+        { line: 2, narrate: 'Bump <code>b</code> from 20 to <strong>21</strong>.', tag: 'bump',
+          update: { name: 'b', value: 21 } },
+        { line: 3, narrate: 'Print <code>a + b + c</code> = <code>11 + 21 + 30</code> = <strong>62</strong>.', tag: 'print',
+          print: '62' }
+      ]
+    },
+    {
+      id: 'ex2-tricky',
+      label: 'Example 2: b = a++ + a++  (the tricky one)',
+      initialVars: [{ name: 'a', value: 10 }, { name: 'b', value: null }],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="var">a</span><span class="op">++</span> + <span class="var">a</span><span class="op">++</span>;',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">a</span>);',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">b</span>);'
+      ],
+      steps: [
+        { line: 0, narrate: 'Allocate <code>a</code> = <strong>10</strong>.', tag: 'init' },
+        { line: 1, narrate: 'Line 2 evaluates left-to-right. First <code>a++</code> processes the left side.', tag: 'eval' },
+        { line: 1, narrate: 'Left <code>a++</code>: use <code>a</code>\'s value <strong>10</strong>, then bump <code>a</code> to <strong>11</strong>.', tag: 'use-bump',
+          update: { name: 'a', value: 11 } },
+        { line: 1, narrate: 'Right <code>a++</code>: <code>a</code> is now <strong>11</strong>. Use 11, then bump <code>a</code> to <strong>12</strong>.', tag: 'use-bump',
+          update: { name: 'a', value: 12 } },
+        { line: 1, narrate: 'Add the two used values: <code>10 + 11</code> = <strong>21</strong>. Store in <code>b</code>.', tag: 'compute',
+          update: { name: 'b', value: 21 } },
+        { line: 2, narrate: 'Print <code>a</code> = <strong>12</strong>.', tag: 'print',
+          print: '12' },
+        { line: 3, narrate: 'Print <code>b</code> = <strong>21</strong>.', tag: 'print',
+          print: '21' }
+      ]
+    },
+    {
+      id: 'ex3-decrement',
+      label: 'Example 3: b = a--  (post-decrement)',
+      initialVars: [{ name: 'a', value: 10 }, { name: 'b', value: null }],
+      code: [
+        '<span class="type">int</span> <span class="var">a</span> = <span class="num">10</span>;',
+        '<span class="type">int</span> <span class="var">b</span> = <span class="var">a</span><span class="op">--</span>;',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">a</span>);',
+        '<span class="kw">System</span>.out.<span class="method">println</span>(<span class="var">b</span>);'
+      ],
+      steps: [
+        { line: 0, narrate: 'Allocate <code>a</code> = <strong>10</strong>.', tag: 'init' },
+        { line: 1, narrate: '<code>a--</code> = post-decrement: use current value, then subtract 1.', tag: 'eval' },
+        { line: 1, narrate: 'Use <code>a</code>\'s current value <strong>10</strong> → assigned to <code>b</code>.', tag: 'use',
+          update: { name: 'b', value: 10 } },
+        { line: 1, narrate: 'Now decrement <code>a</code> from 10 to <strong>9</strong>.', tag: 'bump',
+          update: { name: 'a', value: 9 } },
+        { line: 2, narrate: 'Print <code>a</code> = <strong>9</strong>.', tag: 'print',
+          print: '9' },
+        { line: 3, narrate: 'Print <code>b</code> = <strong>10</strong>.', tag: 'print',
+          print: '10' }
+      ]
+    }
+  ];
+
+  let currentScenarioIdx = 0;
+  let currentStep = -1;
+  let vars = [];
+  let output = [];
+
+  function renderScenarios() {
+    const wrap = document.getElementById('scenariosRow');
+    let html = '<span class="scenarios-label">Example:</span>';
+    SCENARIOS.forEach((s, i) => {
+      html += `<span class="scenario ${i === currentScenarioIdx ? 'active' : ''}" data-i="${i}">${s.label}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.scenario').forEach(el => {
+      el.addEventListener('click', () => {
+        currentScenarioIdx = parseInt(el.dataset.i, 10);
+        loadScenario();
+      });
+    });
+  }
+
+  function loadScenario() {
+    currentStep = -1;
+    const s = SCENARIOS[currentScenarioIdx];
+
+    // Clone initial state, add history
+    vars = s.initialVars.map(v => ({
+      name: v.name,
+      value: v.value,
+      history: v.value !== null ? [v.value] : []
+    }));
+    output = [];
+
+    renderCode();
+    renderVars();
+    renderOutput();
+
+    document.getElementById('narration').innerHTML =
+      '<span class="narration-tag">Ready</span>Click <strong>Next step</strong> to begin walking through.';
+
+    document.querySelectorAll('.scenario').forEach((el, i) =>
+      el.classList.toggle('active', i === currentScenarioIdx));
+
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('stepInfo').textContent = `step 0 / ${s.steps.length}`;
+  }
+
+  function renderCode() {
+    const s = SCENARIOS[currentScenarioIdx];
+    const wrap = document.getElementById('codeLines');
+    wrap.innerHTML = s.code.map((c, i) =>
+      `<div class="code-line" data-i="${i}">${c}</div>`
+    ).join('');
+  }
+
+  function renderVars() {
+    const wrap = document.getElementById('varsGrid');
+    wrap.innerHTML = vars.map(v => {
+      const current = v.value === null ? '?' : v.value;
+      let history = '';
+      if (v.history.length > 1) {
+        const last3 = v.history.slice(-3);
+        history = last3.map((h, i) => {
+          const isLast = i === last3.length - 1;
+          return isLast ? `<span class="changed">${h}</span>` : `${h}`;
+        }).join(' <span class="arrow">→</span> ');
+      } else if (v.history.length === 1) {
+        history = `initial: ${v.history[0]}`;
+      } else {
+        history = '(uninitialized)';
+      }
+      return `
+        <div class="var-box" data-var="${v.name}">
+          <div class="var-name">${v.name}</div>
+          <div class="var-display">
+            <div class="var-current">${current}</div>
+            <div class="var-history">${history}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function pulseVar(name) {
+    setTimeout(() => {
+      const el = document.querySelector(`.var-box[data-var="${name}"]`);
+      if (el) {
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 500);
+      }
+    }, 20);
+  }
+
+  function renderOutput() {
+    const wrap = document.getElementById('outputContent');
+    if (output.length === 0) {
+      wrap.innerHTML = '<span class="empty">No output yet…</span>';
+      return;
+    }
+    wrap.innerHTML = output.map((line, i) => {
+      const isFresh = i === output.length - 1 && line._fresh;
+      return `<div class="output-line ${isFresh ? 'fresh' : ''}">${line.text}</div>`;
+    }).join('');
+    // Clear fresh flag after render
+    output.forEach(o => delete o._fresh);
+  }
+
+  function highlightCode(idx) {
+    document.querySelectorAll('.code-line').forEach((el, i) => {
+      el.classList.remove('active', 'done');
+      if (i < idx) el.classList.add('done');
+      if (i === idx) el.classList.add('active');
+    });
+  }
+
+  function nextStep() {
+    const s = SCENARIOS[currentScenarioIdx];
+    currentStep++;
+
+    if (currentStep >= s.steps.length) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+      return;
+    }
+    const step = s.steps[currentStep];
+
+    if (step.line !== undefined) highlightCode(step.line);
+
+    if (step.update) {
+      const v = vars.find(x => x.name === step.update.name);
+      if (v) {
+        v.value = step.update.value;
+        v.history.push(step.update.value);
+        renderVars();
+        pulseVar(step.update.name);
+      }
+    }
+
+    if (step.print !== undefined) {
+      output.push({ text: step.print, _fresh: true });
+      renderOutput();
+    }
+
+    document.getElementById('narration').innerHTML =
+      `<span class="narration-tag">${step.tag || 'step'}</span>${step.narrate}`;
+    document.getElementById('stepInfo').textContent = `step ${currentStep + 1} / ${s.steps.length}`;
+
+    if (currentStep === s.steps.length - 1) {
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+    }
+  }
+
+  renderScenarios();
+  loadScenario();
+
+  document.getElementById('stepBtn').addEventListener('click', nextStep);
+  document.getElementById('resetBtn').addEventListener('click', loadScenario);
+</script>
+</body>
+</html>

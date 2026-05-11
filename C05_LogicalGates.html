@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Logical Operators with Analogies</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #eaf4f4;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 760px;
+  }
+
+  .gate-picker {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .picker-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 8px;
+  }
+  .gate-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 12px 20px;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 140px;
+  }
+  .gate-btn:hover { background: #fff8d6; }
+  .gate-btn.active {
+    background: #1a1a1a;
+    color: #ffd95c;
+  }
+  .gate-btn .sym {
+    font-size: 18px;
+    font-weight: 900;
+  }
+  .gate-btn .name {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #888;
+  }
+  .gate-btn.active .name { color: #ffd95c; }
+
+  /* Stage */
+  .stage {
+    max-width: 1080px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 800px) { .stage { grid-template-columns: 1fr; } }
+
+  /* Analogy panel */
+  .analogy {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 22px 26px;
+  }
+  .analogy-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 10px;
+  }
+  .analogy-scenario {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.45;
+    margin-bottom: 18px;
+    color: #1a1a1a;
+  }
+
+  /* Toggles */
+  .conditions {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .cond {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 16px;
+    background: #f5efe2;
+    border-radius: 6px;
+    border-left: 4px solid #1a1a1a;
+  }
+  .cond-label {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    color: #1a1a1a;
+  }
+  .cond-label .desc {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .toggle {
+    width: 60px;
+    height: 32px;
+    background: #c41e3a;
+    border-radius: 100px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.25s;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    background: #fff;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: left 0.25s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .toggle.on { background: #2d6e3e; }
+  .toggle.on::after { left: 31px; }
+  .toggle-text {
+    position: absolute;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .toggle .off-text {
+    right: 8px;
+    opacity: 1;
+    transition: opacity 0.2s;
+  }
+  .toggle.on .off-text { opacity: 0; }
+  .toggle .on-text {
+    left: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .toggle.on .on-text { opacity: 1; }
+
+  /* Outcome */
+  .outcome {
+    padding: 18px 22px;
+    border-radius: 8px;
+    border: 2px solid;
+    transition: all 0.3s;
+  }
+  .outcome.true {
+    background: #cfe8d3;
+    border-color: #2d6e3e;
+  }
+  .outcome.false {
+    background: #ffd0d0;
+    border-color: #c41e3a;
+  }
+  .outcome-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 4px;
+  }
+  .outcome.true .outcome-label { color: #2d6e3e; }
+  .outcome.false .outcome-label { color: #c41e3a; }
+  .outcome-text {
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+  .outcome-expr {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.06);
+    border-radius: 4px;
+    color: #1a1a1a;
+  }
+
+  /* Truth table */
+  .truth {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 22px 26px;
+  }
+  .truth-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 4px;
+    margin-bottom: 14px;
+  }
+  .truth-table th, .truth-table td {
+    text-align: center;
+    padding: 10px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    border-radius: 4px;
+  }
+  .truth-table th {
+    background: #1a1a1a;
+    color: #ffd95c;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .truth-table td {
+    background: #f5efe2;
+    color: #1a1a1a;
+    font-weight: 700;
+  }
+  .truth-table td.t { background: #cfe8d3; color: #2d6e3e; }
+  .truth-table td.f { background: #ffd0d0; color: #c41e3a; }
+  .truth-table tr.current td {
+    box-shadow: 0 0 0 3px #ffd95c;
+    transform: scale(1.02);
+    transition: all 0.25s;
+  }
+
+  /* Short circuit panel */
+  .short-circuit {
+    margin-top: 14px;
+    padding: 14px 16px;
+    background: #161b22;
+    border-radius: 6px;
+    color: #e6edf3;
+    border-left: 4px solid #ffd95c;
+  }
+  .short-circuit-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #ffd95c;
+    margin-bottom: 8px;
+  }
+  .short-circuit-body {
+    font-family: 'Fraunces', serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .short-circuit-body code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .short-circuit-body strong { color: #ffd95c; }
+
+  /* Code preview */
+  .code-preview {
+    max-width: 1080px;
+    width: 100%;
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 18px 22px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    border: 2px solid #1a1a1a;
+    box-shadow: 6px 6px 0 #1a1a1a;
+  }
+  .code-preview .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .code-preview .kw { color: #ff7b72; }
+  .code-preview .type { color: #56d364; }
+  .code-preview .var { color: #d2a8ff; }
+  .code-preview .num { color: #ffa657; }
+  .code-preview .op { color: #ffd95c; font-weight: 700; }
+  .code-preview .comment { color: #6e7681; font-style: italic; }
+  .code-preview .result-true { color: #56d364; font-weight: 700; }
+  .code-preview .result-false { color: #ff7b72; font-weight: 700; }
+</style>
+</head>
+<body>
+  <h1>Logical Operators <span class="accent">with analogies</span></h1>
+  <p class="subtitle">Pick an operator and flip the conditions. The everyday analogy, the truth table, and the Java code all stay in sync.</p>
+
+  <div class="gate-picker" id="gatePicker">
+    <span class="picker-label">Operator:</span>
+    <div class="gate-btn active" data-g="and">
+      <span class="sym">A && B</span>
+      <span class="name">AND</span>
+    </div>
+    <div class="gate-btn" data-g="or">
+      <span class="sym">A || B</span>
+      <span class="name">OR</span>
+    </div>
+    <div class="gate-btn" data-g="not">
+      <span class="sym">!A</span>
+      <span class="name">NOT</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="analogy">
+      <div class="analogy-title">Real-world analogy</div>
+      <div class="analogy-scenario" id="analogyScenario">—</div>
+      <div class="conditions" id="conditionsArea">
+        <!-- injected -->
+      </div>
+      <div class="outcome" id="outcome">
+        <div class="outcome-label" id="outcomeLabel">Result</div>
+        <div class="outcome-text" id="outcomeText">—</div>
+        <div class="outcome-expr" id="outcomeExpr">—</div>
+      </div>
+    </div>
+
+    <div class="truth">
+      <div class="analogy-title">Truth table</div>
+      <table class="truth-table" id="truthTable">
+        <!-- injected -->
+      </table>
+      <div class="short-circuit" id="shortCircuit">
+        <div class="short-circuit-title" id="scTitle">Short-circuit rule</div>
+        <div class="short-circuit-body" id="scBody">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-preview" id="codePreview">
+    <span class="lbl">Java code (live)</span>
+    <div id="codeContent">—</div>
+  </div>
+
+<script>
+  const GATES = {
+    and: {
+      analogy: "Driver's License — must be old enough AND know how to drive",
+      conditions: [
+        { id: 'a', label: 'Age ≥ 18', desc: 'a >= 18' },
+        { id: 'b', label: 'Knows how to drive', desc: 'canDrive' }
+      ],
+      compute: (a, b) => a && b,
+      passLabel: 'Gets driver\'s license',
+      failLabel: 'Denied — both conditions required',
+      codeLeft: 'age >= 18',
+      codeRight: 'canDrive',
+      codeOp: '&&',
+      truth: [
+        { a: true,  b: true,  r: true  },
+        { a: true,  b: false, r: false },
+        { a: false, b: true,  r: false },
+        { a: false, b: false, r: false }
+      ],
+      scTitle: '⚡ Short-circuit: if left is false, skip the right',
+      scBody: 'In <code>A && B</code>, if <code>A</code> is <strong>false</strong>, the answer must be false regardless of <code>B</code>. So Java doesn\'t even evaluate <code>B</code>. Useful when <code>B</code> would crash on bad data.'
+    },
+    or: {
+      analogy: 'Exam eligibility — needs diploma OR degree (either works)',
+      conditions: [
+        { id: 'a', label: 'Has a diploma', desc: 'hasDiploma' },
+        { id: 'b', label: 'Has a degree', desc: 'hasDegree' }
+      ],
+      compute: (a, b) => a || b,
+      passLabel: 'Allowed to take the exam',
+      failLabel: 'Not eligible — needs at least one',
+      codeLeft: 'hasDiploma',
+      codeRight: 'hasDegree',
+      codeOp: '||',
+      truth: [
+        { a: true,  b: true,  r: true  },
+        { a: true,  b: false, r: true  },
+        { a: false, b: true,  r: true  },
+        { a: false, b: false, r: false }
+      ],
+      scTitle: '⚡ Short-circuit: if left is true, skip the right',
+      scBody: 'In <code>A || B</code>, if <code>A</code> is <strong>true</strong>, the answer is true regardless of <code>B</code>. So Java skips evaluating <code>B</code>. This is what makes safe-guards work: <code>x == null || x.isEmpty()</code> — if <code>x</code> is null, we never call <code>isEmpty()</code> on null.'
+    },
+    not: {
+      analogy: 'Going out to buy milk — only if it\'s NOT raining',
+      conditions: [
+        { id: 'a', label: 'It is raining outside', desc: 'isRaining' }
+      ],
+      compute: (a) => !a,
+      passLabel: 'Goes out for milk',
+      failLabel: 'Stays inside',
+      codeLeft: 'isRaining',
+      codeOp: '!',
+      truth: [
+        { a: true,  r: false },
+        { a: false, r: true  }
+      ],
+      scTitle: 'NOT just flips the value',
+      scBody: '<code>!A</code> takes whatever <code>A</code> is and flips it. <strong>true</strong> becomes <strong>false</strong>, <strong>false</strong> becomes <strong>true</strong>. That\'s the entire operator.'
+    }
+  };
+
+  let currentGate = 'and';
+  let state = { a: false, b: false };
+
+  function renderConditions() {
+    const g = GATES[currentGate];
+    const wrap = document.getElementById('conditionsArea');
+    wrap.innerHTML = g.conditions.map(c => `
+      <div class="cond">
+        <div class="cond-label">
+          ${c.label}
+          <span class="desc">${c.desc}</span>
+        </div>
+        <div class="toggle ${state[c.id] ? 'on' : ''}" data-id="${c.id}">
+          <span class="toggle-text off-text">false</span>
+          <span class="toggle-text on-text">true</span>
+        </div>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('.toggle').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.id;
+        state[id] = !state[id];
+        renderConditions();
+        renderOutcome();
+        renderTruth();
+        renderCode();
+      });
+    });
+  }
+
+  function renderOutcome() {
+    const g = GATES[currentGate];
+    const result = currentGate === 'not' ? g.compute(state.a) : g.compute(state.a, state.b);
+    const out = document.getElementById('outcome');
+    out.classList.remove('true', 'false');
+    out.classList.add(result ? 'true' : 'false');
+    document.getElementById('outcomeLabel').textContent = result ? 'TRUE' : 'FALSE';
+    document.getElementById('outcomeText').textContent = result ? g.passLabel : g.failLabel;
+
+    let expr;
+    if (currentGate === 'not') {
+      expr = `!${state.a} = ${result}`;
+    } else {
+      expr = `${state.a} ${g.codeOp} ${state.b} = ${result}`;
+    }
+    document.getElementById('outcomeExpr').textContent = expr;
+  }
+
+  function renderTruth() {
+    const g = GATES[currentGate];
+    const tbl = document.getElementById('truthTable');
+    let html;
+    if (currentGate === 'not') {
+      html = '<thead><tr><th>A</th><th>!A</th></tr></thead><tbody>';
+      g.truth.forEach(row => {
+        const isCurrent = row.a === state.a;
+        html += `<tr class="${isCurrent ? 'current' : ''}"><td class="${row.a ? 't' : 'f'}">${row.a}</td><td class="${row.r ? 't' : 'f'}">${row.r}</td></tr>`;
+      });
+      html += '</tbody>';
+    } else {
+      const symbol = currentGate === 'and' ? '&&' : '||';
+      html = `<thead><tr><th>A</th><th>B</th><th>A ${symbol} B</th></tr></thead><tbody>`;
+      g.truth.forEach(row => {
+        const isCurrent = row.a === state.a && row.b === state.b;
+        html += `<tr class="${isCurrent ? 'current' : ''}"><td class="${row.a ? 't' : 'f'}">${row.a}</td><td class="${row.b ? 't' : 'f'}">${row.b}</td><td class="${row.r ? 't' : 'f'}">${row.r}</td></tr>`;
+      });
+      html += '</tbody>';
+    }
+    tbl.innerHTML = html;
+    document.getElementById('scTitle').textContent = g.scTitle;
+    document.getElementById('scBody').innerHTML = g.scBody;
+  }
+
+  function renderCode() {
+    const g = GATES[currentGate];
+    document.getElementById('analogyScenario').textContent = g.analogy;
+    let html;
+    const result = currentGate === 'not' ? g.compute(state.a) : g.compute(state.a, state.b);
+    const resClass = result ? 'result-true' : 'result-false';
+
+    if (currentGate === 'not') {
+      html = `
+<div><span class="type">boolean</span> <span class="var">isRaining</span> = <span class="num">${state.a}</span>;</div>
+<div><span class="type">boolean</span> <span class="var">canGo</span> = <span class="op">!</span><span class="var">isRaining</span>;</div>
+<div><span class="comment">// canGo = </span><span class="${resClass}">${result}</span></div>
+      `;
+    } else {
+      const leftVal = state.a;
+      const rightVal = state.b;
+      // Highlight short-circuit
+      let scNote = '';
+      if (currentGate === 'and' && !state.a) {
+        scNote = '<div><span class="comment">// short-circuit: B not evaluated</span></div>';
+      } else if (currentGate === 'or' && state.a) {
+        scNote = '<div><span class="comment">// short-circuit: B not evaluated</span></div>';
+      }
+      html = `
+<div><span class="type">boolean</span> <span class="var">${g.codeLeft.replace(/[^a-zA-Z]/g, '')}</span> = <span class="num">${leftVal}</span>;</div>
+<div><span class="type">boolean</span> <span class="var">${g.codeRight}</span> = <span class="num">${rightVal}</span>;</div>
+<div><span class="kw">if</span> (<span class="var">${g.codeLeft.replace(/[^a-zA-Z]/g, '')}</span> <span class="op">${g.codeOp}</span> <span class="var">${g.codeRight}</span>) { ... }</div>
+${scNote}
+<div><span class="comment">// condition evaluates to </span><span class="${resClass}">${result}</span></div>
+      `;
+    }
+    document.getElementById('codeContent').innerHTML = html;
+  }
+
+  function loadGate(g) {
+    currentGate = g;
+    state = { a: false, b: false };
+    document.querySelectorAll('.gate-btn').forEach(el => {
+      el.classList.toggle('active', el.dataset.g === g);
+    });
+    renderConditions();
+    renderOutcome();
+    renderTruth();
+    renderCode();
+  }
+
+  document.querySelectorAll('.gate-btn').forEach(el => {
+    el.addEventListener('click', () => loadGate(el.dataset.g));
+  });
+
+  loadGate('and');
+</script>
+</body>
+</html>

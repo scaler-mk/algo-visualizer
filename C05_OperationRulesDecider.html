@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Operation Rules Decider</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #f3eee2;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 760px;
+  }
+
+  /* Quiz presets */
+  .presets {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .presets-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 6px;
+  }
+  .preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 7px 11px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset:hover { background: #fff8d6; }
+  .preset.active { background: #1a1a1a; color: #ffd95c; }
+
+  /* Builder */
+  .builder {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 26px 28px;
+    margin-bottom: 18px;
+  }
+
+  .builder-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+  }
+
+  /* The expression row */
+  .expression {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    justify-content: center;
+    padding: 18px 0;
+    border-bottom: 2px dashed #d4cfc2;
+    margin-bottom: 18px;
+  }
+
+  .type-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .type-chip .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .type-chip select {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 10px 16px;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    background: #fff8d6;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M0 2l5 6 5-6z' fill='%231a1a1a'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+  }
+  .type-chip select.int { background-color: #fff8d6; }
+  .type-chip select.long { background-color: #ffe9b3; }
+  .type-chip select.float { background-color: #cfe8f5; }
+  .type-chip select.double { background-color: #a8c7e0; }
+
+  .op-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .op-chip .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .op-chip select {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 900;
+    padding: 6px 14px;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    background: #1a1a1a;
+    color: #ffd95c;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M0 2l5 6 5-6z' fill='%23ffd95c'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+  }
+
+  /* Destination row */
+  .destination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    padding-top: 4px;
+  }
+  .dest-equals {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    color: #888;
+  }
+  .dest-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #888;
+    margin-right: 4px;
+  }
+
+  /* The reasoning steps */
+  .reasoning {
+    max-width: 1080px;
+    width: 100%;
+    background: #0d1117;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 22px 26px;
+    color: #e6edf3;
+    margin-bottom: 18px;
+  }
+  .reasoning-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 14px;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 16px;
+    background: #161b22;
+    border-radius: 6px;
+    border-left: 4px solid #333;
+    margin-bottom: 8px;
+    opacity: 0.4;
+    transition: all 0.4s;
+  }
+  .step.show {
+    opacity: 1;
+  }
+  .step.active {
+    border-left-color: #ffd95c;
+    background: rgba(255, 217, 92, 0.06);
+  }
+  .step.success {
+    border-left-color: #56d364;
+  }
+  .step.error {
+    border-left-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.08);
+  }
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #2a2a2a;
+    color: #888;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step.active .step-num { background: #ffd95c; color: #1a1a1a; }
+  .step.success .step-num { background: #56d364; color: #1a1a1a; }
+  .step.error .step-num { background: #ff6b6b; color: #fff; }
+
+  .step .body {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .step .body .title {
+    font-weight: 700;
+    color: #e6edf3;
+    margin-bottom: 2px;
+  }
+  .step .body .detail {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+  .step.active .body .detail { color: #ffd95c; }
+  .step.success .body .detail { color: #7ee08e; }
+  .step.error .body .detail { color: #ff9999; }
+
+  .step .pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: #2a2a2a;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+  .step.active .pill { background: #ffd95c; color: #1a1a1a; }
+  .step.success .pill { background: #56d364; color: #1a1a1a; }
+  .step.error .pill { background: #ff6b6b; color: #fff; }
+
+  /* Verdict box */
+  .verdict {
+    margin-top: 14px;
+    padding: 18px 22px;
+    background: #050608;
+    border-radius: 6px;
+    border: 2px solid #333;
+    transition: all 0.4s;
+    opacity: 0;
+  }
+  .verdict.show { opacity: 1; }
+  .verdict.success { border-color: rgba(86, 211, 100, 0.4); }
+  .verdict.error { border-color: rgba(255, 107, 107, 0.4); }
+  .verdict-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: #ffd95c;
+    color: #1a1a1a;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+  .verdict.success .verdict-tag { background: #56d364; color: #1a1a1a; }
+  .verdict.error .verdict-tag { background: #ff6b6b; color: #fff; }
+  .verdict-body {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    line-height: 1.55;
+    color: #e6edf3;
+  }
+  .verdict-body code {
+    background: rgba(255, 217, 92, 0.12);
+    color: #ffd95c;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .verdict-body strong { color: #ffd95c; }
+  .verdict.success .verdict-body strong { color: #7ee08e; }
+  .verdict.error .verdict-body strong { color: #ff9999; }
+
+  /* Controls */
+  .controls {
+    max-width: 1080px;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: #fff; color: #1a1a1a; border: 2px solid #1a1a1a; }
+  .step-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* Rules sidebar */
+  .rules {
+    max-width: 1080px;
+    width: 100%;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 700px) { .rules { grid-template-columns: 1fr; } }
+  .rule {
+    padding: 14px 16px;
+    background: #f5efe2;
+    border-left: 4px solid #1a1a1a;
+    border-radius: 4px;
+  }
+  .rule-1 { border-left-color: #1f5a8a; }
+  .rule-2 { border-left-color: #8a6a1f; }
+  .rule-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .rule-1 .rule-title { color: #1f5a8a; }
+  .rule-2 .rule-title { color: #8a6a1f; }
+  .rule-body {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .rule-body code {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #1a1a1a;
+  }
+
+  .type-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin: 0 2px;
+  }
+  .type-tag.int { background: #fff8d6; color: #8a6a1f; }
+  .type-tag.long { background: #ffe9b3; color: #c47b00; }
+  .type-tag.float { background: #cfe8f5; color: #1f5a8a; }
+  .type-tag.double { background: #a8c7e0; color: #0d3d5a; }
+</style>
+</head>
+<body>
+  <h1>Operation Rules <span class="accent">Decider</span></h1>
+  <p class="subtitle">Pick two types and an operator. Watch the rules apply step-by-step and decide what the destination type must be. Works for every typecasting/operation quiz in this class.</p>
+
+  <div class="presets" id="presetsRow">
+    <span class="presets-label">Quiz preset:</span>
+    <!-- injected -->
+  </div>
+
+  <div class="builder">
+    <div class="builder-label">Expression builder</div>
+    <div class="expression">
+      <div class="type-chip">
+        <span class="label">Left operand</span>
+        <select id="leftType" class="int">
+          <option value="int">int</option>
+          <option value="long">long</option>
+          <option value="float">float</option>
+          <option value="double">double</option>
+        </select>
+      </div>
+      <div class="op-chip">
+        <span class="label">Operator</span>
+        <select id="op">
+          <option value="*">*</option>
+          <option value="+">+</option>
+          <option value="-">-</option>
+          <option value="/">/</option>
+        </select>
+      </div>
+      <div class="type-chip">
+        <span class="label">Right operand</span>
+        <select id="rightType" class="int">
+          <option value="int">int</option>
+          <option value="long">long</option>
+          <option value="float">float</option>
+          <option value="double">double</option>
+        </select>
+      </div>
+    </div>
+    <div class="destination">
+      <span class="dest-text">Store result in:</span>
+      <span class="dest-equals">=</span>
+      <div class="type-chip">
+        <span class="label">Destination</span>
+        <select id="destType" class="int">
+          <option value="int">int</option>
+          <option value="long">long</option>
+          <option value="float">float</option>
+          <option value="double">double</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="reasoning">
+    <div class="reasoning-header">Reasoning trace</div>
+    <div class="step" id="step1" data-i="1">
+      <div class="step-num">1</div>
+      <div class="body">
+        <div class="title" id="step1Title">Identify the operand types</div>
+        <div class="detail" id="step1Detail">—</div>
+      </div>
+      <div class="pill" id="step1Pill">type check</div>
+    </div>
+    <div class="step" id="step2" data-i="2">
+      <div class="step-num">2</div>
+      <div class="body">
+        <div class="title" id="step2Title">Determine result type</div>
+        <div class="detail" id="step2Detail">—</div>
+      </div>
+      <div class="pill" id="step2Pill">rule</div>
+    </div>
+    <div class="step" id="step3" data-i="3">
+      <div class="step-num">3</div>
+      <div class="body">
+        <div class="title" id="step3Title">Check the assignment</div>
+        <div class="detail" id="step3Detail">—</div>
+      </div>
+      <div class="pill" id="step3Pill">store</div>
+    </div>
+    <div class="verdict" id="verdict">
+      <span class="verdict-tag" id="verdictTag">Verdict</span>
+      <div class="verdict-body" id="verdictBody">—</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn secondary" id="resetBtn">↻ Reset trace</button>
+    <button class="btn" id="stepBtn">▶ Next step</button>
+    <span class="step-info" id="stepInfo">step 0 / 3</span>
+  </div>
+
+  <div class="rules">
+    <div class="rule rule-1">
+      <div class="rule-title">RULE 1 — Decimal vs Non-decimal</div>
+      <div class="rule-body">
+        Mix a decimal type (<span class="type-tag float">float</span> or <span class="type-tag double">double</span>) with a non-decimal (<span class="type-tag int">int</span> or <span class="type-tag long">long</span>)? The result is <strong>decimal</strong>.
+      </div>
+    </div>
+    <div class="rule rule-2">
+      <div class="rule-title">RULE 2 — Same Category, Bigger Wins</div>
+      <div class="rule-body">
+        Both operands non-decimal? Result is the bigger one (<code>int</code> &lt; <code>long</code>). Both decimal? Same idea (<code>float</code> &lt; <code>double</code>).
+      </div>
+    </div>
+  </div>
+
+<script>
+  const RANK = { int: 1, long: 2, float: 3, double: 4 };
+  const IS_DECIMAL = { int: false, long: false, float: true, double: true };
+
+  // Type ordering chain for "store" rule (widening allowed): int → long → float → double
+  const WIDEN_OK = {
+    'int':    { int: true,  long: true,  float: true,  double: true  },
+    'long':   { int: false, long: true,  float: true,  double: true  },
+    'float':  { int: false, long: false, float: true,  double: true  },
+    'double': { int: false, long: false, float: false, double: true  }
+  };
+
+  const PRESETS = [
+    { label: 'Quiz 10: int * int → int',     left: 'int',  op: '*', right: 'int',  dest: 'int',  note: 'overflow at runtime' },
+    { label: 'Quiz 11: int * int → long',    left: 'int',  op: '*', right: 'int',  dest: 'long', note: 'still overflows!' },
+    { label: 'Quiz 12: long * long → int',   left: 'long', op: '*', right: 'long', dest: 'int',  note: 'compile error' },
+    { label: 'Quiz 13: long * int → long',   left: 'long', op: '*', right: 'int',  dest: 'long', note: 'works correctly' },
+    { label: 'Quiz 15: (long)a * b → long',  left: 'long', op: '*', right: 'int',  dest: 'long', note: 'a was cast to long first' },
+    { label: 'Quiz 1: int → long',           left: 'int',  op: '+', right: 'int',  dest: 'long', note: 'just widening' },
+    { label: 'Quiz 9: double → float',       left: 'double',op: '+',right: 'double',dest:'float',note: 'compile error' }
+  ];
+
+  let currentStep = 0;
+  let currentPreset = 0;
+
+  function renderPresets() {
+    const wrap = document.getElementById('presetsRow');
+    let html = '<span class="presets-label">Quiz preset:</span>';
+    PRESETS.forEach((p, i) => {
+      html += `<span class="preset ${i === currentPreset ? 'active' : ''}" data-i="${i}">${p.label}</span>`;
+    });
+    wrap.innerHTML = html;
+    wrap.querySelectorAll('.preset').forEach(el => {
+      el.addEventListener('click', () => {
+        currentPreset = parseInt(el.dataset.i, 10);
+        const p = PRESETS[currentPreset];
+        document.getElementById('leftType').value = p.left;
+        document.getElementById('op').value = p.op;
+        document.getElementById('rightType').value = p.right;
+        document.getElementById('destType').value = p.dest;
+        updateTypeStyles();
+        renderPresets();
+        resetTrace();
+      });
+    });
+  }
+
+  function updateTypeStyles() {
+    ['leftType', 'rightType', 'destType'].forEach(id => {
+      const sel = document.getElementById(id);
+      sel.className = sel.value;
+    });
+  }
+
+  function getResultType(left, right) {
+    // Rule 1: if one is decimal and other is not, decimal wins
+    // Rule 2: bigger one wins (rank-wise)
+    // Both rules are unified by just taking max rank
+    return RANK[left] >= RANK[right] ? left : right;
+  }
+
+  function whichRule(left, right) {
+    if (IS_DECIMAL[left] !== IS_DECIMAL[right]) return 'rule1';
+    return 'rule2';
+  }
+
+  function resetTrace() {
+    currentStep = 0;
+    ['step1', 'step2', 'step3'].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove('show', 'active', 'success', 'error');
+    });
+    document.getElementById('verdict').classList.remove('show', 'success', 'error');
+    document.getElementById('stepBtn').disabled = false;
+    document.getElementById('stepBtn').textContent = '▶ Next step';
+    document.getElementById('stepInfo').textContent = 'step 0 / 3';
+  }
+
+  function makeTypeTag(t) {
+    return `<span class="type-tag ${t}">${t}</span>`;
+  }
+
+  function runStep() {
+    const left = document.getElementById('leftType').value;
+    const op = document.getElementById('op').value;
+    const right = document.getElementById('rightType').value;
+    const dest = document.getElementById('destType').value;
+    const resultType = getResultType(left, right);
+    const rule = whichRule(left, right);
+    const ok = WIDEN_OK[resultType][dest];
+
+    currentStep++;
+    document.getElementById('stepInfo').textContent = `step ${currentStep} / 3`;
+
+    if (currentStep === 1) {
+      const s = document.getElementById('step1');
+      s.classList.add('show', 'active');
+      document.getElementById('step1Title').innerHTML =
+        `Left is ${makeTypeTag(left)}, right is ${makeTypeTag(right)}, operator is <code style="font-family:monospace;background:rgba(255,217,92,0.12);color:#ffd95c;padding:1px 6px;border-radius:3px;">${op}</code>`;
+      document.getElementById('step1Detail').textContent =
+        `Java will look at both types and figure out what type the result of this operation is.`;
+      document.getElementById('step1Pill').textContent = `${left} ${op} ${right}`;
+    }
+
+    if (currentStep === 2) {
+      document.getElementById('step1').classList.remove('active');
+      document.getElementById('step1').classList.add('success');
+      const s = document.getElementById('step2');
+      s.classList.add('show', 'active');
+
+      let title, detail, pillText;
+      if (left === right) {
+        title = `Same type on both sides → result is ${makeTypeTag(resultType)}`;
+        detail = `When both operands are the same type, no promotion is needed.`;
+        pillText = `${resultType}`;
+      } else if (rule === 'rule1') {
+        const decimalOne = IS_DECIMAL[left] ? left : right;
+        title = `Rule 1: one operand is decimal (${makeTypeTag(decimalOne)}) → result is decimal → ${makeTypeTag(resultType)}`;
+        detail = `Mixing decimal and non-decimal? The decimal type wins.`;
+        pillText = `rule 1 → ${resultType}`;
+      } else {
+        const bigger = RANK[left] > RANK[right] ? left : right;
+        title = `Rule 2: both in same category, bigger one wins → ${makeTypeTag(resultType)}`;
+        detail = `Both are ${IS_DECIMAL[left] ? 'decimal' : 'non-decimal'}. ${bigger} has more capacity than ${bigger === left ? right : left}.`;
+        pillText = `rule 2 → ${resultType}`;
+      }
+      document.getElementById('step2Title').innerHTML = title;
+      document.getElementById('step2Detail').innerHTML = detail;
+      document.getElementById('step2Pill').textContent = pillText;
+    }
+
+    if (currentStep === 3) {
+      document.getElementById('step2').classList.remove('active');
+      document.getElementById('step2').classList.add('success');
+      const s = document.getElementById('step3');
+      s.classList.add('show', 'active');
+
+      let title, detail, pillText, stepCls;
+      if (ok) {
+        title = `Storing ${makeTypeTag(resultType)} into ${makeTypeTag(dest)} — widening or same → OK`;
+        detail = `${resultType} fits into ${dest} without a cast.`;
+        pillText = 'compiles';
+        stepCls = 'success';
+      } else {
+        title = `Storing ${makeTypeTag(resultType)} into ${makeTypeTag(dest)} — narrowing → ✗ compile error`;
+        detail = `${resultType} → ${dest} is narrowing. Needs explicit cast: (${dest}) ...`;
+        pillText = 'compile error';
+        stepCls = 'error';
+      }
+      document.getElementById('step3Title').innerHTML = title;
+      document.getElementById('step3Detail').innerHTML = detail;
+      document.getElementById('step3Pill').textContent = pillText;
+      s.classList.remove('active');
+      s.classList.add(stepCls);
+
+      // Verdict
+      const v = document.getElementById('verdict');
+      v.classList.add('show');
+      const vTag = document.getElementById('verdictTag');
+      const vBody = document.getElementById('verdictBody');
+
+      // Special verdicts for overflow risk
+      const overflowRisk =
+        resultType === 'int' && dest !== 'int' && (left === 'int' && right === 'int');
+
+      if (!ok) {
+        v.classList.add('error');
+        v.classList.remove('success');
+        vTag.textContent = 'Compile error';
+        vBody.innerHTML =
+          `<strong>"possible lossy conversion from ${resultType} to ${dest}"</strong><br>` +
+          `Java refuses to narrow automatically. To force it: ` +
+          `<code>${dest} x = (${dest}) (a ${op} b);</code>`;
+      } else if (overflowRisk && (dest === 'long' || dest === 'float' || dest === 'double')) {
+        v.classList.add('error');
+        v.classList.remove('success');
+        vTag.textContent = 'Compiles, but watch out';
+        vBody.innerHTML =
+          `<strong>Compiles fine, but the math still runs in <code>int</code>!</strong><br>` +
+          `The result type rule looks at the operands <em>before</em> the assignment. ` +
+          `If <code>a * b</code> overflows int, you get a garbage value, ` +
+          `<em>then</em> that garbage gets widened to ${dest}. Cast at least one operand first: ` +
+          `<code>(${dest === 'long' ? 'long' : dest})a ${op} b</code>`;
+      } else {
+        v.classList.add('success');
+        v.classList.remove('error');
+        vTag.textContent = 'Compiles and stores cleanly';
+        vBody.innerHTML =
+          `<strong>${resultType} result fits into ${dest}.</strong> ` +
+          `Java handles the conversion automatically (widening). No data loss.`;
+      }
+
+      document.getElementById('stepBtn').disabled = true;
+      document.getElementById('stepBtn').textContent = '✓ done';
+    }
+  }
+
+  // Wire up
+  ['leftType', 'rightType', 'destType'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => {
+      updateTypeStyles();
+      resetTrace();
+    });
+  });
+  document.getElementById('op').addEventListener('change', resetTrace);
+  document.getElementById('stepBtn').addEventListener('click', runStep);
+  document.getElementById('resetBtn').addEventListener('click', resetTrace);
+
+  renderPresets();
+  // Load first preset
+  const p = PRESETS[0];
+  document.getElementById('leftType').value = p.left;
+  document.getElementById('op').value = p.op;
+  document.getElementById('rightType').value = p.right;
+  document.getElementById('destType').value = p.dest;
+  updateTypeStyles();
+  resetTrace();
+</script>
+</body>
+</html>
