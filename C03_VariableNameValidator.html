@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Variable Name Validator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #fef6e7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 32px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 26px;
+    max-width: 700px;
+  }
+
+  .panel {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 26px;
+    max-width: 760px;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+
+  /* Input */
+  .input-row {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    min-height: 70px;
+  }
+  .input-row .kw { color: #ff7b72; margin-right: 6px; }
+  .input-row .equals { color: #c9d1d9; margin: 0 8px; }
+  .input-row .punct { color: #c9d1d9; }
+  .input-row .literal { color: #ffa657; }
+  .input-row input {
+    background: transparent;
+    border: none;
+    border-bottom: 2px dashed #555;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    padding: 4px 6px;
+    min-width: 220px;
+    flex: 1;
+  }
+  .input-row input:focus {
+    outline: none;
+    border-bottom-color: #ffd95c;
+  }
+
+  /* Character-by-character display */
+  .char-strip {
+    margin-bottom: 22px;
+    padding: 14px;
+    background: #f5efe2;
+    border-radius: 6px;
+    border: 1.5px dashed #aaa;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .char-strip .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #888;
+    margin-right: 8px;
+  }
+  .char {
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    transition: all 0.15s;
+    border: 2px solid;
+  }
+  .char.good { background: #d4ecdc; border-color: #2d6e3e; color: #1a3d22; }
+  .char.bad  { background: #ffd0d0; border-color: #c41e3a; color: #6a0c1a; }
+  .char.empty {
+    font-style: italic;
+    color: #888;
+    background: transparent;
+    border: none;
+    font-weight: 400;
+    font-size: 13px;
+    font-family: 'Fraunces', serif;
+  }
+
+  /* Rule checklist */
+  .rules {
+    display: grid;
+    gap: 10px;
+  }
+  .rule {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .rule.pass {
+    background: #e8f5ec;
+    border-color: #2d6e3e;
+  }
+  .rule.fail {
+    background: #fce7e9;
+    border-color: #c41e3a;
+  }
+  .rule.idle {
+    background: #f7f7f7;
+    border-color: #ddd;
+  }
+  .rule .icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+    background: #ddd;
+    color: #888;
+  }
+  .rule.pass .icon { background: #2d6e3e; color: #fff; }
+  .rule.fail .icon { background: #c41e3a; color: #fff; }
+  .rule .body .title {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+  .rule .body .detail {
+    font-size: 13px;
+    color: #555;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .rule.pass .body .detail { color: #2d6e3e; }
+  .rule.fail .body .detail { color: #c41e3a; }
+
+  /* Verdict */
+  .verdict {
+    background: #1a1a1a;
+    color: #ffd95c;
+    padding: 18px 22px;
+    border-radius: 8px;
+    margin-top: 18px;
+    font-size: 16px;
+    line-height: 1.5;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .verdict.valid { background: #1a3d22; color: #b9e5c4; }
+  .verdict.invalid { background: #5a1219; color: #ffc4cc; }
+  .verdict .big {
+    font-size: 22px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* Presets */
+  .presets {
+    margin-top: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .preset-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 6px;
+  }
+  .preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 10px;
+    background: #fff8d6;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .preset:hover { background: #ffd95c; }
+</style>
+</head>
+<body>
+  <h1>Variable Name <span class="accent">Validator</span></h1>
+  <p class="subtitle">Type a variable name and watch all 4 rules check in real time.</p>
+
+  <div class="panel">
+    <div class="input-row">
+      <span class="kw">int</span>
+      <input type="text" id="nameInput" value="age" autocomplete="off" spellcheck="false">
+      <span class="equals">=</span>
+      <span class="literal">10</span>
+      <span class="punct">;</span>
+    </div>
+
+    <div class="char-strip" id="charStrip">
+      <span class="label">CHARS:</span>
+      <span class="char empty">type a name above…</span>
+    </div>
+
+    <div class="rules" id="rules">
+      <div class="rule idle" data-rule="1">
+        <div class="icon">1</div>
+        <div class="body">
+          <div class="title">Only letters, digits, $ or _</div>
+          <div class="detail">no spaces, no symbols like # @ !</div>
+        </div>
+      </div>
+      <div class="rule idle" data-rule="2">
+        <div class="icon">2</div>
+        <div class="body">
+          <div class="title">Doesn't start with a digit</div>
+          <div class="detail">first character must be a letter, $ or _</div>
+        </div>
+      </div>
+      <div class="rule idle" data-rule="3">
+        <div class="icon">3</div>
+        <div class="body">
+          <div class="title">Not a reserved keyword</div>
+          <div class="detail">int, public, static, void, class, …</div>
+        </div>
+      </div>
+      <div class="rule idle" data-rule="4">
+        <div class="icon">4</div>
+        <div class="body">
+          <div class="title">Not empty</div>
+          <div class="detail">must have at least 1 character</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict" id="verdict">
+      <span class="big" id="verdictBig">Start typing…</span>
+      <span id="verdictMsg">All 4 rules need to pass.</span>
+    </div>
+
+    <div class="presets">
+      <span class="preset-label">From class:</span>
+      <span class="preset">_age</span>
+      <span class="preset">age</span>
+      <span class="preset">8age</span>
+      <span class="preset">room number</span>
+      <span class="preset">calculator_</span>
+      <span class="preset">calculator$</span>
+      <span class="preset">age#</span>
+      <span class="preset">319</span>
+      <span class="preset">age5</span>
+      <span class="preset">static</span>
+      <span class="preset">1y</span>
+      <span class="preset">x@a</span>
+      <span class="preset">y$z</span>
+    </div>
+  </div>
+
+<script>
+  const RESERVED = new Set([
+    // Subset of Java reserved keywords — enough for the class
+    'abstract','assert','boolean','break','byte','case','catch','char','class','const',
+    'continue','default','do','double','else','enum','extends','final','finally','float',
+    'for','goto','if','implements','import','instanceof','int','interface','long','native',
+    'new','package','private','protected','public','return','short','static','strictfp',
+    'super','switch','synchronized','this','throw','throws','transient','try','void',
+    'volatile','while','true','false','null'
+  ]);
+
+  function isAllowedChar(c) {
+    return /^[A-Za-z0-9_$]$/.test(c);
+  }
+
+  function validate(name) {
+    // Rule 1: every char allowed?
+    const badChars = [];
+    for (let i = 0; i < name.length; i++) {
+      if (!isAllowedChar(name[i])) badChars.push({ ch: name[i], idx: i });
+    }
+    const rule1 = { pass: badChars.length === 0, badChars };
+
+    // Rule 2: doesn't start with digit (only if rule 1 passes... well, check anyway)
+    let rule2;
+    if (name.length === 0) {
+      rule2 = { pass: false, note: 'empty' };
+    } else if (/^[0-9]/.test(name[0])) {
+      rule2 = { pass: false, note: 'starts with "' + name[0] + '"' };
+    } else {
+      rule2 = { pass: true };
+    }
+
+    // Rule 3: not a reserved keyword
+    const rule3 = { pass: !RESERVED.has(name), note: RESERVED.has(name) ? '"' + name + '" is a Java keyword' : '' };
+
+    // Rule 4: not empty
+    const rule4 = { pass: name.length > 0 };
+
+    return { rule1, rule2, rule3, rule4 };
+  }
+
+  function render() {
+    const name = document.getElementById('nameInput').value;
+    const result = validate(name);
+
+    // Char strip
+    const strip = document.getElementById('charStrip');
+    if (name.length === 0) {
+      strip.innerHTML = '<span class="label">CHARS:</span><span class="char empty">type a name above…</span>';
+    } else {
+      const badIdxs = new Set(result.rule1.badChars.map(b => b.idx));
+      const startsWithDigit = /^[0-9]/.test(name);
+      let html = '<span class="label">CHARS:</span>';
+      for (let i = 0; i < name.length; i++) {
+        const c = name[i];
+        let bad = badIdxs.has(i) || (i === 0 && startsWithDigit);
+        const displayed = (c === ' ') ? '␣' : c;
+        html += '<span class="char ' + (bad ? 'bad' : 'good') + '">' + displayed + '</span>';
+      }
+      strip.innerHTML = html;
+    }
+
+    // Rules
+    setRule(1, result.rule1.pass,
+      result.rule1.pass
+        ? 'all characters allowed'
+        : result.rule1.badChars.length === 1
+            ? '"' + (result.rule1.badChars[0].ch === ' ' ? 'space' : result.rule1.badChars[0].ch) + '" is not allowed'
+            : result.rule1.badChars.length + ' chars not allowed'
+    );
+    setRule(2, result.rule2.pass,
+      result.rule2.pass
+        ? 'starts with letter/$/_'
+        : result.rule2.note === 'empty' ? '(no first char)' : result.rule2.note
+    );
+    setRule(3, result.rule3.pass,
+      result.rule3.pass ? 'not a keyword' : result.rule3.note
+    );
+    setRule(4, result.rule4.pass,
+      result.rule4.pass ? name.length + ' char(s)' : 'name is empty'
+    );
+
+    // Verdict
+    const allPass = result.rule1.pass && result.rule2.pass && result.rule3.pass && result.rule4.pass;
+    const verdict = document.getElementById('verdict');
+    const big = document.getElementById('verdictBig');
+    const msg = document.getElementById('verdictMsg');
+    if (name.length === 0) {
+      verdict.className = 'verdict';
+      big.textContent = 'Start typing…';
+      msg.textContent = 'All 4 rules need to pass.';
+    } else if (allPass) {
+      verdict.className = 'verdict valid';
+      big.textContent = '✓ valid';
+      msg.textContent = '"' + name + '" is a legal Java variable name.';
+    } else {
+      verdict.className = 'verdict invalid';
+      big.textContent = '✗ invalid';
+      const fails = [];
+      if (!result.rule1.pass) fails.push('1');
+      if (!result.rule2.pass) fails.push('2');
+      if (!result.rule3.pass) fails.push('3');
+      if (!result.rule4.pass) fails.push('4');
+      msg.textContent = 'Rule ' + fails.join(' & ') + ' failed.';
+    }
+  }
+
+  function setRule(n, pass, detail) {
+    const el = document.querySelector('.rule[data-rule="' + n + '"]');
+    el.classList.remove('idle', 'pass', 'fail');
+    if (document.getElementById('nameInput').value.length === 0) {
+      el.classList.add('idle');
+      el.querySelector('.icon').textContent = n;
+    } else {
+      el.classList.add(pass ? 'pass' : 'fail');
+      el.querySelector('.icon').textContent = pass ? '✓' : '✗';
+    }
+    // Update detail text on the right side
+    const detailEl = el.querySelector('.detail');
+    if (document.getElementById('nameInput').value.length === 0) {
+      const defaults = {
+        1: 'no spaces, no symbols like # @ !',
+        2: 'first character must be a letter, $ or _',
+        3: 'int, public, static, void, class, …',
+        4: 'must have at least 1 character'
+      };
+      detailEl.textContent = defaults[n];
+    } else {
+      detailEl.textContent = detail;
+    }
+  }
+
+  document.getElementById('nameInput').addEventListener('input', render);
+
+  document.querySelectorAll('.preset').forEach(p => {
+    p.addEventListener('click', () => {
+      document.getElementById('nameInput').value = p.textContent;
+      render();
+    });
+  });
+
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Data Type Buckets: Will It Fit?</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #eaf4f4;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 32px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 26px;
+    max-width: 720px;
+  }
+
+  .control-row {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+    max-width: 920px;
+    width: 100%;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 16px;
+    align-items: end;
+    flex-wrap: wrap;
+  }
+  .control-row label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  .control-row input {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    padding: 10px 14px;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    background: #fffbf3;
+    min-width: 220px;
+  }
+  .control-row input:focus { outline: none; background: #fff8d6; }
+  .control-row .btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 6px;
+  }
+  .btn:hover { background: #333; }
+
+  .presets {
+    max-width: 920px;
+    width: 100%;
+    margin-bottom: 22px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .preset-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .preset:hover { background: #ffd95c; }
+
+  .stage {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 26px 20px;
+    max-width: 920px;
+    width: 100%;
+  }
+  .buckets-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    align-items: end;
+    min-height: 320px;
+  }
+  @media (max-width: 760px) {
+    .buckets-row { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .bucket-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.3s;
+  }
+  .bucket-col.fits {
+    background: rgba(86, 211, 100, 0.08);
+  }
+  .bucket-col.overflows {
+    background: rgba(255, 107, 107, 0.08);
+  }
+  .bucket-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+  .bucket-range {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .verdict-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 100px;
+    margin-top: 4px;
+  }
+  .verdict-pill.fits { background: #2d6e3e; color: #fff; }
+  .verdict-pill.overflows { background: #c41e3a; color: #fff; }
+  .verdict-pill.idle { background: #ddd; color: #555; }
+
+  .commentary {
+    max-width: 920px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #e6edf3;
+    padding: 16px 22px;
+    border-radius: 10px;
+    margin-top: 18px;
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    line-height: 1.5;
+    border-left: 4px solid #ffd95c;
+  }
+  .commentary strong { color: #ffd95c; }
+  .commentary code {
+    background: rgba(255, 217, 92, 0.15);
+    color: #ffd95c;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+  <h1>Data Type Buckets: <span class="accent">will it fit?</span></h1>
+  <p class="subtitle">Same water (a number), different buckets. The bigger the bucket, the bigger the value it can hold.</p>
+
+  <div class="control-row">
+    <div>
+      <label>Try a value</label>
+      <input type="text" id="valueInput" value="100">
+    </div>
+    <button class="btn" id="checkBtn">▶ Check</button>
+  </div>
+
+  <div class="presets">
+    <span class="preset-label">Try:</span>
+    <span class="preset">100</span>
+    <span class="preset">200</span>
+    <span class="preset">50000</span>
+    <span class="preset">2000000000</span>
+    <span class="preset">10000000000</span>
+    <span class="preset">9000000000000000000</span>
+  </div>
+
+  <div class="stage">
+    <div class="buckets-row" id="bucketsRow">
+      <!-- buckets injected by JS -->
+    </div>
+  </div>
+
+  <div class="commentary" id="commentary">
+    Try a value above and watch how it fills each bucket. Most beginners use <strong>int</strong> for whole numbers (~±2.1 billion) and <strong>long</strong> for bigger (~±9 quintillion). <code>byte</code> and <code>short</code> are rarely used.
+  </div>
+
+<script>
+  const BUCKETS = [
+    { name: 'byte',  size: 60,  color: '#a8d5b3', stroke: '#2d6e3e',
+      range: '−128 to 127', max: 127n },
+    { name: 'short', size: 100, color: '#79c0ff', stroke: '#1f5a8a',
+      range: '−32,768 to 32,767', max: 32767n },
+    { name: 'int',   size: 160, color: '#ffd95c', stroke: '#8a6a1f',
+      range: '~ ±2.1 × 10⁹', max: 2147483647n },
+    { name: 'long',  size: 240, color: '#e76f51', stroke: '#7a3424',
+      range: '~ ±9.2 × 10¹⁸', max: 9223372036854775807n }
+  ];
+
+  // Compute a visual fill level for displaying value as water — log scale so small values are visible
+  function fillFor(absVal, bucketMax) {
+    if (absVal <= 0n) return 0.05;
+    if (absVal >= bucketMax) return 1.0;
+    const logVal = Math.log10(Number(absVal));
+    const logMax = Math.log10(Number(bucketMax));
+    return Math.max(0.05, Math.min(1.0, logVal / logMax));
+  }
+
+  function fits(absVal, bucketMax) {
+    return absVal <= bucketMax;
+  }
+
+  function drawBucket(idx, def, fillLevel, overflow) {
+    const W = 180, H = 240;
+    const maxBucketH = 200;
+    const bh = def.size + 50; // visual height differs across buckets
+    const bw = Math.min(maxBucketH * 0.85, def.size * 1.3 + 40);
+
+    const cx = W / 2;
+    const padTop = H - bh - 10;
+    const topY = padTop;
+    const botY = padTop + bh;
+    const topHalf = bw / 2;
+    const botHalf = Math.max(20, bw / 2 - 16);
+
+    const innerTopY = topY + 5;
+    const innerBotY = botY - 6;
+    const innerTopHalf = topHalf - 6;
+    const innerBotHalf = botHalf - 6;
+
+    const clamped = Math.max(0, Math.min(1, fillLevel));
+    const waterTopY = innerBotY - (innerBotY - innerTopY) * clamped;
+    const t = (waterTopY - innerTopY) / (innerBotY - innerTopY);
+    const halfAtTop = innerTopHalf + (innerBotHalf - innerTopHalf) * t;
+
+    return `
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="${cx}" cy="${botY + 7}" rx="${botHalf + 6}" ry="5" fill="rgba(0,0,0,0.15)"/>
+        <rect x="${cx - topHalf - 3}" y="${topY - 7}" width="${(topHalf + 3) * 2}" height="9"
+              fill="${def.stroke}" rx="2"/>
+        <polygon points="
+          ${cx - topHalf},${topY}
+          ${cx + topHalf},${topY}
+          ${cx + botHalf},${botY}
+          ${cx - botHalf},${botY}"
+          fill="#f3eee2" stroke="${def.stroke}" stroke-width="3" stroke-linejoin="round"/>
+        <defs>
+          <clipPath id="clip-${idx}">
+            <polygon points="
+              ${cx - innerTopHalf},${innerTopY}
+              ${cx + innerTopHalf},${innerTopY}
+              ${cx + innerBotHalf},${innerBotY}
+              ${cx - innerBotHalf},${innerBotY}"/>
+          </clipPath>
+        </defs>
+        <g clip-path="url(#clip-${idx})">
+          <rect x="${cx - innerTopHalf - 4}" y="${waterTopY}"
+                width="${(innerTopHalf + 4) * 2}" height="${innerBotY - waterTopY + 4}"
+                fill="${def.color}">
+            <animate attributeName="y" from="${innerBotY}" to="${waterTopY}" dur="1s" fill="freeze"/>
+          </rect>
+          <path d="
+            M ${cx - halfAtTop} ${waterTopY}
+            Q ${cx - halfAtTop / 2} ${waterTopY - 4}, ${cx} ${waterTopY}
+            T ${cx + halfAtTop} ${waterTopY}
+            L ${cx + halfAtTop} ${waterTopY + 5}
+            L ${cx - halfAtTop} ${waterTopY + 5} Z"
+            fill="${def.color}" opacity="0.7"/>
+        </g>
+        ${overflow ? `
+        <!-- Overflow spillage -->
+        <g>
+          <path d="M ${cx - innerTopHalf - 6} ${innerTopY - 2}
+                   Q ${cx - innerTopHalf / 2} ${innerTopY - 18}, ${cx} ${innerTopY - 6}
+                   T ${cx + innerTopHalf + 6} ${innerTopY - 2}
+                   L ${cx + innerTopHalf + 6} ${innerTopY + 6}
+                   L ${cx - innerTopHalf - 6} ${innerTopY + 6} Z"
+                fill="${def.color}" opacity="0.85"/>
+          <circle cx="${cx - innerTopHalf - 10}" cy="${innerTopY + 12}" r="4" fill="${def.color}" opacity="0.8"/>
+          <circle cx="${cx + innerTopHalf + 12}" cy="${innerTopY + 8}" r="3" fill="${def.color}" opacity="0.8"/>
+          <circle cx="${cx - innerTopHalf - 16}" cy="${innerTopY + 22}" r="3" fill="${def.color}" opacity="0.7"/>
+          <circle cx="${cx + innerTopHalf + 18}" cy="${innerTopY + 18}" r="3" fill="${def.color}" opacity="0.7"/>
+        </g>
+        ` : ''}
+      </svg>
+    `;
+  }
+
+  function check() {
+    const raw = document.getElementById('valueInput').value.trim();
+    if (!raw) {
+      renderEmpty();
+      return;
+    }
+    let value;
+    try {
+      value = BigInt(raw);
+    } catch (e) {
+      // Not a clean integer — show idle
+      renderEmpty();
+      return;
+    }
+    const absV = value < 0n ? -value : value;
+    const row = document.getElementById('bucketsRow');
+    let html = '';
+    BUCKETS.forEach((b, i) => {
+      const f = fits(absV, b.max);
+      const fillLevel = fillFor(absV, b.max);
+      html += `
+        <div class="bucket-col ${f ? 'fits' : 'overflows'}">
+          <div class="bucket-name">${b.name}</div>
+          <div class="bucket-range">${b.range}</div>
+          ${drawBucket(i, b, fillLevel, !f)}
+          <div class="verdict-pill ${f ? 'fits' : 'overflows'}">
+            ${f ? '✓ fits' : '✗ overflows'}
+          </div>
+        </div>
+      `;
+    });
+    row.innerHTML = html;
+
+    // Commentary
+    const smallest = BUCKETS.find(b => fits(absV, b.max));
+    const c = document.getElementById('commentary');
+    if (smallest) {
+      if (smallest.name === 'long' && BUCKETS.find(b => b.name === 'int').max < absV) {
+        c.innerHTML = `<strong>${raw}</strong> is too big for <code>int</code> — only <code>long</code> can hold it. Remember: when writing this in code, you'll need the <strong>L suffix</strong>: <code>${raw}L</code>.`;
+      } else {
+        c.innerHTML = `<strong>${raw}</strong> fits in <code>${smallest.name}</code> (smallest that holds it) and every bigger type. In practice you'll almost always use <code>int</code> or <code>long</code> — <code>byte</code> and <code>short</code> are rarely worth it.`;
+      }
+    } else {
+      c.innerHTML = `<strong>${raw}</strong> overflows even <code>long</code>. Java has <code>BigInteger</code> for numbers this big — beyond this class's scope.`;
+    }
+  }
+
+  function renderEmpty() {
+    const row = document.getElementById('bucketsRow');
+    let html = '';
+    BUCKETS.forEach((b, i) => {
+      html += `
+        <div class="bucket-col">
+          <div class="bucket-name">${b.name}</div>
+          <div class="bucket-range">${b.range}</div>
+          ${drawBucket(i, b, 0.05, false)}
+          <div class="verdict-pill idle">— —</div>
+        </div>
+      `;
+    });
+    row.innerHTML = html;
+  }
+
+  document.getElementById('checkBtn').addEventListener('click', check);
+  document.getElementById('valueInput').addEventListener('input', check);
+  document.querySelectorAll('.preset').forEach(p => {
+    p.addEventListener('click', () => {
+      document.getElementById('valueInput').value = p.textContent;
+      check();
+    });
+  });
+
+  check();
+</script>
+</body>
+</html>

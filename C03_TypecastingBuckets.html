@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Typecasting: Pour from One Bucket to Another</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Fraunces', serif;
+    background: #eef4f7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 28px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-weight: 900;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: -0.02em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 .accent { color: #d62828; font-style: italic; }
+  .subtitle {
+    color: #555;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 22px;
+    max-width: 720px;
+  }
+
+  .controls {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 6px 6px 0 #1a1a1a;
+    padding: 18px 22px;
+    max-width: 1000px;
+    width: 100%;
+    margin-bottom: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+    align-items: end;
+  }
+  @media (max-width: 760px) { .controls { grid-template-columns: 1fr; } }
+
+  .control-group label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #888;
+    margin-bottom: 6px;
+  }
+  .btn-row {
+    display: flex;
+    gap: 6px;
+  }
+  .type-btn {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 10px 12px;
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+  .type-btn:hover { background: #fff8d6; }
+  .type-btn.active {
+    background: #1a1a1a;
+    color: #ffd95c;
+  }
+  .control-group input[type="text"] {
+    width: 100%;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    padding: 10px 12px;
+    border: 2px solid #1a1a1a;
+    border-radius: 6px;
+    background: #fffbf3;
+  }
+  .control-group input[type="text"]:focus {
+    outline: none;
+    background: #fff8d6;
+  }
+
+  .presets {
+    max-width: 1000px;
+    width: 100%;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .preset-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+  .preset {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 10px;
+    background: #fff;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .preset:hover { background: #ffd95c; }
+
+  .pour-btn {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1a1a1a;
+    color: #ffd95c;
+    border: none;
+    padding: 14px 32px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    border-radius: 6px;
+    margin-bottom: 22px;
+  }
+  .pour-btn:hover { background: #333; }
+  .pour-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Stage with both buckets */
+  .stage {
+    background: #fff;
+    border: 2px solid #1a1a1a;
+    border-radius: 10px;
+    box-shadow: 8px 8px 0 #1a1a1a;
+    padding: 28px;
+    max-width: 1000px;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+  .buckets {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 24px;
+    align-items: end;
+    min-height: 360px;
+  }
+
+  .bucket-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .bucket-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #888;
+  }
+  .bucket-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-top: -4px;
+  }
+  .bucket-cap {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #999;
+    margin-top: -8px;
+  }
+
+  /* The bucket itself */
+  .bucket {
+    position: relative;
+    transition: all 0.4s;
+  }
+  /* The water level inside (animated) */
+  .bucket svg .water {
+    transition: all 1.2s cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  .bucket .value-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(0,0,0,0.55);
+    padding: 5px 10px;
+    border-radius: 4px;
+    pointer-events: none;
+    transition: opacity 0.4s;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .bucket .value-label.hidden { opacity: 0; }
+
+  .arrow-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding-bottom: 40px;
+  }
+  .arrow {
+    font-size: 40px;
+    color: #1a1a1a;
+    transition: all 0.4s;
+  }
+  .arrow.flowing { color: #4a9eff; }
+  .arrow.blocked { color: #d62828; }
+  .arrow-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+
+  /* Spillage particles */
+  .spill {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: #4a9eff;
+    border-radius: 50%;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  /* Code panel below */
+  .code-panel {
+    max-width: 1000px;
+    width: 100%;
+    background: #0d1117;
+    border-radius: 10px;
+    padding: 18px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #e6edf3;
+    margin-bottom: 16px;
+    border: 2px solid #1a1a1a;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .code-panel .kw { color: #ff7b72; }
+  .code-panel .num { color: #ffa657; }
+  .code-panel .type { color: #56d364; font-weight: 700; }
+  .code-panel .var { color: #d2a8ff; }
+  .code-panel .cast { color: #ffd95c; font-weight: 700; }
+  .code-panel .comment { color: #888; font-style: italic; }
+
+  .verdict {
+    max-width: 1000px;
+    width: 100%;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 18px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    line-height: 1.5;
+    border-left: 5px solid #56d364;
+    min-height: 60px;
+  }
+  .verdict.error { border-left-color: #ff6b6b; }
+  .verdict.warning { border-left-color: #ffd95c; }
+  .verdict .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-right: 10px;
+    padding: 3px 9px;
+    border-radius: 3px;
+  }
+  .verdict.success .tag { background: #56d364; color: #1a1a1a; }
+  .verdict.error .tag { background: #ff6b6b; color: #1a1a1a; }
+  .verdict.warning .tag { background: #ffd95c; color: #1a1a1a; }
+  .verdict strong { color: #ffd95c; }
+
+  .check-cast {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .check-cast input { transform: scale(1.2); }
+  .check-cast label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    color: #1a1a1a !important;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <h1>Typecasting: <span class="accent">pour</span> from one bucket to another</h1>
+  <p class="subtitle">Pick source and destination types, set a value, and pour. Watch what happens when capacities don't match.</p>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>From (source)</label>
+      <div class="btn-row">
+        <button class="type-btn active" data-from="int">int</button>
+        <button class="type-btn" data-from="long">long</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>To (destination)</label>
+      <div class="btn-row">
+        <button class="type-btn" data-to="int">int</button>
+        <button class="type-btn active" data-to="long">long</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>Value in source</label>
+      <input type="text" id="valueInput" value="1000">
+      <div class="check-cast">
+        <input type="checkbox" id="useCast">
+        <label for="useCast">Use explicit (int) cast</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="presets">
+    <span class="preset-label">Try:</span>
+    <span class="preset" data-from="int" data-to="long" data-val="1000">int 1000 → long</span>
+    <span class="preset" data-from="long" data-to="int" data-val="50">long 50 → int</span>
+    <span class="preset" data-from="long" data-to="int" data-val="10000000000">long 10¹⁰ → int</span>
+    <span class="preset" data-from="long" data-to="int" data-val="1000" data-cast="1">long 1000 → (int) </span>
+    <span class="preset" data-from="long" data-to="int" data-val="10000000000" data-cast="1">long 10¹⁰ → (int) </span>
+  </div>
+
+  <button class="pour-btn" id="pourBtn">▶ Pour</button>
+
+  <div class="stage">
+    <div class="buckets">
+      <div class="bucket-col">
+        <span class="bucket-label">SOURCE</span>
+        <span class="bucket-code" id="srcCode">int</span>
+        <span class="bucket-cap" id="srcCap">≈ ±2.1 × 10⁹</span>
+        <div class="bucket" id="srcBucket">
+          <svg id="srcSvg" width="220" height="240" viewBox="0 0 220 240" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="value-label hidden" id="srcLabel">1000</div>
+        </div>
+      </div>
+
+      <div class="arrow-col">
+        <div class="arrow" id="arrow">→</div>
+        <div class="arrow-text" id="arrowText">pour</div>
+      </div>
+
+      <div class="bucket-col">
+        <span class="bucket-label">DESTINATION</span>
+        <span class="bucket-code" id="dstCode">long</span>
+        <span class="bucket-cap" id="dstCap">≈ ±9.2 × 10¹⁸</span>
+        <div class="bucket" id="dstBucket">
+          <svg id="dstSvg" width="260" height="280" viewBox="0 0 260 280" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="value-label hidden" id="dstLabel">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-panel" id="codePanel">
+    <div><span class="type">int</span> <span class="var">a</span> = <span class="num">1000</span>;</div>
+    <div><span class="type">long</span> <span class="var">b</span> = <span class="var">a</span>;  <span class="comment">// small → big, automatic</span></div>
+  </div>
+
+  <div class="verdict success" id="verdict">
+    <span class="tag">READY</span>
+    Hit <strong>Pour</strong> to see what happens. The buckets are sized to the actual type ranges — <code>int</code> holds ~2.1 billion, <code>long</code> holds ~9.2 quintillion.
+  </div>
+
+<script>
+  // ----- State -----
+  const state = {
+    from: 'int',
+    to: 'long',
+    value: '1000',
+    useCast: false,
+    pouring: false
+  };
+
+  // Bucket dimensions (visual)
+  const BUCKETS = {
+    int:  { w: 200, h: 210, color: '#79c0ff', stroke: '#1f5a8a', svgW: 220, svgH: 240 },
+    long: { w: 240, h: 250, color: '#ffd95c', stroke: '#8a6a1f', svgW: 260, svgH: 280 }
+  };
+
+  const RANGES = {
+    int:  { min: -2147483648, max: 2147483647, capStr: '≈ ±2.1 × 10⁹' },
+    long: { min: -9223372036854775808n, max: 9223372036854775807n, capStr: '≈ ±9.2 × 10¹⁸' }
+  };
+
+  // ----- Draw a bucket SVG (trapezoid shape) -----
+  function drawBucket(svgEl, type, fillLevel /* 0..1 */, overflow) {
+    const def = BUCKETS[type];
+    const W = def.svgW, H = def.svgH;
+    const bw = def.w, bh = def.h;
+    const cx = W / 2;
+    const padTop = H - bh - 10;
+    // trapezoid: top wider, bottom narrower (classic bucket)
+    const topY = padTop;
+    const botY = padTop + bh;
+    const topHalf = bw / 2;
+    const botHalf = bw / 2 - 18;
+    // Inner inset for water (so it sits inside walls)
+    const wallTop = 6;
+    const innerTopY = topY + 4;
+    const innerBotY = botY - 6;
+    const innerTopHalf = topHalf - 6;
+    const innerBotHalf = botHalf - 6;
+
+    // Water level y (0 = empty bottom, 1 = full top)
+    const clampedFill = Math.max(0, Math.min(1, fillLevel));
+    const waterTopY = innerBotY - (innerBotY - innerTopY) * clampedFill;
+
+    // Interp inner half at water-top
+    const t = (waterTopY - innerTopY) / (innerBotY - innerTopY); // 0 top, 1 bot
+    const halfAtTop = innerTopHalf + (innerBotHalf - innerTopHalf) * t;
+
+    svgEl.innerHTML = `
+      <!-- Shadow -->
+      <ellipse cx="${cx}" cy="${botY + 8}" rx="${botHalf + 8}" ry="6"
+               fill="rgba(0,0,0,0.15)"/>
+      <!-- Bucket back (rim band) -->
+      <rect x="${cx - topHalf - 4}" y="${topY - 8}" width="${(topHalf + 4) * 2}" height="10"
+            fill="${def.stroke}" rx="2"/>
+      <!-- Bucket body -->
+      <polygon points="
+        ${cx - topHalf},${topY}
+        ${cx + topHalf},${topY}
+        ${cx + botHalf},${botY}
+        ${cx - botHalf},${botY}"
+        fill="#f3eee2" stroke="${def.stroke}" stroke-width="3" stroke-linejoin="round"/>
+      <!-- Water (clipped polygon) -->
+      <clipPath id="clip-${type}">
+        <polygon points="
+          ${cx - innerTopHalf},${innerTopY}
+          ${cx + innerTopHalf},${innerTopY}
+          ${cx + innerBotHalf},${innerBotY}
+          ${cx - innerBotHalf},${innerBotY}"/>
+      </clipPath>
+      <g clip-path="url(#clip-${type})">
+        <rect class="water" x="${cx - innerTopHalf - 4}" y="${waterTopY}"
+              width="${(innerTopHalf + 4) * 2}" height="${innerBotY - waterTopY + 4}"
+              fill="${def.color}"/>
+        <!-- Wave on top -->
+        <path class="water" d="
+          M ${cx - halfAtTop} ${waterTopY}
+          Q ${cx - halfAtTop / 2} ${waterTopY - 4}, ${cx} ${waterTopY}
+          T ${cx + halfAtTop} ${waterTopY}
+          L ${cx + halfAtTop} ${waterTopY + 6}
+          L ${cx - halfAtTop} ${waterTopY + 6} Z"
+          fill="${def.color}" opacity="0.7"/>
+      </g>
+      <!-- Capacity ticks on side -->
+      <g font-family="JetBrains Mono" font-size="8" fill="#888">
+        <line x1="${cx + topHalf + 3}" y1="${topY}" x2="${cx + topHalf + 9}" y2="${topY}" stroke="#888" stroke-width="1"/>
+        <text x="${cx + topHalf + 12}" y="${topY + 3}">MAX</text>
+        <line x1="${cx + topHalf + 3}" y1="${botY}" x2="${cx + topHalf + 9}" y2="${botY}" stroke="#888" stroke-width="1"/>
+        <text x="${cx + topHalf + 12}" y="${botY + 3}">0</text>
+      </g>
+      ${overflow ? `
+      <!-- Overflow wave at top -->
+      <path d="M ${cx - innerTopHalf - 4} ${innerTopY - 2}
+               Q ${cx - innerTopHalf / 2} ${innerTopY - 14}, ${cx} ${innerTopY - 4}
+               T ${cx + innerTopHalf + 4} ${innerTopY - 2}
+               L ${cx + innerTopHalf + 4} ${innerTopY + 4}
+               L ${cx - innerTopHalf - 4} ${innerTopY + 4} Z"
+            fill="${def.color}" opacity="0.85"/>
+      ` : ''}
+    `;
+  }
+
+  // ----- Compute fill level for a value in a given bucket -----
+  // We use a log scale so 1000 in a long bucket is visible (not microscopic).
+  function fillFor(value, type) {
+    const v = Math.abs(Number(value));
+    if (!v || isNaN(v)) return 0.05;
+    if (v >= getMaxNumeric(type)) return 1.0;
+    // log-scale: 1 -> ~5%, max -> 100%
+    const maxLog = Math.log10(getMaxNumeric(type));
+    const valLog = Math.log10(Math.max(v, 1));
+    return Math.max(0.05, Math.min(1.0, valLog / maxLog));
+  }
+  function getMaxNumeric(type) {
+    if (type === 'int') return 2147483647;
+    return 9.2e18;
+  }
+
+  function fitsIn(valueStr, type) {
+    // Use bigint when needed
+    try {
+      const v = BigInt(valueStr);
+      if (type === 'int') {
+        return v >= -2147483648n && v <= 2147483647n;
+      }
+      // long
+      return v >= -9223372036854775808n && v <= 9223372036854775807n;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ----- Render snapshots -----
+  function renderInitial() {
+    const sb = document.getElementById('srcSvg');
+    const db = document.getElementById('dstSvg');
+    drawBucket(sb, state.from, fillFor(state.value, state.from), false);
+    drawBucket(db, state.to, 0, false);
+    document.getElementById('srcCode').textContent = state.from;
+    document.getElementById('dstCode').textContent = state.to;
+    document.getElementById('srcCap').textContent = RANGES[state.from].capStr;
+    document.getElementById('dstCap').textContent = RANGES[state.to].capStr;
+    document.getElementById('srcLabel').textContent = state.value;
+    document.getElementById('srcLabel').classList.remove('hidden');
+    document.getElementById('dstLabel').classList.add('hidden');
+    document.getElementById('dstLabel').textContent = '—';
+    document.getElementById('arrow').classList.remove('flowing', 'blocked');
+    document.getElementById('arrowText').textContent = 'pour';
+    renderCode();
+  }
+
+  function renderCode() {
+    const c = document.getElementById('codePanel');
+    let castPart = state.useCast ? '<span class="cast">(' + state.to + ')</span> ' : '';
+    let comment = '';
+    const valNum = state.value;
+    const valDisplay = valNum + (state.from === 'long' && /^\d+$/.test(valNum) && Number(valNum) > 2147483647 ? 'L' : '');
+    if (state.from === state.to) {
+      comment = ' <span class="comment">// same type</span>';
+    } else if (capacityOrder(state.from) < capacityOrder(state.to)) {
+      comment = ' <span class="comment">// small → big, automatic widening</span>';
+    } else if (state.useCast) {
+      comment = ' <span class="comment">// explicit cast (narrowing)</span>';
+    } else {
+      comment = ' <span class="comment">// big → small, needs explicit cast</span>';
+    }
+    c.innerHTML = `
+      <div><span class="type">${state.from}</span> <span class="var">a</span> = <span class="num">${valDisplay}</span>;</div>
+      <div><span class="type">${state.to}</span> <span class="var">b</span> = ${castPart}<span class="var">a</span>;${comment}</div>
+      <div><span class="kw">System</span>.out.<span class="kw">println</span>(<span class="var">b</span>);</div>
+    `;
+  }
+
+  function capacityOrder(type) {
+    return type === 'int' ? 1 : 2;
+  }
+
+  // ----- The pour action -----
+  function pour() {
+    if (state.pouring) return;
+    state.pouring = true;
+    document.getElementById('pourBtn').disabled = true;
+
+    const valueStr = state.value.trim();
+    const valFitsSrc = fitsIn(valueStr, state.from);
+    const valFitsDst = fitsIn(valueStr, state.to);
+    const srcOrder = capacityOrder(state.from);
+    const dstOrder = capacityOrder(state.to);
+
+    const arrow = document.getElementById('arrow');
+    const arrowText = document.getElementById('arrowText');
+    const verdict = document.getElementById('verdict');
+    const dstSvg = document.getElementById('dstSvg');
+    const srcSvg = document.getElementById('srcSvg');
+    const dstLabel = document.getElementById('dstLabel');
+    const srcLabel = document.getElementById('srcLabel');
+
+    // Special case: value doesn't fit even in source — that's the L-suffix bug
+    if (!valFitsSrc && state.from === 'long' && /^\d+$/.test(valueStr) && Number(valueStr) > 2147483647) {
+      // user typed a big number into a long var without L — compiler reads as int
+      // For this animation, treat as: source bucket itself is the problem.
+      verdict.className = 'verdict error';
+      verdict.innerHTML = '<span class="tag">Compile error</span>' +
+        'Error: integer number too large. ' +
+        '<strong>Java reads the literal as int first, before storing.</strong> ' +
+        'Big literals into long need the <strong>L suffix</strong>: <code>' + valueStr + 'L</code>.';
+      arrow.classList.add('blocked');
+      arrowText.textContent = 'blocked';
+      state.pouring = false;
+      document.getElementById('pourBtn').disabled = false;
+      return;
+    }
+
+    // Decide the scenario
+    let scenario;
+    if (srcOrder === dstOrder) {
+      scenario = 'same';
+    } else if (srcOrder < dstOrder) {
+      scenario = 'widening'; // small to big, automatic
+    } else {
+      // narrowing
+      if (!state.useCast) {
+        scenario = 'narrow_no_cast';
+      } else if (valFitsDst) {
+        scenario = 'narrow_fits';
+      } else {
+        scenario = 'narrow_overflows';
+      }
+    }
+
+    if (scenario === 'narrow_no_cast') {
+      verdict.className = 'verdict error';
+      verdict.innerHTML = '<span class="tag">Compile error</span>' +
+        'Error: <strong>possible lossy conversion</strong> from ' + state.from + ' to ' + state.to + '. ' +
+        'Going from a bigger bucket to a smaller one isn\'t allowed implicitly — even if the value happens to fit. ' +
+        'Tick <em>"Use explicit (int) cast"</em> to override.';
+      arrow.classList.add('blocked');
+      arrowText.textContent = 'blocked';
+      state.pouring = false;
+      document.getElementById('pourBtn').disabled = false;
+      return;
+    }
+
+    // Animate the pour
+    arrow.classList.add('flowing');
+    arrowText.textContent = 'pouring...';
+    srcLabel.classList.add('hidden');
+
+    // Drain source over 1.2s, then fill destination
+    setTimeout(() => {
+      drawBucket(srcSvg, state.from, 0.05, false);
+    }, 50);
+
+    setTimeout(() => {
+      if (scenario === 'widening' || scenario === 'narrow_fits' || scenario === 'same') {
+        drawBucket(dstSvg, state.to, fillFor(state.value, state.to), false);
+        dstLabel.textContent = state.value;
+        dstLabel.classList.remove('hidden');
+        arrow.classList.remove('flowing');
+        arrowText.textContent = 'done';
+
+        if (scenario === 'widening') {
+          verdict.className = 'verdict success';
+          verdict.innerHTML = '<span class="tag">Success</span>' +
+            '<strong>Implicit (widening) typecasting.</strong> ' +
+            'A small bucket\'s worth of water always fits in a bigger one. Java does this <em>automatically</em> — no cast needed. ' +
+            'Output: <code>' + state.value + '</code>';
+        } else if (scenario === 'narrow_fits') {
+          verdict.className = 'verdict warning';
+          verdict.innerHTML = '<span class="tag">Success (explicit cast)</span>' +
+            '<strong>Explicit (narrowing) typecasting.</strong> ' +
+            'You forced the pour with <code>(' + state.to + ')</code>. The value fits this time, so no data was lost. ' +
+            'Output: <code>' + state.value + '</code>';
+        } else {
+          verdict.className = 'verdict success';
+          verdict.innerHTML = '<span class="tag">Success</span>Same type — value transferred. Output: <code>' + state.value + '</code>';
+        }
+      } else if (scenario === 'narrow_overflows') {
+        // Pour, but overflow!
+        drawBucket(dstSvg, state.to, 1.0, true);
+        // Spill droplets
+        spillDroplets();
+        // Compute the truncated value (lossy)
+        let truncated;
+        try {
+          const big = BigInt(state.value);
+          // Simulate int overflow: take low 32 bits, then sign-extend
+          let mod = big & 0xFFFFFFFFn;
+          if (mod >= 0x80000000n) mod -= 0x100000000n;
+          truncated = mod.toString();
+        } catch (e) {
+          truncated = '???';
+        }
+        dstLabel.textContent = truncated;
+        dstLabel.classList.remove('hidden');
+        arrow.classList.remove('flowing');
+        arrow.classList.add('blocked');
+        arrowText.textContent = 'overflow!';
+
+        verdict.className = 'verdict error';
+        verdict.innerHTML = '<span class="tag">Compiles, but data lost</span>' +
+          '<strong>Forced pour — water spilled.</strong> ' +
+          'The value <code>' + state.value + '</code> doesn\'t fit in an <code>' + state.to + '</code>. ' +
+          'Java truncates the bits and you get a meaningless number: <code>' + truncated + '</code>. ' +
+          'No error at compile time. That\'s what makes this dangerous.';
+      }
+      state.pouring = false;
+      document.getElementById('pourBtn').disabled = false;
+    }, 1300);
+  }
+
+  function spillDroplets() {
+    const dst = document.getElementById('dstBucket');
+    const rect = dst.getBoundingClientRect();
+    // Spawn 6 droplets that fall outward
+    for (let i = 0; i < 8; i++) {
+      const d = document.createElement('div');
+      d.className = 'spill';
+      d.style.position = 'fixed';
+      d.style.left = (rect.left + rect.width / 2 - 7 + (Math.random() - 0.5) * 80) + 'px';
+      d.style.top = (rect.top + 40) + 'px';
+      document.body.appendChild(d);
+      const dx = (Math.random() - 0.5) * 220;
+      const dy = 180 + Math.random() * 80;
+      d.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 0.85 },
+        { transform: `translate(${dx}px, ${dy}px) scale(0.6)`, opacity: 0 }
+      ], { duration: 900, easing: 'cubic-bezier(0.4, 0, 1, 1)' });
+      setTimeout(() => d.remove(), 950);
+    }
+  }
+
+  // ----- Wire up controls -----
+  document.querySelectorAll('.type-btn[data-from]').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.type-btn[data-from]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      state.from = b.dataset.from;
+      renderInitial();
+    });
+  });
+  document.querySelectorAll('.type-btn[data-to]').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.type-btn[data-to]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      state.to = b.dataset.to;
+      renderInitial();
+    });
+  });
+  document.getElementById('valueInput').addEventListener('input', e => {
+    state.value = e.target.value.trim();
+    renderInitial();
+  });
+  document.getElementById('useCast').addEventListener('change', e => {
+    state.useCast = e.target.checked;
+    renderInitial();
+  });
+  document.querySelectorAll('.preset').forEach(p => {
+    p.addEventListener('click', () => {
+      state.from = p.dataset.from;
+      state.to = p.dataset.to;
+      state.value = p.dataset.val;
+      state.useCast = p.dataset.cast === '1';
+      // sync UI
+      document.querySelectorAll('.type-btn[data-from]').forEach(b => {
+        b.classList.toggle('active', b.dataset.from === state.from);
+      });
+      document.querySelectorAll('.type-btn[data-to]').forEach(b => {
+        b.classList.toggle('active', b.dataset.to === state.to);
+      });
+      document.getElementById('valueInput').value = state.value;
+      document.getElementById('useCast').checked = state.useCast;
+      renderInitial();
+    });
+  });
+  document.getElementById('pourBtn').addEventListener('click', pour);
+
+  renderInitial();
+</script>
+</body>
+</html>
