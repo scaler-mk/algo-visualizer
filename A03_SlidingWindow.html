@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Animation 3 — Sliding Window Max Subarray Sum</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    background: #ffffff; color: #000; padding: 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px;
+       font-family: -apple-system, system-ui, sans-serif; }
+  .subtitle { font-size: 13px; color: #555; margin-bottom: 20px;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.6px; margin-bottom: 10px;
+                 font-family: -apple-system, system-ui, sans-serif; }
+  pre.code { font-size: 13px; line-height: 1.7; margin: 0; }
+  .line { display: block; padding: 2px 8px; border-left: 3px solid transparent;
+          transition: background 0.25s, border-color 0.25s; white-space: pre; }
+  .line.active { background: #FFF9C4; border-left-color: #F9A825; }
+  .keyword { color: #185FA5; font-weight: 600; }
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vars-table td { padding: 8px 10px; border: 1px solid #ddd; }
+  .vars-table .label { background: #f9f9f9; color: #555; width: 110px;
+                       font-family: -apple-system, system-ui, sans-serif; font-size: 12px;
+                       text-transform: uppercase; letter-spacing: 0.5px; }
+  .vars-table .value { font-weight: 700; color: #185FA5; font-size: 16px; }
+  .check-row { margin-top: 12px; padding: 12px; border-radius: 6px; font-size: 13px;
+               line-height: 1.6; background: #E6F1FB; border: 1px solid #ddd;
+               font-family: 'SF Mono', monospace; }
+  .check-row.hit { background: #E8F5E9; border-color: #43A047; }
+  .check-row.new-max { background: #FFF9C4; border-color: #F9A825; color: #5D4037; font-weight: 600; }
+  .check-row.stop { background: #FFF9C4; border-color: #F9A825; color: #5D4037; font-weight: 600; }
+  .array-row { display: flex; gap: 0; margin-top: 8px; }
+  .cell {
+    width: 60px; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; border: 1.5px solid #ddd;
+    background: #fff; color: #555; transition: all 0.25s;
+    font-family: 'SF Mono', monospace;
+  }
+  .cell.dim { background: #f9f9f9; color: #ccc; }
+  .cell.in-window { background: #FFF59D; border-color: #F9A825; color: #5D4037; }
+  .cell.removed { background: #FFEBEE; border-color: #E53935; color: #B71C1C; border-width: 2.5px; }
+  .cell.added { background: #E8F5E9; border-color: #43A047; color: #1B5E20; border-width: 2.5px; }
+  .index-row { display: flex; gap: 0; margin-top: 4px; }
+  .idx-label {
+    width: 60px; text-align: center; font-size: 11px; color: #888;
+    font-family: 'SF Mono', monospace;
+  }
+  .controls { margin-top: 20px; display: flex; gap: 8px; align-items: center; }
+  button { padding: 8px 18px; border: 1px solid #185FA5; background: #185FA5; color: white;
+           font-size: 13px; font-weight: 600; border-radius: 5px; cursor: pointer;
+           font-family: -apple-system, system-ui, sans-serif; }
+  button:hover { background: #134a85; }
+  button.secondary { background: white; color: #185FA5; }
+  button.secondary:hover { background: #f0f6fc; }
+  .progress { margin-left: auto; font-size: 12px; color: #888;
+              font-family: -apple-system, system-ui, sans-serif; }
+  .narration { margin-top: 16px; padding: 14px 18px; background: #f9f9f9; border-radius: 6px;
+               border-left: 3px solid #185FA5; font-size: 14px;
+               font-family: -apple-system, system-ui, sans-serif; line-height: 1.5; color: #333;
+               min-height: 50px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 12px;
+          font-family: -apple-system, system-ui, sans-serif; font-weight: 600; }
+  .sp-hl { background: #FFF9C4; color: #5D4037; border: 1px solid #F9A825; }
+  .sp-err { background: #FFEBEE; color: #B71C1C; border: 1px solid #E53935; }
+  .sp-ok { background: #E8F5E9; color: #1B5E20; border: 1px solid #43A047; }
+  .windows-history {
+    margin-top: 12px; padding: 10px; background: #f9f9f9;
+    border: 1px solid #ddd; border-radius: 6px; font-size: 12px;
+    font-family: 'SF Mono', monospace; max-height: 130px; overflow-y: auto;
+    line-height: 1.7;
+  }
+  .windows-history .row { display: flex; gap: 12px; padding: 2px 4px; }
+  .windows-history .row.max { background: #FFF9C4; border-left: 3px solid #F9A825;
+                              padding-left: 8px; font-weight: 700; color: #5D4037; }
+  .windows-history .label { color: #888; min-width: 60px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Animation 3 · Sliding window — max subarray sum of length K</h1>
+  <div class="subtitle">N = 10, K = 5. First window: full sum. Each next window: drop A[i−1], add A[j]. Track max as we go.</div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Pseudocode</div>
+      <pre class="code"><span class="line" data-line="1"><span class="keyword">function</span> maxSubarrayK(A, N, K) {</span><span class="line" data-line="2">    ans = -infinity</span><span class="line" data-line="3">    i = 0;  j = K-1</span><span class="line" data-line="4">    sum = 0</span><span class="line" data-line="5">    <span class="keyword">for</span> (idx -&gt; i <span class="keyword">to</span> j) {</span><span class="line" data-line="6">        sum += A[idx]   // initial window</span><span class="line" data-line="7">    }</span><span class="line" data-line="8">    ans = max(sum, ans)</span><span class="line" data-line="9">    j++; i++</span><span class="line" data-line="10">    <span class="keyword">while</span> (j &lt; N) {</span><span class="line" data-line="11">        sum = sum + A[j] - A[i-1]</span><span class="line" data-line="12">        ans = max(sum, ans)</span><span class="line" data-line="13">        i++; j++</span><span class="line" data-line="14">    }</span><span class="line" data-line="15">    print(ans)</span><span class="line" data-line="16">}</span></pre>
+      <div class="narration" id="narration">Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Variables</div>
+      <table class="vars-table">
+        <tr><td class="label">i</td><td class="value" id="varI">—</td></tr>
+        <tr><td class="label">j</td><td class="value" id="varJ">—</td></tr>
+        <tr><td class="label">sum</td><td class="value" id="varSum">—</td></tr>
+        <tr><td class="label">ans (max)</td><td class="value" id="varAns" style="color:#1B5E20;">−∞</td></tr>
+      </table>
+
+      <div class="check-row" id="checkRow">Click STEP to begin.</div>
+
+      <div class="panel-title" style="margin-top:18px;">Array (N=10, K=5)</div>
+      <div class="array-row" id="arrRow"></div>
+      <div class="index-row" id="arrIdx"></div>
+
+      <div class="pills">
+        <div class="pill sp-hl">▣ current window</div>
+        <div class="pill sp-err">▣ removed (A[i−1])</div>
+        <div class="pill sp-ok">▣ added (A[j])</div>
+      </div>
+
+      <div class="panel-title" style="margin-top:14px;">Window history</div>
+      <div class="windows-history" id="historyList"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Play</button>
+    <button id="stepBtn" class="secondary">Step ▸</button>
+    <button id="resetBtn" class="secondary">↺ Reset</button>
+    <div class="progress" id="progress">Step 0 / —</div>
+  </div>
+</div>
+
+<script>
+const A = [-3, 4, -2, 5, 3, -2, 8, 2, -1, 4];
+const N = A.length;
+const K = 5;
+
+// Build cells
+const arrRow = document.getElementById('arrRow');
+const arrIdx = document.getElementById('arrIdx');
+A.forEach((v, i) => {
+  const c = document.createElement('div'); c.className = 'cell'; c.id = 'a-' + i; c.textContent = v;
+  arrRow.appendChild(c);
+  const lbl = document.createElement('div'); lbl.className = 'idx-label'; lbl.textContent = '[' + i + ']';
+  arrIdx.appendChild(lbl);
+});
+
+// Build steps
+const steps = [];
+// Compute first window
+let firstSum = 0;
+for (let idx = 0; idx < K; idx++) firstSum += A[idx];
+
+// Initial window step
+steps.push({
+  type: 'init', i: 0, j: K - 1, sum: firstSum, ans: firstSum,
+  windowStart: 0, windowEnd: K - 1,
+  line: 8,
+  narration: `Compute first window [0..${K-1}]: sum of A[0..${K-1}] = ${A.slice(0, K).join(' + ').replace(/\+ -/g, '− ')} = ${firstSum}. Set ans = ${firstSum}.`,
+  isNewMax: true
+});
+
+let prevSum = firstSum;
+let ans = firstSum;
+for (let i = 1; i <= N - K; i++) {
+  const j = i + K - 1;
+  const removed = A[i - 1];
+  const added = A[j];
+  const newSum = prevSum + added - removed;
+  const isNewMax = newSum > ans;
+  if (isNewMax) ans = newSum;
+
+  steps.push({
+    type: 'slide', i, j,
+    sum: newSum, ans,
+    windowStart: i, windowEnd: j,
+    removed, removedIdx: i - 1,
+    added, addedIdx: j,
+    prevSum,
+    line: 11,
+    narration: `Slide right. sum = ${prevSum} + A[${j}] (${added >= 0 ? '+' : ''}${added}) − A[${i-1}] (${removed >= 0 ? '+' : ''}${removed}) = <b>${newSum}</b>.${isNewMax ? ' <b>New max!</b>' : ''}`,
+    isNewMax
+  });
+  prevSum = newSum;
+}
+
+steps.push({
+  final: true, ans,
+  line: 15,
+  narration: `Done. Max subarray sum of length ${K} = <b>${ans}</b>. Total work: K + (N−K) = N operations. O(N).`
+});
+
+let cursor = 0, playing = false, timer = null;
+const history = []; // log of windows seen
+
+function setLine(n) {
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  if (n) document.querySelector(`.line[data-line="${n}"]`)?.classList.add('active');
+}
+
+function render() {
+  document.getElementById('progress').textContent = `Step ${cursor} / ${steps.length}`;
+  if (cursor === 0) {
+    document.getElementById('varI').textContent = '—';
+    document.getElementById('varJ').textContent = '—';
+    document.getElementById('varSum').textContent = '—';
+    document.getElementById('varAns').textContent = '−∞';
+    document.getElementById('checkRow').className = 'check-row';
+    document.getElementById('checkRow').textContent = 'Click STEP to begin.';
+    setLine(null);
+    document.querySelectorAll('#arrRow .cell').forEach(c => { c.className = 'cell'; });
+    document.getElementById('historyList').innerHTML = '';
+    history.length = 0;
+    document.getElementById('narration').innerHTML = `Click <strong>STEP</strong> or <strong>PLAY</strong> to begin.`;
+    return;
+  }
+  const s = steps[cursor - 1];
+  setLine(s.line);
+  document.getElementById('narration').innerHTML = s.narration;
+
+  if (s.final) {
+    document.getElementById('varAns').textContent = s.ans;
+    document.querySelectorAll('#arrRow .cell').forEach(c => { c.className = 'cell'; });
+    document.getElementById('checkRow').className = 'check-row stop';
+    document.getElementById('checkRow').innerHTML = `Final answer: max sum = ${s.ans}`;
+    return;
+  }
+
+  document.getElementById('varI').textContent = s.i;
+  document.getElementById('varJ').textContent = s.j;
+  document.getElementById('varSum').textContent = s.sum;
+  document.getElementById('varAns').textContent = s.ans;
+
+  // Render cells
+  document.querySelectorAll('#arrRow .cell').forEach((c, idx) => {
+    c.className = 'cell';
+    if (idx >= s.windowStart && idx <= s.windowEnd) {
+      c.classList.add('in-window');
+    } else {
+      c.classList.add('dim');
+    }
+  });
+  // Add removed/added markers (override window class)
+  if (s.type === 'slide') {
+    document.getElementById('a-' + s.removedIdx).className = 'cell removed';
+    document.getElementById('a-' + s.addedIdx).className = 'cell added';
+  }
+
+  // Update history (track unique windows for current step)
+  while (history.length < cursor) {
+    const idx = history.length;
+    history.push(steps[idx]);
+  }
+  const histList = document.getElementById('historyList');
+  histList.innerHTML = history.filter(h => !h.final).map(h => {
+    const ws = h.windowStart, we = h.windowEnd;
+    const sub = A.slice(ws, we + 1).join(',');
+    const isMax = h.ans === Math.max(...history.filter(h2 => !h2.final && history.indexOf(h2) <= history.indexOf(h)).map(h2 => h2.sum)) && h.sum === h.ans;
+    return `<div class="row${h === s && h.isNewMax ? ' max' : ''}">
+      <span class="label">[${ws}..${we}]</span>
+      <span>[${sub}]</span>
+      <span style="margin-left:auto;">sum = <b>${h.sum}</b></span>
+    </div>`;
+  }).join('');
+  histList.scrollTop = histList.scrollHeight;
+
+  // Check row
+  if (s.type === 'init') {
+    document.getElementById('checkRow').className = 'check-row new-max';
+    document.getElementById('checkRow').innerHTML = `Initial window: sum = ${s.sum}. ans = ${s.ans}.`;
+  } else if (s.type === 'slide') {
+    if (s.isNewMax) {
+      document.getElementById('checkRow').className = 'check-row new-max';
+      document.getElementById('checkRow').innerHTML = `${s.prevSum} + (${s.added}) − (${s.removed}) = ${s.sum}. NEW MAX → ans = ${s.ans}.`;
+    } else {
+      document.getElementById('checkRow').className = 'check-row hit';
+      document.getElementById('checkRow').innerHTML = `${s.prevSum} + (${s.added}) − (${s.removed}) = ${s.sum}. Not a new max (ans stays ${s.ans}).`;
+    }
+  }
+}
+
+function step() { if (cursor < steps.length) { cursor++; render(); } else pause(); }
+function reset() { pause(); cursor = 0; render(); }
+function play() {
+  if (cursor >= steps.length) reset();
+  playing = true;
+  document.getElementById('playBtn').textContent = '❚❚ Pause';
+  timer = setInterval(() => { if (cursor >= steps.length) { pause(); return; } step(); }, 1300);
+}
+function pause() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  if (timer) clearInterval(timer);
+}
+
+document.getElementById('playBtn').onclick = () => playing ? pause() : play();
+document.getElementById('stepBtn').onclick = () => { pause(); step(); };
+document.getElementById('resetBtn').onclick = reset;
+
+document.getElementById('progress').textContent = `Step 0 / ${steps.length}`;
+reset();
+</script>
+</body>
+</html>
