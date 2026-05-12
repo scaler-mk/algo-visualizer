@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Animation 3 – Type Detector</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f111a;
+    color: #cdd6f4;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 48px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #cba6f7;
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: #6c7086;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+
+  /* ── main panel ── */
+  .panel {
+    width: 100%;
+    max-width: 680px;
+    background: #181825;
+    border: 1px solid #313244;
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    margin-bottom: 24px;
+  }
+
+  /* ── input row ── */
+  .input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .input-row input {
+    flex: 1;
+    background: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-size: 16px;
+    font-family: 'Courier New', monospace;
+    color: #cdd6f4;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .input-row input:focus { border-color: #cba6f7; }
+  .input-row input::placeholder { color: #585b70; }
+  .btn-detect {
+    background: #cba6f7;
+    color: #1e1e2e;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 22px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+    white-space: nowrap;
+  }
+  .btn-detect:hover { background: #b48fe8; }
+  .btn-detect:active { transform: scale(.97); }
+
+  /* ── result box ── */
+  .result-box {
+    min-height: 88px;
+    background: #1e1e2e;
+    border: 1px solid #313244;
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .result-box .placeholder {
+    color: #45475a;
+    font-size: 14px;
+    font-style: italic;
+    margin: auto;
+    text-align: center;
+  }
+  .result-row { display: flex; align-items: center; gap: 12px; }
+  .result-label { font-size: 13px; color: #6c7086; width: 64px; flex-shrink: 0; }
+  .result-value {
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    color: #a6e3a1;
+    background: #1e1e2e;
+    border: 1px solid #313244;
+    border-radius: 6px;
+    padding: 3px 10px;
+  }
+  .type-badge {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 20px;
+    padding: 4px 14px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .type-int    { background: #3a3550; color: #cba6f7; border: 1px solid #6c5fa6; }
+  .type-float  { background: #1e3040; color: #89dceb; border: 1px solid #3a7a90; }
+  .type-str    { background: #1e3520; color: #a6e3a1; border: 1px solid #3a7a50; }
+  .type-bool   { background: #3a2a10; color: #f9e2af; border: 1px solid #8a6030; }
+  .type-none   { background: #2a1e2e; color: #f38ba8; border: 1px solid #8a3050; }
+  .type-error  { background: #2e1e1e; color: #f38ba8; border: 1px solid #8a2020; }
+  .note-text { font-size: 13px; color: #6c7086; margin-top: 2px; font-style: italic; }
+
+  /* ── predict + reveal mechanic ── */
+  .reveal-zone {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #313244;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .reveal-label { font-size: 13px; color: #6c7086; }
+  .guess-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .guess-btn {
+    background: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    padding: 7px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #cdd6f4;
+    transition: all .15s;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .guess-btn:hover { border-color: #cba6f7; color: #cba6f7; }
+  .guess-btn.correct { background: #1e3520; border-color: #a6e3a1; color: #a6e3a1; }
+  .guess-btn.wrong   { background: #2e1e1e; border-color: #f38ba8; color: #f38ba8; }
+
+  .feedback-msg {
+    font-size: 14px;
+    font-weight: 600;
+    min-height: 22px;
+    transition: opacity .2s;
+  }
+  .feedback-msg.correct-msg { color: #a6e3a1; }
+  .feedback-msg.wrong-msg   { color: #f38ba8; }
+
+  /* ── score pill ── */
+  .score-pill {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+  .score-item { text-align: center; }
+  .score-item .num { font-size: 22px; font-weight: 700; color: #cba6f7; }
+  .score-item .lbl { font-size: 11px; color: #6c7086; letter-spacing: 0.4px; text-transform: uppercase; }
+
+  /* ── presets ── */
+  .presets-title { font-size: 13px; color: #6c7086; margin-bottom: 10px; }
+  .presets-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .preset-btn {
+    background: #1e1e2e;
+    border: 1px solid #313244;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #cdd6f4;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .preset-btn:hover { border-color: #cba6f7; color: #cba6f7; }
+
+  /* ── mode toggle ── */
+  .mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #6c7086;
+  }
+  .toggle-switch {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    cursor: pointer;
+  }
+  .toggle-switch input { display: none; }
+  .toggle-track {
+    width: 40px;
+    height: 22px;
+    background: #313244;
+    border-radius: 11px;
+    display: block;
+    transition: background .2s;
+  }
+  .toggle-switch input:checked + .toggle-track { background: #cba6f7; }
+  .toggle-thumb {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 16px; height: 16px;
+    background: #cdd6f4;
+    border-radius: 50%;
+    transition: transform .2s;
+    pointer-events: none;
+  }
+  .toggle-switch input:checked ~ .toggle-thumb { transform: translateX(18px); }
+  .mode-label { color: #cba6f7; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>🔍 Python Type Detector</h1>
+<p class="subtitle">Type any value — predict its type, then reveal the answer</p>
+
+<div class="score-pill">
+  <div class="score-item">
+    <div class="num" id="score-correct">0</div>
+    <div class="lbl">Correct</div>
+  </div>
+  <div class="score-item">
+    <div class="num" id="score-total">0</div>
+    <div class="lbl">Guesses</div>
+  </div>
+</div>
+
+<div class="panel">
+  <!-- Mode toggle -->
+  <div class="mode-toggle">
+    <span>Explore mode</span>
+    <label class="toggle-switch">
+      <input type="checkbox" id="quiz-toggle" />
+      <span class="toggle-track"></span>
+      <span class="toggle-thumb"></span>
+    </label>
+    <span class="mode-label" id="mode-label">Quiz mode OFF</span>
+  </div>
+
+  <!-- Input -->
+  <div class="input-row">
+    <input type="text" id="value-input" placeholder='Try: 42, 3.14, "hello", True, None …' />
+    <button class="btn-detect" id="detect-btn" onclick="detectType()">Detect</button>
+  </div>
+
+  <!-- Result -->
+  <div class="result-box" id="result-box">
+    <span class="placeholder" id="placeholder-msg">Enter a value above and click Detect</span>
+    <div id="result-content" style="display:none; flex-direction:column; gap:8px;"></div>
+  </div>
+
+  <!-- Quiz predict zone (only visible in quiz mode when answer hidden) -->
+  <div class="reveal-zone" id="reveal-zone" style="display:none;">
+    <span class="reveal-label">What type do you think this is?</span>
+    <div class="guess-row" id="guess-row"></div>
+    <div class="feedback-msg" id="feedback-msg"></div>
+  </div>
+</div>
+
+<!-- Presets -->
+<div class="panel" style="padding: 20px 28px;">
+  <div class="presets-title">Preset values — click to load (predict before detecting!)</div>
+  <div class="presets-grid" id="presets-grid"></div>
+</div>
+
+<script>
+var TYPES = ['int','float','str','bool','NoneType','error'];
+var TYPE_LABELS = { int:'int', float:'float', str:'str', bool:'bool', NoneType:'NoneType', error:'Error' };
+
+var presets = [
+  { val:'42',       note:'Whole number -- int' },
+  { val:'3.14',     note:'Has decimal -- float' },
+  { val:'"hello"',  note:'Quoted text -- str' },
+  { val:'True',     note:'Capital T -- bool' },
+  { val:'None',     note:"Python's null value -- NoneType" },
+  { val:'"123"',    note:'Quoted digits are still a string!' },
+  { val:'false',    note:'Lowercase -- NameError!' },
+  { val:'hello',    note:'No quotes -- NameError!' },
+  { val:'12.0',     note:'Has .0 -- float, not int' },
+  { val:'0',        note:'Zero -- still int' },
+  { val:'"True"',   note:'Quoted True -- str!' },
+  { val:'1 + 2',    note:'Expression evaluates to int' }
+];
+
+var correctCount = 0, totalGuesses = 0;
+var currentAnswer = null;
+var quizMode = false;
+var guessLocked = false;
+
+var inputEl   = document.getElementById('value-input');
+var resultBox = document.getElementById('result-box');
+var resultContent = document.getElementById('result-content');
+var placeholderMsg = document.getElementById('placeholder-msg');
+var revealZone = document.getElementById('reveal-zone');
+var guessRow   = document.getElementById('guess-row');
+var feedbackMsg = document.getElementById('feedback-msg');
+var quizToggle = document.getElementById('quiz-toggle');
+var modeLabel  = document.getElementById('mode-label');
+
+quizToggle.addEventListener('change', function() {
+  quizMode = quizToggle.checked;
+  modeLabel.textContent = quizMode ? 'Quiz mode ON' : 'Quiz mode OFF';
+  resetState();
+});
+
+inputEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') detectType(); });
+
+function resetState() {
+  placeholderMsg.style.display = '';
+  resultContent.style.display = 'none';
+  resultContent.innerHTML = '';
+  revealZone.style.display = 'none';
+  guessRow.innerHTML = '';
+  feedbackMsg.textContent = '';
+  currentAnswer = null;
+  guessLocked = false;
+}
+
+/* Safe arithmetic evaluator -- no eval(), no Function() */
+function safeEvalArith(expr) {
+  var s = expr.replace(/\s+/g, '');
+  var tokens = [];
+  var i = 0;
+  while (i < s.length) {
+    var ch = s[i];
+    if (/\d/.test(ch) || (ch === '.' && /\d/.test(s[i+1] || ''))) {
+      var num = '';
+      while (i < s.length && /[\d.]/.test(s[i])) num += s[i++];
+      tokens.push({ t: 'n', v: parseFloat(num) });
+    } else if (ch === '*' && s[i+1] === '*') {
+      tokens.push({ t: 'o', v: '**' }); i += 2;
+    } else if ('+-*/%()'.indexOf(ch) !== -1) {
+      tokens.push({ t: 'o', v: ch }); i++;
+    } else {
+      return null;
+    }
+  }
+  var pos = 0;
+  function peek() { return tokens[pos]; }
+  function consume() { return tokens[pos++]; }
+  function parseExpr() { return parseAddSub(); }
+  function parseAddSub() {
+    var left = parseMulDiv();
+    while (peek() && (peek().v === '+' || peek().v === '-')) {
+      var op = consume().v;
+      var right = parseMulDiv();
+      left = op === '+' ? left + right : left - right;
+    }
+    return left;
+  }
+  function parseMulDiv() {
+    var left = parsePow();
+    while (peek() && (peek().v === '*' || peek().v === '/' || peek().v === '%')) {
+      var op = consume().v;
+      var right = parsePow();
+      if (op === '*') left *= right;
+      else if (op === '/') left /= right;
+      else left %= right;
+    }
+    return left;
+  }
+  function parsePow() {
+    var base = parseUnary();
+    if (peek() && peek().v === '**') { consume(); return Math.pow(base, parsePow()); }
+    return base;
+  }
+  function parseUnary() {
+    if (peek() && peek().v === '-') { consume(); return -parsePrimary(); }
+    if (peek() && peek().v === '+') { consume(); return parsePrimary(); }
+    return parsePrimary();
+  }
+  function parsePrimary() {
+    var tok = peek();
+    if (!tok) return NaN;
+    if (tok.t === 'n') { consume(); return tok.v; }
+    if (tok.v === '(') {
+      consume();
+      var val = parseExpr();
+      if (peek() && peek().v === ')') consume();
+      return val;
+    }
+    return NaN;
+  }
+  try {
+    var result = parseExpr();
+    if (pos !== tokens.length || isNaN(result)) return null;
+    return result;
+  } catch(e) { return null; }
+}
+
+function classifyValue(raw) {
+  var s = raw.trim();
+  if (!s) return null;
+
+  /* quoted string */
+  if ((s.charAt(0) === '"' && s.charAt(s.length-1) === '"' && s.length >= 2) ||
+      (s.charAt(0) === "'" && s.charAt(s.length-1) === "'" && s.length >= 2)) {
+    return { type: 'str', value: s, note: 'Text inside quotes is always a string, even if it looks like a number.' };
+  }
+  /* bool -- check before int so "True"/"False" are not caught by identifier rule */
+  if (s === 'True')  return { type: 'bool', value: 'True',  note: 'Python booleans must start with a capital letter: True or False.' };
+  if (s === 'False') return { type: 'bool', value: 'False', note: 'Python booleans must start with a capital letter: True or False.' };
+  /* None */
+  if (s === 'None')  return { type: 'NoneType', value: 'None', note: "None is Python's null value. Its type is NoneType." };
+  /* plain integer literal */
+  if (/^-?\d+$/.test(s)) {
+    return { type: 'int', value: s, note: 'Whole number with no decimal point -- Python calls this int.' };
+  }
+  /* plain float literal */
+  if (/^-?\d+\.\d*$/.test(s) || /^-?\d*\.\d+$/.test(s)) {
+    return { type: 'float', value: s, note: 'Has a decimal point -- Python calls this float.' };
+  }
+  /* arithmetic expression (safe parser -- no eval) */
+  if (/^[\d\s\+\-\*\/\(\)\.\%]+$/.test(s)) {
+    var result = safeEvalArith(s);
+    if (result !== null && !isNaN(result)) {
+      var isInt = Number.isInteger(result) && s.indexOf('.') === -1 && s.indexOf('/') === -1;
+      return {
+        type: isInt ? 'int' : 'float',
+        value: String(result),
+        note: isInt ? 'Expression evaluates to a whole number -- int.'
+                    : 'Expression evaluates to a decimal -- float.'
+      };
+    }
+  }
+  /* lowercase true/false -- NameError */
+  if (s === 'true' || s === 'false') {
+    return { type: 'error', value: s, note: "'" + s + "' is not defined. Python booleans are True / False (capital first letter)." };
+  }
+  /* any other unquoted identifier -- NameError */
+  return { type: 'error', value: s, note: "'" + s + "' has no quotes so Python treats it as a variable name -- but that variable is not defined." };
+}
+
+var badgeClass = { int:'type-int', float:'type-float', str:'type-str', bool:'type-bool', NoneType:'type-none', error:'type-error' };
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderResult(info, hidden) {
+  placeholderMsg.style.display = 'none';
+  resultContent.style.display = 'flex';
+  var badgeHtml = hidden
+    ? '<span class="type-badge" id="type-badge-hidden" style="background:#313244;color:#45475a;border:1px solid #45475a;letter-spacing:0.5px;text-transform:uppercase;font-size:13px;font-weight:700;border-radius:20px;padding:4px 14px;">???</span>'
+    : '<span class="type-badge ' + badgeClass[info.type] + '">' + TYPE_LABELS[info.type] + '</span>';
+  var noteHtml = hidden ? '' : '<div class="note-text">' + escHtml(info.note) + '</div>';
+  resultContent.innerHTML =
+    '<div class="result-row"><span class="result-label">Value</span><span class="result-value">' + escHtml(info.value) + '</span></div>' +
+    '<div class="result-row"><span class="result-label">Type</span>' + badgeHtml + '</div>' +
+    noteHtml;
+}
+
+function detectType() {
+  var raw = inputEl.value;
+  if (!raw.trim()) return;
+  var info = classifyValue(raw);
+  if (!info) return;
+  currentAnswer = info;
+  guessLocked = false;
+  feedbackMsg.textContent = '';
+  if (quizMode) {
+    renderResult(info, true);
+    showGuessButtons(info.type);
+    revealZone.style.display = 'flex';
+  } else {
+    renderResult(info, false);
+    revealZone.style.display = 'none';
+  }
+}
+
+function showGuessButtons(correctType) {
+  guessRow.innerHTML = '';
+  TYPES.forEach(function(t) {
+    var btn = document.createElement('button');
+    btn.className = 'guess-btn';
+    btn.textContent = TYPE_LABELS[t];
+    btn.onclick = function() { handleGuess(t, correctType, btn); };
+    guessRow.appendChild(btn);
+  });
+}
+
+function handleGuess(guess, correct, btn) {
+  if (guessLocked) return;
+  guessLocked = true;
+  totalGuesses++;
+  var allBtns = guessRow.querySelectorAll('.guess-btn');
+  allBtns.forEach(function(b) {
+    if (b.textContent === TYPE_LABELS[correct]) b.classList.add('correct');
+  });
+  if (guess === correct) {
+    correctCount++;
+    btn.classList.add('correct');
+    feedbackMsg.textContent = 'Correct!';
+    feedbackMsg.className = 'feedback-msg correct-msg';
+  } else {
+    btn.classList.add('wrong');
+    feedbackMsg.textContent = 'Not quite -- it is ' + TYPE_LABELS[correct];
+    feedbackMsg.className = 'feedback-msg wrong-msg';
+  }
+  document.getElementById('score-correct').textContent = correctCount;
+  document.getElementById('score-total').textContent = totalGuesses;
+  var hiddenBadge = document.getElementById('type-badge-hidden');
+  if (hiddenBadge) {
+    hiddenBadge.outerHTML = '<span class="type-badge ' + badgeClass[correct] + '">' + TYPE_LABELS[correct] + '</span>';
+  }
+  if (!resultContent.querySelector('.note-text')) {
+    var note = document.createElement('div');
+    note.className = 'note-text';
+    note.textContent = currentAnswer.note;
+    resultContent.appendChild(note);
+  }
+}
+
+/* Build preset buttons */
+var grid = document.getElementById('presets-grid');
+presets.forEach(function(p) {
+  var btn = document.createElement('button');
+  btn.className = 'preset-btn';
+  btn.textContent = p.val;
+  btn.title = p.note;
+  btn.onclick = function() {
+    inputEl.value = p.val;
+    resetState();
+    detectType();
+  };
+  grid.appendChild(btn);
+});
+</script>
+</body>
+</html>

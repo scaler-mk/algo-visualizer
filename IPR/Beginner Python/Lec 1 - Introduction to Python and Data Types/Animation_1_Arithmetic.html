@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Python arithmetic — six operators</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 22px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 5px;
+    width: 90px;
+    text-align: center;
+  }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+
+  .ops-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .op-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 20px;
+    transition: all 0.3s;
+  }
+  .op-card.highlight {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .op-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 10px;
+  }
+  .op-symbol {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(240, 160, 75, 0.1);
+    padding: 4px 14px;
+    border-radius: 6px;
+  }
+  .op-name {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .op-expr {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    color: var(--ink);
+    margin-bottom: 8px;
+    line-height: 1.6;
+  }
+  .op-expr .val { color: var(--blue); font-weight: 600; }
+  .op-expr .arrow { color: var(--muted); margin: 0 8px; }
+  .op-expr .result {
+    color: var(--green);
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+  .op-expr .result.float { color: var(--purple); }
+  .op-expr .result.bumped {
+    animation: bump 0.5s ease-out;
+  }
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.3); color: var(--accent); }
+    100% { transform: scale(1); }
+  }
+  .op-note {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .op-note .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    font-size: 9px;
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 5px;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .op-note .tag.float { background: rgba(192, 132, 232, 0.15); color: var(--purple); }
+  .op-note .tag.int { background: rgba(163, 217, 119, 0.15); color: var(--green); }
+
+  .compare-box {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+    margin-bottom: 14px;
+  }
+  .compare-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    color: var(--accent);
+  }
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+  .compare-side {
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 14px 16px;
+    border-left: 3px solid;
+  }
+  .compare-side.left { border-left-color: var(--purple); }
+  .compare-side.right { border-left-color: var(--green); }
+  .compare-side .label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .compare-side .code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .compare-side .result-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .compare-side.left .result-line { color: var(--purple); }
+  .compare-side.right .result-line { color: var(--green); }
+  .compare-side .note {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: Georgia, serif;
+    font-style: italic;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .vs-text {
+    text-align: center;
+    color: var(--muted);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+  }
+
+  .devops-note {
+    background: rgba(93, 173, 236, 0.06);
+    border-left: 3px solid var(--blue);
+    padding: 14px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .devops-note strong {
+    color: var(--blue);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Python arithmetic — six operators in action</h1>
+  <div class="sub">Change the values, see all six operators compute their results live. Pay special attention to <span style="color: var(--purple);">/</span> vs <span style="color: var(--green);">//</span> — this is the Python 3 quirk that catches everyone the first time.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">a</span>
+      <input type="number" class="num-input" id="aIn" value="10" oninput="recalc()">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">b</span>
+      <input type="number" class="num-input" id="bIn" value="5" oninput="recalc()">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">PRESET</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="qb" onclick="setVals(10, 5)">10, 5</button>
+        <button class="qb" onclick="setVals(7, 3)">7, 3</button>
+        <button class="qb" onclick="setVals(2, 3)">2, 3 (exp)</button>
+        <button class="qb" onclick="setVals(100, 7)">100, 7</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ops-grid">
+    <div class="op-card" id="opAdd">
+      <div class="op-head">
+        <span class="op-symbol">+</span>
+        <span class="op-name">Addition</span>
+      </div>
+      <div class="op-expr">
+        <span class="val" id="addA">10</span> + <span class="val" id="addB">5</span>
+        <span class="arrow">→</span>
+        <span class="result" id="addR">15</span>
+      </div>
+      <div class="op-note"><span class="tag int">int</span> integer + integer always gives integer.</div>
+    </div>
+
+    <div class="op-card" id="opSub">
+      <div class="op-head">
+        <span class="op-symbol">−</span>
+        <span class="op-name">Subtraction</span>
+      </div>
+      <div class="op-expr">
+        <span class="val" id="subA">10</span> − <span class="val" id="subB">5</span>
+        <span class="arrow">→</span>
+        <span class="result" id="subR">5</span>
+      </div>
+      <div class="op-note"><span class="tag int">int</span> straightforward — same as math.</div>
+    </div>
+
+    <div class="op-card" id="opMul">
+      <div class="op-head">
+        <span class="op-symbol">*</span>
+        <span class="op-name">Multiplication</span>
+      </div>
+      <div class="op-expr">
+        <span class="val" id="mulA">10</span> * <span class="val" id="mulB">5</span>
+        <span class="arrow">→</span>
+        <span class="result" id="mulR">50</span>
+      </div>
+      <div class="op-note"><span class="tag int">int</span> note: <code style="color: var(--accent);">*</code> not <code style="color: var(--accent);">×</code>.</div>
+    </div>
+
+    <div class="op-card highlight" id="opDiv">
+      <div class="op-head">
+        <span class="op-symbol">/</span>
+        <span class="op-name">True division</span>
+      </div>
+      <div class="op-expr">
+        <span class="val" id="divA">10</span> / <span class="val" id="divB">5</span>
+        <span class="arrow">→</span>
+        <span class="result float" id="divR">2.0</span>
+      </div>
+      <div class="op-note"><span class="tag float">float</span> Python 3: <code style="color: var(--purple);">/</code> ALWAYS returns float, even when exact (10 / 5 → 2.0, not 2).</div>
+    </div>
+
+    <div class="op-card highlight" id="opFloor">
+      <div class="op-head">
+        <span class="op-symbol">//</span>
+        <span class="op-name">Floor division</span>
+      </div>
+      <div class="op-expr">
+        <span class="val" id="floorA">10</span> // <span class="val" id="floorB">5</span>
+        <span class="arrow">→</span>
+        <span class="result" id="floorR">2</span>
+      </div>
+      <div class="op-note"><span class="tag int">int</span> drops the decimal part, returns integer. <code style="color: var(--green);">7 // 3 → 2</code>.</div>
+    </div>
+
+    <div class="op-card" id="opExp">
+      <div class="op-head">
+        <span class="op-symbol">**</span>
+        <span class="op-name">Exponentiation</span>
+      </div>
+      <div class="op-expr">
+        <span class="val" id="expA">10</span> ** <span class="val" id="expB">5</span>
+        <span class="arrow">→</span>
+        <span class="result" id="expR">100000</span>
+      </div>
+      <div class="op-note"><span class="tag int">int</span> a raised to the power b. <code style="color: var(--accent);">2 ** 3 → 8</code>.</div>
+    </div>
+  </div>
+
+  <div class="compare-box">
+    <div class="compare-title">The gotcha — / vs //</div>
+    <div class="compare-row">
+      <div class="compare-side left">
+        <div class="label">TRUE DIVISION ( / )</div>
+        <div class="code"><span id="cmpDivExpr">10 / 5</span></div>
+        <div class="result-line" id="cmpDivResult">2.0</div>
+        <div class="note">Returns <strong style="color: var(--purple);">float</strong> — always. The <span style="color: var(--purple);">.0</span> is Python 3's way of saying "this is a floating-point number."</div>
+      </div>
+      <div class="vs-text">vs</div>
+      <div class="compare-side right">
+        <div class="label">FLOOR DIVISION ( // )</div>
+        <div class="code"><span id="cmpFloorExpr">10 // 5</span></div>
+        <div class="result-line" id="cmpFloorResult">2</div>
+        <div class="note">Returns <strong style="color: var(--green);">int</strong> — drops the decimal part. Useful when you need a whole-number result.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="devops-note">
+    <strong>DevOps angle →</strong> this distinction matters in real scripts. Calculating <em>"how many full backups fit on a 100GB disk if each is 7GB?"</em> needs <code style="color: var(--green); font-style: normal; font-family: 'JetBrains Mono', monospace;">100 // 7 = 14</code> (whole backups). Calculating <em>"average response time"</em> needs <code style="color: var(--purple); font-style: normal; font-family: 'JetBrains Mono', monospace;">total_time / requests</code> (you want the decimal).
+  </div>
+</div>
+
+<script>
+  function setVals(a, b) {
+    document.getElementById('aIn').value = a;
+    document.getElementById('bIn').value = b;
+    recalc();
+  }
+
+  function bumpResult(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('bumped');
+      setTimeout(() => el.classList.remove('bumped'), 500);
+    }
+  }
+
+  function recalc() {
+    const a = parseFloat(document.getElementById('aIn').value) || 0;
+    const b = parseFloat(document.getElementById('bIn').value) || 0;
+
+    // Display a/b in all op cards
+    ['add','sub','mul','div','floor','exp'].forEach(op => {
+      document.getElementById(op + 'A').textContent = a;
+      document.getElementById(op + 'B').textContent = b;
+    });
+
+    // Compute and display
+    const add = a + b;
+    const sub = a - b;
+    const mul = a * b;
+    const div = b === 0 ? 'ZeroDivisionError' : (a / b).toFixed( (a / b) % 1 === 0 ? 1 : 4 );
+    const divDisplay = b === 0 ? 'ZeroDivisionError' : (Number.isInteger(a/b) ? (a/b).toFixed(1) : parseFloat((a/b).toPrecision(8)));
+    const floor = b === 0 ? 'ZeroDivisionError' : Math.floor(a / b);
+    const exp = Math.pow(a, b);
+    const expDisplay = (Math.abs(exp) > 1e10) ? exp.toExponential(2) : exp;
+
+    document.getElementById('addR').textContent = add;
+    document.getElementById('subR').textContent = sub;
+    document.getElementById('mulR').textContent = mul;
+    document.getElementById('divR').textContent = divDisplay;
+    document.getElementById('floorR').textContent = floor;
+    document.getElementById('expR').textContent = expDisplay;
+
+    // Bump the / and // since they're the focus
+    bumpResult('divR');
+    bumpResult('floorR');
+    bumpResult('addR');
+    bumpResult('subR');
+    bumpResult('mulR');
+    bumpResult('expR');
+
+    // Update bottom comparison
+    document.getElementById('cmpDivExpr').textContent = `${a} / ${b}`;
+    document.getElementById('cmpFloorExpr').textContent = `${a} // ${b}`;
+    document.getElementById('cmpDivResult').textContent = divDisplay;
+    document.getElementById('cmpFloorResult').textContent = floor;
+  }
+
+  recalc();
+</script>
+</body>
+</html>

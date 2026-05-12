@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Animation 4 - Variables as Labels</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #0f111a;
+  color: #cdd6f4;
+  min-height: 100vh;
+  padding: 28px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+h1 { font-size: 22px; font-weight: 600; color: #cba6f7; margin-bottom: 5px; text-align:center; }
+.subtitle { font-size: 14px; color: #6c7086; margin-bottom: 24px; text-align: center; }
+
+.tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; justify-content: center; }
+.tab-btn {
+  background: #181825; border: 1px solid #313244; border-radius: 10px;
+  padding: 8px 16px; font-size: 13px; color: #6c7086; cursor: pointer; transition: all .15s;
+}
+.tab-btn:hover { border-color: #cba6f7; color: #cba6f7; }
+.tab-btn.active { background: #2a2040; border-color: #cba6f7; color: #cba6f7; font-weight: 600; }
+
+.card {
+  width: 100%; max-width: 720px;
+  background: #181825; border: 1px solid #313244;
+  border-radius: 16px; overflow: hidden; margin-bottom: 14px;
+}
+
+.code-panel { padding: 18px 22px; border-bottom: 1px solid #313244; background: #13131f; }
+.code-line {
+  font-family: 'Courier New', monospace; font-size: 14px;
+  line-height: 1.85; padding: 1px 8px; margin: 0 -8px;
+  border-radius: 4px; color: #585b70; white-space: pre;
+  transition: background .25s, color .25s;
+}
+.code-line.active { background: #2a2040; color: #e0d7f7; }
+.kw  { color: #cba6f7; }
+.fn  { color: #89dceb; }
+.str { color: #a6e3a1; }
+.num { color: #fab387; }
+.cmt { color: #45475a; }
+
+.mem-panel { padding: 22px 24px; min-height: 180px; }
+.mem-title { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: #45475a; margin-bottom: 20px; }
+
+/* each memory entry is a wrapper div containing the row + optional orphan note */
+.mem-entry { margin-bottom: 18px; animation: fadeUp .3s ease both; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+/* the horizontal row: [label][arrow][box] */
+.mem-row { display: flex; align-items: center; }
+
+/* label tag */
+.lbl-tag {
+  min-width: 56px; padding: 8px 14px;
+  background: #2a2040; border: 1.5px solid #7c5cbf;
+  border-radius: 8px 0 0 8px;
+  font-family: 'Courier New', monospace; font-size: 15px;
+  font-weight: 700; color: #cba6f7; text-align: center;
+  flex-shrink: 0;
+}
+
+/* invisible spacer used for orphan rows (no label) */
+.lbl-spacer { min-width: 56px; flex-shrink: 0; }
+
+/* arrow */
+.arrow {
+  width: 40px; height: 2px; background: #6c5fa6;
+  flex-shrink: 0; position: relative;
+}
+.arrow::after {
+  content: ''; position: absolute; right: -1px; top: -4px;
+  border: 5px solid transparent; border-left: 8px solid #6c5fa6;
+}
+/* invisible spacer arrow for orphan rows */
+.arrow-spacer { width: 40px; flex-shrink: 0; }
+
+/* object box */
+.obj-box {
+  padding: 8px 20px; min-width: 84px; text-align: center;
+  border-radius: 0 8px 8px 0;
+  font-family: 'Courier New', monospace;
+}
+.obj-val  { font-size: 18px; font-weight: 700; }
+.obj-type { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+
+.obj-active { background: #1e3040; border: 1.5px solid #3a7a90; }
+.obj-active .obj-val  { color: #89dceb; }
+.obj-active .obj-type { color: #3a7a90; }
+
+.obj-orphan { background: #231616; border: 1.5px solid #7a2020; }
+.obj-orphan .obj-val  { color: #585b70; }
+.obj-orphan .obj-type { color: #7a2020; }
+
+/* orphan label: sits on its own line, indented to be under the box */
+.orphan-note {
+  margin-top: 4px;
+  /* indent = lbl-spacer(56) + arrow-spacer(40) */
+  padding-left: 96px;
+  font-size: 11px; color: #f38ba8;
+}
+
+/* shared scenario: stack two label+arrow pairs, then one box */
+.shared-labels-col { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.shared-label-row  { display: flex; align-items: center; }
+.shared-box {
+  padding: 8px 20px; min-width: 84px; text-align: center;
+  border-radius: 8px; align-self: center;
+  font-family: 'Courier New', monospace;
+}
+
+.output-panel { padding: 12px 22px; border-top: 1px solid #313244; background: #13131f; min-height: 48px; }
+.output-label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: #45475a; margin-bottom: 5px; }
+.output-val { font-family: 'Courier New', monospace; font-size: 14px; color: #a6e3a1; min-height: 20px; }
+
+.controls { padding: 14px 22px; border-top: 1px solid #313244; display: flex; align-items: center; gap: 10px; }
+.step-info { flex: 1; font-size: 13px; color: #6c7086; font-style: italic; }
+.step-info strong { color: #cdd6f4; font-style: normal; }
+.btn-next {
+  background: #cba6f7; color: #1e1e2e; border: none;
+  border-radius: 10px; padding: 9px 20px; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: background .15s, transform .1s; white-space: nowrap;
+}
+.btn-next:hover { background: #b48fe8; }
+.btn-next:active { transform: scale(.97); }
+.btn-next:disabled { background: #313244; color: #45475a; cursor: default; }
+.btn-reset {
+  background: transparent; color: #6c7086; border: 1px solid #313244;
+  border-radius: 10px; padding: 9px 14px; font-size: 13px; cursor: pointer; transition: all .15s;
+}
+.btn-reset:hover { border-color: #cba6f7; color: #cba6f7; }
+
+.explain-box {
+  width: 100%; max-width: 720px;
+  background: #1e1e2e; border: 1px solid #313244;
+  border-radius: 12px; padding: 14px 20px;
+  font-size: 14px; color: #6c7086; line-height: 1.65;
+}
+.explain-box strong { color: #cba6f7; }
+</style>
+</head>
+<body>
+
+<h1>Variables as Labels</h1>
+<p class="subtitle">Python variables are name-tags that point to objects in memory</p>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="loadScenario(0)">Scenario 1 &mdash; Re-pointing</button>
+  <button class="tab-btn"        onclick="loadScenario(1)">Scenario 2 &mdash; Sharing</button>
+  <button class="tab-btn"        onclick="loadScenario(2)">Scenario 3 &mdash; Dynamic typing</button>
+</div>
+
+<div class="card">
+  <div class="code-panel"  id="code-panel"></div>
+  <div class="mem-panel">
+    <div class="mem-title">Memory &mdash; objects &amp; labels</div>
+    <div id="mem-area"></div>
+  </div>
+  <div class="output-panel">
+    <div class="output-label">Output</div>
+    <div class="output-val" id="output-val"></div>
+  </div>
+  <div class="controls">
+    <span class="step-info" id="step-info">Click Next step to begin</span>
+    <button class="btn-reset" onclick="resetScenario()">&#8635; Reset</button>
+    <button class="btn-next"  id="btn-next" onclick="nextStep()">Next step &#9658;</button>
+  </div>
+</div>
+
+<div class="explain-box" id="explain-box">
+  Select a scenario above and click <strong>Next step</strong> to walk through the memory model interactively.
+</div>
+
+<script>
+var SCENES = [
+  /* ── Scenario 1: Re-pointing ── */
+  {
+    code: [
+      'a <span class="kw">=</span> <span class="num">10</span>          <span class="cmt"># label a points to object 10</span>',
+      'a <span class="kw">=</span> <span class="num">20</span>          <span class="cmt"># label a RE-POINTED to object 20</span>',
+      '<span class="fn">print</span>(a)       <span class="cmt"># prints what a currently points to</span>',
+      '<span class="fn">print</span>(<span class="fn">type</span>(a))  <span class="cmt"># type of the object a points to</span>'
+    ],
+    steps: [
+      {
+        active: 0,
+        mem: [
+          { kind:'normal', label:'a', val:'10', type:'int' }
+        ],
+        out: '',
+        note: '<strong>a = 10</strong> &mdash; Python creates an integer object <strong>10</strong> in memory. The label <strong>a</strong> is attached to it like a name-tag.'
+      },
+      {
+        active: 1,
+        mem: [
+          { kind:'orphan', val:'10', type:'int' },
+          { kind:'normal', label:'a', val:'20', type:'int' }
+        ],
+        out: '',
+        note: '<strong>a = 20</strong> &mdash; Python creates a NEW object <strong>20</strong>. The label <strong>a</strong> is re-attached from 10 to 20. The old object 10 now has <em>no label</em> &mdash; it is an <strong>orphan</strong>. Python\'s garbage collector will delete it.'
+      },
+      {
+        active: 2,
+        mem: [
+          { kind:'orphan', val:'10', type:'int' },
+          { kind:'normal', label:'a', val:'20', type:'int' }
+        ],
+        out: '20',
+        note: '<strong>print(a)</strong> &mdash; Python follows the label <strong>a</strong> to the object it points at: <strong>20</strong>. That value is printed.'
+      },
+      {
+        active: 3,
+        mem: [
+          { kind:'orphan', val:'10', type:'int' },
+          { kind:'normal', label:'a', val:'20', type:'int' }
+        ],
+        out: '20\n&lt;class \'int\'&gt;',
+        note: '<strong>print(type(a))</strong> &mdash; <strong>type()</strong> checks the object <strong>a</strong> points to. That object (20) is an integer, so the result is <strong>&lt;class \'int\'&gt;</strong>.'
+      }
+    ]
+  },
+
+  /* ── Scenario 2: Sharing ── */
+  {
+    code: [
+      'a <span class="kw">=</span> <span class="num">10</span>      <span class="cmt"># label a points to object 10</span>',
+      'b <span class="kw">=</span> a       <span class="cmt"># b points to the SAME object as a</span>',
+      '<span class="fn">print</span>(a, b)    <span class="cmt"># both labels, same object</span>'
+    ],
+    steps: [
+      {
+        active: 0,
+        mem: [
+          { kind:'normal', label:'a', val:'10', type:'int' }
+        ],
+        out: '',
+        note: '<strong>a = 10</strong> &mdash; The label <strong>a</strong> points to the integer object <strong>10</strong>. One label, one object.'
+      },
+      {
+        active: 1,
+        mem: [
+          { kind:'shared', labels:['a','b'], val:'10', type:'int' }
+        ],
+        out: '',
+        note: '<strong>b = a</strong> &mdash; Python does <em>not</em> copy the value. It creates a second label <strong>b</strong> and points it at the <em>same</em> object <strong>10</strong> that <strong>a</strong> already points to. Two labels, one object in memory.'
+      },
+      {
+        active: 2,
+        mem: [
+          { kind:'shared', labels:['a','b'], val:'10', type:'int' }
+        ],
+        out: '10 10',
+        note: '<strong>print(a, b)</strong> &mdash; Both <strong>a</strong> and <strong>b</strong> follow to the same object 10. Both print <strong>10</strong>.'
+      }
+    ]
+  },
+
+  /* ── Scenario 3: Dynamic typing ── */
+  {
+    code: [
+      'pi <span class="kw">=</span> <span class="num">3.14</span>       <span class="cmt"># pi points to a float object</span>',
+      '<span class="fn">print</span>(<span class="fn">type</span>(pi))   <span class="cmt"># float</span>',
+      'pi <span class="kw">=</span> <span class="str">"yummy"</span>    <span class="cmt"># pi RE-POINTED to a str object</span>',
+      '<span class="fn">print</span>(<span class="fn">type</span>(pi))   <span class="cmt"># now str</span>'
+    ],
+    steps: [
+      {
+        active: 0,
+        mem: [
+          { kind:'normal', label:'pi', val:'3.14', type:'float' }
+        ],
+        out: '',
+        note: '<strong>pi = 3.14</strong> &mdash; The label <strong>pi</strong> is attached to a float object <strong>3.14</strong>. The <em>object</em> holds the type &mdash; the label itself has no type.'
+      },
+      {
+        active: 1,
+        mem: [
+          { kind:'normal', label:'pi', val:'3.14', type:'float' }
+        ],
+        out: "&lt;class 'float'&gt;",
+        note: '<strong>print(type(pi))</strong> &mdash; <strong>pi</strong> points to 3.14 which is a float. Result: <strong>&lt;class \'float\'&gt;</strong>.'
+      },
+      {
+        active: 2,
+        mem: [
+          { kind:'orphan', val:'3.14', type:'float' },
+          { kind:'normal', label:'pi', val:'"yummy"', type:'str' }
+        ],
+        out: "&lt;class 'float'&gt;",
+        note: '<strong>pi = "yummy"</strong> &mdash; The label <strong>pi</strong> is re-pointed to a string object <strong>"yummy"</strong>. The old float 3.14 becomes an orphan. This is <strong>dynamic typing</strong>: the same label can point to any type at any time.'
+      },
+      {
+        active: 3,
+        mem: [
+          { kind:'orphan', val:'3.14', type:'float' },
+          { kind:'normal', label:'pi', val:'"yummy"', type:'str' }
+        ],
+        out: "&lt;class 'float'&gt;\n&lt;class 'str'&gt;",
+        note: '<strong>print(type(pi))</strong> &mdash; Now <strong>pi</strong> points to "yummy" (a str). Result: <strong>&lt;class \'str\'&gt;</strong>. Same label name, completely different type.'
+      }
+    ]
+  }
+];
+
+var curScene = 0;
+var curStep  = -1;
+
+function loadScenario(idx) {
+  curScene = idx;
+  document.querySelectorAll('.tab-btn').forEach(function(b, i) {
+    b.classList.toggle('active', i === idx);
+  });
+  resetScenario();
+}
+
+function resetScenario() {
+  curStep = -1;
+  var sc = SCENES[curScene];
+
+  var cp = document.getElementById('code-panel');
+  cp.innerHTML = sc.code.map(function(line) {
+    return '<div class="code-line">' + line + '</div>';
+  }).join('');
+
+  document.getElementById('mem-area').innerHTML = '';
+  document.getElementById('output-val').innerHTML = '';
+  document.getElementById('step-info').innerHTML =
+    'Step <strong>0 / ' + sc.steps.length + '</strong>';
+  var btn = document.getElementById('btn-next');
+  btn.disabled = false;
+  btn.textContent = 'Next step \u25BA';
+  document.getElementById('explain-box').innerHTML =
+    'Click <strong>Next step</strong> to begin walking through the memory model.';
+}
+
+function nextStep() {
+  var sc = SCENES[curScene];
+  curStep++;
+  if (curStep >= sc.steps.length) {
+    document.getElementById('btn-next').disabled = true;
+    return;
+  }
+  var step = sc.steps[curStep];
+
+  /* highlight active code line */
+  document.querySelectorAll('.code-line').forEach(function(l, i) {
+    l.classList.toggle('active', i === step.active);
+  });
+
+  /* render memory objects */
+  renderMemory(step.mem);
+
+  /* output */
+  var outEl = document.getElementById('output-val');
+  if (step.out) {
+    outEl.innerHTML = step.out.replace(/\n/g, '<br>');
+  } else {
+    outEl.innerHTML = '<span style="color:#45475a;font-style:italic;">no output yet</span>';
+  }
+
+  /* counter */
+  document.getElementById('step-info').innerHTML =
+    'Step <strong>' + (curStep + 1) + ' / ' + sc.steps.length + '</strong>';
+
+  /* explanation */
+  document.getElementById('explain-box').innerHTML = step.note;
+
+  if (curStep === sc.steps.length - 1) {
+    var btn = document.getElementById('btn-next');
+    btn.textContent = 'Done \u2713';
+    btn.disabled = true;
+  }
+}
+
+/* ── memory renderer ── */
+function renderMemory(mem) {
+  var area = document.getElementById('mem-area');
+  area.innerHTML = '';
+
+  mem.forEach(function(obj, idx) {
+    var entry = document.createElement('div');
+    entry.className = 'mem-entry';
+    entry.style.animationDelay = (idx * 0.08) + 's';
+
+    if (obj.kind === 'normal') {
+      /* [label-tag][arrow][obj-box] */
+      var row = document.createElement('div');
+      row.className = 'mem-row';
+
+      var lbl = el('div', 'lbl-tag', obj.label);
+      var arr = el('div', 'arrow', '');
+      var box = makeBox(obj, false);
+
+      row.appendChild(lbl);
+      row.appendChild(arr);
+      row.appendChild(box);
+      entry.appendChild(row);
+
+    } else if (obj.kind === 'orphan') {
+      /* [spacer][spacer-arrow][obj-box(dim)]  then orphan-note below */
+      var row = document.createElement('div');
+      row.className = 'mem-row';
+
+      var spacer    = el('div', 'lbl-spacer', '');
+      var arrSpacer = el('div', 'arrow-spacer', '');
+      var box       = makeBox(obj, true);
+
+      row.appendChild(spacer);
+      row.appendChild(arrSpacer);
+      row.appendChild(box);
+      entry.appendChild(row);
+
+      /* orphan note: a separate div that sits below, indented under the box */
+      var note = el('div', 'orphan-note', 'orphan \u2014 GC will clean up');
+      entry.appendChild(note);
+
+    } else if (obj.kind === 'shared') {
+      /* two [label+arrow] stacked left, one box to the right */
+      var row = document.createElement('div');
+      row.className = 'mem-row';
+      row.style.alignItems = 'center';
+
+      var labelsCol = el('div', 'shared-labels-col', '');
+
+      obj.labels.forEach(function(name) {
+        var shareRow = el('div', 'shared-label-row', '');
+        var lbl = el('div', 'lbl-tag', name);
+        var arr = el('div', 'arrow', '');
+        arr.style.width = '24px';
+        shareRow.appendChild(lbl);
+        shareRow.appendChild(arr);
+        labelsCol.appendChild(shareRow);
+      });
+
+      var box = makeBox(obj, false);
+      box.className = 'shared-box obj-active'; /* full rounded corners */
+
+      row.appendChild(labelsCol);
+      row.appendChild(box);
+      entry.appendChild(row);
+    }
+
+    area.appendChild(entry);
+  });
+}
+
+function makeBox(obj, isOrphan) {
+  var box = document.createElement('div');
+  box.className = 'obj-box ' + (isOrphan ? 'obj-orphan' : 'obj-active');
+  var valDiv  = el('div', 'obj-val',  obj.val);
+  var typeDiv = el('div', 'obj-type', obj.type);
+  box.appendChild(valDiv);
+  box.appendChild(typeDiv);
+  return box;
+}
+
+function el(tag, cls, text) {
+  var e = document.createElement(tag);
+  if (cls)  e.className   = cls;
+  if (text) e.textContent = text;
+  return e;
+}
+
+/* init */
+loadScenario(0);
+</script>
+</body>
+</html>

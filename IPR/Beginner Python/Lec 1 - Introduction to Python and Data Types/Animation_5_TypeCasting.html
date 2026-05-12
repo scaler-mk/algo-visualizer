@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Type casting in Python</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .num-input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 5px;
+    width: 140px;
+    text-align: center;
+  }
+  .cast-buttons {
+    display: flex;
+    gap: 6px;
+  }
+  .cast-btn {
+    padding: 8px 14px;
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid;
+    background: transparent;
+    transition: all 0.2s;
+  }
+  .cast-btn.int { border-color: var(--green); color: var(--green); }
+  .cast-btn.float { border-color: var(--purple); color: var(--purple); }
+  .cast-btn.str { border-color: var(--blue); color: var(--blue); }
+  .cast-btn.bool { border-color: var(--accent); color: var(--accent); }
+  .cast-btn:hover { transform: translateY(-2px); }
+  .cast-btn.active.int { background: rgba(163, 217, 119, 0.15); }
+  .cast-btn.active.float { background: rgba(192, 132, 232, 0.15); }
+  .cast-btn.active.str { background: rgba(93, 173, 236, 0.15); }
+  .cast-btn.active.bool { background: rgba(240, 160, 75, 0.15); }
+
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 26px;
+  }
+
+  .transform-row {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 22px;
+  }
+
+  .value-card {
+    background: #0d1117;
+    border-radius: 8px;
+    padding: 22px 20px;
+    border: 2px solid var(--line);
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .value-card.int { border-color: var(--green); }
+  .value-card.float { border-color: var(--purple); }
+  .value-card.str { border-color: var(--blue); }
+  .value-card.bool { border-color: var(--accent); }
+  .value-card.error { border-color: var(--red); }
+
+  .vc-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .vc-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    word-break: break-all;
+  }
+  .value-card.int .vc-value { color: var(--green); }
+  .value-card.float .vc-value { color: var(--purple); }
+  .value-card.str .vc-value { color: var(--blue); }
+  .value-card.bool .vc-value { color: var(--accent); }
+  .value-card.error .vc-value { color: var(--red); font-size: 14px; }
+  .vc-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .value-card.int .vc-type { color: rgba(163, 217, 119, 0.7); }
+  .value-card.float .vc-type { color: rgba(192, 132, 232, 0.7); }
+  .value-card.str .vc-type { color: rgba(93, 173, 236, 0.7); }
+  .value-card.bool .vc-type { color: rgba(240, 160, 75, 0.7); }
+
+  .arrow-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .arrow-fn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    background: rgba(240, 160, 75, 0.1);
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .arrow-svg { width: 40px; height: 36px; }
+
+  .verdict {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border-left: 3px solid;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+  .verdict.ok {
+    border-left-color: var(--green);
+    background: rgba(163, 217, 119, 0.04);
+  }
+  .verdict.warn {
+    border-left-color: var(--accent);
+    background: rgba(240, 160, 75, 0.04);
+  }
+  .verdict.fail {
+    border-left-color: var(--red);
+    background: rgba(229, 115, 115, 0.04);
+  }
+  .verdict strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+  }
+  .verdict.ok strong { color: var(--green); }
+  .verdict.warn strong { color: var(--accent); }
+  .verdict.fail strong { color: var(--red); }
+
+  .preset-section {
+    margin-top: 20px;
+    padding: 16px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .preset-title {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .preset-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Type casting — converting between types with int(), float(), str(), bool()</h1>
+  <div class="sub">Try any value below. Cast it to a different type. See what Python does — and what fails. The failure cases matter as much as the successes.</div>
+
+  <div class="controls">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">VALUE TO CAST</span>
+      <input type="text" class="num-input" id="valInput" value='"123"' oninput="apply()">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="ctl-label">CAST TO</span>
+      <div class="cast-buttons">
+        <button class="cast-btn int" id="bInt" onclick="setCast('int')">int()</button>
+        <button class="cast-btn float" id="bFloat" onclick="setCast('float')">float()</button>
+        <button class="cast-btn str active" id="bStr" onclick="setCast('str')">str()</button>
+        <button class="cast-btn bool" id="bBool" onclick="setCast('bool')">bool()</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="transform-row">
+      <div class="value-card" id="inputCard">
+        <div class="vc-label">INPUT</div>
+        <div class="vc-value" id="inputVal">"123"</div>
+        <div class="vc-type" id="inputType">&lt;class 'str'&gt;</div>
+      </div>
+
+      <div class="arrow-col">
+        <span class="arrow-fn" id="arrowFn">str()</span>
+        <svg class="arrow-svg" viewBox="0 0 40 36">
+          <defs>
+            <marker id="arr5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#f0a04b"/>
+            </marker>
+          </defs>
+          <path d="M 4 18 L 34 18" stroke="#f0a04b" stroke-width="2" marker-end="url(#arr5)"/>
+        </svg>
+      </div>
+
+      <div class="value-card" id="outputCard">
+        <div class="vc-label">OUTPUT</div>
+        <div class="vc-value" id="outputVal">"123"</div>
+        <div class="vc-type" id="outputType">&lt;class 'str'&gt;</div>
+      </div>
+    </div>
+
+    <div class="verdict" id="verdict">
+      <strong>str("123") → '123'</strong> — already a string, no change. str() works on virtually any input.
+    </div>
+  </div>
+
+  <div class="preset-section">
+    <div class="preset-title">QUICK TRIES — click to load + cast</div>
+    <div class="preset-grid">
+      <button class="qb" onclick="setBoth('&quot;123&quot;', 'int')">"123" → int</button>
+      <button class="qb" onclick="setBoth('&quot;3.14&quot;', 'float')">"3.14" → float</button>
+      <button class="qb" onclick="setBoth('&quot;hello&quot;', 'int')">"hello" → int (fails!)</button>
+      <button class="qb" onclick="setBoth('45', 'str')">45 → str</button>
+      <button class="qb" onclick="setBoth('3.99', 'int')">3.99 → int (truncates!)</button>
+      <button class="qb" onclick="setBoth('True', 'int')">True → int</button>
+      <button class="qb" onclick="setBoth('0', 'bool')">0 → bool</button>
+      <button class="qb" onclick="setBoth('5', 'bool')">5 → bool</button>
+      <button class="qb" onclick="setBoth('&quot;&quot;', 'bool')">"" → bool (False)</button>
+      <button class="qb" onclick="setBoth('&quot;True&quot;', 'bool')">"True" → bool (tricky!)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentCast = 'str';
+
+  function detectType(raw) {
+    raw = raw.trim();
+    if (raw === '') return { type: 'empty', value: '', display: '' };
+    if (raw === 'True') return { type: 'bool', value: true, display: 'True' };
+    if (raw === 'False') return { type: 'bool', value: false, display: 'False' };
+    if (raw === 'None') return { type: 'none', value: null, display: 'None' };
+    // string
+    if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+      if (raw.length >= 2) {
+        return { type: 'str', value: raw.substring(1, raw.length - 1), display: raw };
+      }
+    }
+    // integer
+    if (/^-?\d+$/.test(raw)) return { type: 'int', value: parseInt(raw, 10), display: raw };
+    // float
+    if (/^-?\d+\.\d*$/.test(raw) || /^-?\d*\.\d+$/.test(raw)) return { type: 'float', value: parseFloat(raw), display: raw };
+    // unknown
+    return { type: 'unknown', value: raw, display: raw };
+  }
+
+  function setBoth(v, cast) {
+    document.getElementById('valInput').value = v.replace(/&quot;/g, '"');
+    setCast(cast);
+  }
+
+  function setCast(c) {
+    currentCast = c;
+    ['int','float','str','bool'].forEach(t => {
+      document.getElementById('b' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === c);
+    });
+    document.getElementById('arrowFn').textContent = c + '()';
+    apply();
+  }
+
+  function apply() {
+    const raw = document.getElementById('valInput').value;
+    const inp = detectType(raw);
+
+    // Render input card
+    const ic = document.getElementById('inputCard');
+    const iv = document.getElementById('inputVal');
+    const it = document.getElementById('inputType');
+    if (inp.type === 'empty') {
+      ic.className = 'value-card';
+      iv.textContent = '— empty —';
+      it.textContent = '';
+    } else if (inp.type === 'unknown') {
+      ic.className = 'value-card error';
+      iv.textContent = inp.display;
+      it.textContent = 'unknown — not a valid Python literal';
+    } else {
+      ic.className = 'value-card ' + inp.type;
+      iv.textContent = inp.display;
+      const typeMap = { int: 'int', float: 'float', str: 'str', bool: 'bool', none: 'NoneType' };
+      it.innerHTML = `&lt;class '${typeMap[inp.type]}'&gt;`;
+    }
+
+    if (inp.type === 'empty' || inp.type === 'unknown') {
+      const oc = document.getElementById('outputCard');
+      oc.className = 'value-card';
+      document.getElementById('outputVal').textContent = '—';
+      document.getElementById('outputType').textContent = '';
+      document.getElementById('verdict').className = 'verdict';
+      document.getElementById('verdict').innerHTML = 'Enter a valid Python literal to see the cast.';
+      return;
+    }
+
+    // Compute cast
+    const result = doCast(inp, currentCast);
+
+    const oc = document.getElementById('outputCard');
+    const ov = document.getElementById('outputVal');
+    const ot = document.getElementById('outputType');
+
+    if (result.error) {
+      oc.className = 'value-card error';
+      ov.textContent = result.error;
+      ot.textContent = '— failed —';
+    } else {
+      oc.className = 'value-card ' + currentCast;
+      ov.textContent = result.display;
+      const typeMap = { int: 'int', float: 'float', str: 'str', bool: 'bool' };
+      ot.innerHTML = `&lt;class '${typeMap[currentCast]}'&gt;`;
+    }
+
+    document.getElementById('verdict').className = 'verdict ' + result.verdictClass;
+    document.getElementById('verdict').innerHTML = result.explanation;
+  }
+
+  function doCast(inp, cast) {
+    // STR is always safe
+    if (cast === 'str') {
+      let dv;
+      if (inp.type === 'str') dv = `'${inp.value}'`;
+      else if (inp.type === 'bool') dv = `'${inp.value ? 'True' : 'False'}'`;
+      else dv = `'${inp.display}'`;
+      return {
+        display: dv,
+        verdictClass: 'ok',
+        explanation: `<strong>str(${inp.display}) → ${dv}</strong> — str() converts anything to its text representation. Always succeeds.`
+      };
+    }
+
+    // INT
+    if (cast === 'int') {
+      if (inp.type === 'int') {
+        return {
+          display: inp.value,
+          verdictClass: 'ok',
+          explanation: `<strong>int(${inp.value}) → ${inp.value}</strong> — already an integer, no change.`
+        };
+      }
+      if (inp.type === 'float') {
+        const truncated = Math.trunc(inp.value);
+        return {
+          display: truncated,
+          verdictClass: 'warn',
+          explanation: `<strong>int(${inp.value}) → ${truncated}</strong> — float to int <strong>truncates</strong> the decimal part (drops it, doesn't round). 3.99 becomes 3, not 4. Be careful in calculations.`
+        };
+      }
+      if (inp.type === 'bool') {
+        return {
+          display: inp.value ? 1 : 0,
+          verdictClass: 'ok',
+          explanation: `<strong>int(${inp.display}) → ${inp.value ? 1 : 0}</strong> — True is 1, False is 0. Reflects Python's roots in C.`
+        };
+      }
+      if (inp.type === 'str') {
+        // Try to parse string as int
+        if (/^-?\d+$/.test(inp.value.trim())) {
+          const v = parseInt(inp.value, 10);
+          return {
+            display: v,
+            verdictClass: 'ok',
+            explanation: `<strong>int('${inp.value}') → ${v}</strong> — string of digits parsed to integer. Common pattern after reading user input.`
+          };
+        }
+        return {
+          error: `ValueError: invalid literal for int() with base 10: '${inp.value}'`,
+          verdictClass: 'fail',
+          explanation: `<strong>int('${inp.value}') → ValueError</strong> — Python can only parse strings that look like integers. Decimals like "3.14" must go through float() first. Text like "hello" can't be cast at all.`
+        };
+      }
+    }
+
+    // FLOAT
+    if (cast === 'float') {
+      if (inp.type === 'float') {
+        return {
+          display: inp.display,
+          verdictClass: 'ok',
+          explanation: `<strong>float(${inp.value}) → ${inp.value}</strong> — already a float, no change.`
+        };
+      }
+      if (inp.type === 'int') {
+        const v = inp.value.toFixed(1);
+        return {
+          display: v,
+          verdictClass: 'ok',
+          explanation: `<strong>float(${inp.value}) → ${v}</strong> — integer cast to float adds <strong>.0</strong> to signal it's now a floating-point.`
+        };
+      }
+      if (inp.type === 'bool') {
+        return {
+          display: (inp.value ? 1 : 0).toFixed(1),
+          verdictClass: 'ok',
+          explanation: `<strong>float(${inp.display}) → ${(inp.value ? 1 : 0).toFixed(1)}</strong> — True→1.0, False→0.0.`
+        };
+      }
+      if (inp.type === 'str') {
+        if (/^-?\d+(\.\d*)?$/.test(inp.value.trim()) || /^-?\.\d+$/.test(inp.value.trim())) {
+          const v = parseFloat(inp.value);
+          return {
+            display: v,
+            verdictClass: 'ok',
+            explanation: `<strong>float('${inp.value}') → ${v}</strong> — string parsed to float.`
+          };
+        }
+        return {
+          error: `ValueError: could not convert string to float: '${inp.value}'`,
+          verdictClass: 'fail',
+          explanation: `<strong>float('${inp.value}') → ValueError</strong> — string doesn't look like a number, can't parse.`
+        };
+      }
+    }
+
+    // BOOL
+    if (cast === 'bool') {
+      if (inp.type === 'bool') {
+        return {
+          display: inp.display,
+          verdictClass: 'ok',
+          explanation: `<strong>bool(${inp.display}) → ${inp.display}</strong> — already a boolean.`
+        };
+      }
+      if (inp.type === 'int' || inp.type === 'float') {
+        const truthy = inp.value !== 0;
+        return {
+          display: truthy ? 'True' : 'False',
+          verdictClass: 'warn',
+          explanation: `<strong>bool(${inp.value}) → ${truthy ? 'True' : 'False'}</strong> — in Python, <strong>0 is False, every other number is True</strong>. This includes negative numbers and floats.`
+        };
+      }
+      if (inp.type === 'str') {
+        // Empty string is False; anything else (including "False"!) is True
+        const truthy = inp.value !== '';
+        let extra = '';
+        if (inp.value === 'False' || inp.value === '0') {
+          extra = ` <strong>Gotcha:</strong> the string "${inp.value}" is non-empty, so it's <strong>True</strong>. Only the empty string "" is False.`;
+        }
+        return {
+          display: truthy ? 'True' : 'False',
+          verdictClass: truthy && (inp.value === 'False' || inp.value === '0') ? 'fail' : 'warn',
+          explanation: `<strong>bool('${inp.value}') → ${truthy ? 'True' : 'False'}</strong> — only an empty string is False. Any non-empty string is True.${extra}`
+        };
+      }
+    }
+
+    return { error: 'unknown', verdictClass: 'fail', explanation: 'Unsupported cast.' };
+  }
+
+  setCast('str');
+</script>
+</body>
+</html>

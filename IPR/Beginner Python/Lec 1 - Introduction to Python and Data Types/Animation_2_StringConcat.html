@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>String concatenation — the space trap</title>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #242830;
+    --panel-2: #2d323c;
+    --ink: #e8e6e1;
+    --muted: #8b8d93;
+    --accent: #f0a04b;
+    --green: #a3d977;
+    --red: #e57373;
+    --blue: #5dadec;
+    --purple: #c084e8;
+    --line: #3a3f4b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; font-family: Georgia, serif; font-style: italic; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .ctl-label { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+  .qb {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .qb:hover { border-color: var(--accent); color: var(--accent); }
+  .qb.active { border-color: var(--accent); color: var(--accent); background: rgba(240, 160, 75, 0.08); }
+
+  .examples-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .example-row {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+  }
+  .ex-title {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .ex-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+
+  .build-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    margin-bottom: 12px;
+    min-height: 60px;
+  }
+  .pill {
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pill.string {
+    background: rgba(163, 217, 119, 0.15);
+    color: var(--green);
+    border: 1.5px solid rgba(163, 217, 119, 0.4);
+  }
+  .pill.var {
+    background: rgba(93, 173, 236, 0.15);
+    color: var(--blue);
+    border: 1.5px solid rgba(93, 173, 236, 0.4);
+  }
+  .pill.space {
+    background: rgba(240, 160, 75, 0.15);
+    color: var(--accent);
+    border: 1.5px solid rgba(240, 160, 75, 0.4);
+    font-style: italic;
+  }
+  .plus {
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .arrow-block {
+    text-align: center;
+    color: var(--muted);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11px;
+    margin: 8px 0;
+  }
+
+  .output-box {
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+  }
+  .out-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .out-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    color: var(--green);
+    letter-spacing: 0.02em;
+  }
+  .out-text .space-marker {
+    display: inline-block;
+    background: rgba(240, 160, 75, 0.15);
+    border: 1px dashed var(--accent);
+    color: var(--accent);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin: 0 1px;
+    vertical-align: middle;
+  }
+
+  .footer-note {
+    background: rgba(229, 115, 115, 0.06);
+    border-left: 3px solid var(--red);
+    padding: 14px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: Georgia, serif;
+    font-style: italic;
+    color: var(--ink);
+    margin-top: 8px;
+  }
+  .footer-note strong {
+    color: var(--red);
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .footer-note.tip {
+    background: rgba(163, 217, 119, 0.06);
+    border-left-color: var(--green);
+  }
+  .footer-note.tip strong { color: var(--green); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>String concatenation — the "no automatic space" trap</h1>
+  <div class="sub">When you join strings with <code style="color: var(--accent); background: rgba(240, 160, 75, 0.1); padding: 1px 6px; border-radius: 3px;">+</code>, Python glues them <em>exactly</em> as given. No magic spaces. This is the #1 trap for beginners — and three ways to fix it.</div>
+
+  <div class="controls">
+    <span class="ctl-label">SCENARIO</span>
+    <button class="qb active" id="sc1" onclick="setScenario(1)">"Hello" + "Alice" (the trap)</button>
+    <button class="qb" id="sc2" onclick="setScenario(2)">"Hello" + " " + "Alice"</button>
+    <button class="qb" id="sc3" onclick="setScenario(3)">print("Hello", "Alice")</button>
+    <button class="qb" id="sc4" onclick="setScenario(4)">city + " is in " + country</button>
+  </div>
+
+  <div class="examples-grid" id="exampleHolder">
+    <!-- Filled by JS -->
+  </div>
+
+</div>
+
+<script>
+  const scenarios = {
+    1: {
+      title: 'The trap — using + with no explicit space',
+      sub: 'Two strings joined directly. There is no space between them in the source, so there is no space in the output.',
+      build: [
+        { type: 'string', text: '"Hello"' },
+        { type: 'plus' },
+        { type: 'string', text: '"Alice"' }
+      ],
+      code: 'print("Hello" + "Alice")',
+      output: 'HelloAlice',
+      outputHighlight: 'none',
+      footer: {
+        type: 'bad',
+        text: '<strong>Why →</strong> the <code style="color: var(--accent); font-style: normal; font-family: \'JetBrains Mono\', monospace;">+</code> operator on strings means "stick them together as-is." Python does NOT add spaces for you. To get a space, you have to type one.'
+      }
+    },
+    2: {
+      title: 'Fix #1 — add an explicit space string',
+      sub: 'Three pieces joined together: the first word, a literal space, the second word.',
+      build: [
+        { type: 'string', text: '"Hello"' },
+        { type: 'plus' },
+        { type: 'space', text: '" "' },
+        { type: 'plus' },
+        { type: 'string', text: '"Alice"' }
+      ],
+      code: 'print("Hello" + " " + "Alice")',
+      output: 'Hello Alice',
+      outputHighlight: 'middle',
+      footer: {
+        type: 'good',
+        text: '<strong>Works because →</strong> the middle string is a real space character. Python concatenates all three pieces exactly as given.'
+      }
+    },
+    3: {
+      title: 'Fix #2 — use commas inside print()',
+      sub: 'When you separate items in print() with commas, print() inserts a space between them automatically.',
+      build: [
+        { type: 'string', text: '"Hello"' },
+        { type: 'plus', label: ',' },
+        { type: 'string', text: '"Alice"' }
+      ],
+      code: 'print("Hello", "Alice")',
+      output: 'Hello Alice',
+      outputHighlight: 'middle',
+      footer: {
+        type: 'good',
+        text: '<strong>Different mechanism →</strong> commas in print() are NOT concatenation. They are separate arguments. print() joins them with a default space (which you can change with <code style="color: var(--accent); font-style: normal; font-family: \'JetBrains Mono\', monospace;">sep=</code>).'
+      }
+    },
+    4: {
+      title: 'Real example — using + with variables and a template',
+      sub: 'Mix variables and literal strings to build a sentence. The literal " is in " in the middle has spaces around the words built in.',
+      build: [
+        { type: 'var', text: 'city' },
+        { type: 'plus' },
+        { type: 'space', text: '" is in "' },
+        { type: 'plus' },
+        { type: 'var', text: 'country' }
+      ],
+      code: 'city = "Delhi"\ncountry = "India"\nprint(city + " is in " + country)',
+      output: 'Delhi is in India',
+      outputHighlight: 'both',
+      footer: {
+        type: 'good',
+        text: '<strong>Notice →</strong> the spaces are baked into the literal <code style="color: var(--accent); font-style: normal; font-family: \'JetBrains Mono\', monospace;">" is in "</code> — one before "is", one after. That is what creates word-spacing in the output.'
+      }
+    }
+  };
+
+  function setScenario(n) {
+    [1,2,3,4].forEach(k => document.getElementById('sc' + k).classList.toggle('active', k === n));
+    const s = scenarios[n];
+    const h = document.getElementById('exampleHolder');
+
+    let buildHtml = '';
+    for (let i = 0; i < s.build.length; i++) {
+      const item = s.build[i];
+      if (item.type === 'plus') {
+        buildHtml += `<span class="plus">${item.label || '+'}</span>`;
+      } else {
+        buildHtml += `<span class="pill ${item.type}">${item.text}</span>`;
+      }
+    }
+
+    let outputHtml = '';
+    const out = s.output;
+    if (s.outputHighlight === 'none') {
+      outputHtml = out;
+    } else if (s.outputHighlight === 'middle') {
+      // Find the space and highlight it
+      const idx = out.indexOf(' ');
+      if (idx >= 0) {
+        outputHtml = out.substring(0, idx) + '<span class="space-marker">SP</span>' + out.substring(idx + 1);
+      } else outputHtml = out;
+    } else if (s.outputHighlight === 'both') {
+      // Highlight all spaces
+      outputHtml = out.split(' ').join('<span class="space-marker">SP</span>');
+    }
+
+    h.innerHTML = `
+      <div class="example-row">
+        <div class="ex-title">${s.title}</div>
+        <div class="ex-sub">${s.sub}</div>
+        <div class="build-row">${buildHtml}</div>
+        <div class="arrow-block">↓ Python concatenates left to right ↓</div>
+        <div class="output-box">
+          <div class="out-label">CONSOLE OUTPUT</div>
+          <div class="out-text">${outputHtml}</div>
+        </div>
+        <div class="footer-note ${s.footer.type === 'good' ? 'tip' : ''}">${s.footer.text}</div>
+      </div>
+    `;
+  }
+
+  setScenario(1);
+</script>
+</body>
+</html>
