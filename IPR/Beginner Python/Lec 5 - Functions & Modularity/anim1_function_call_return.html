@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Function Call & Return</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e0e4f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px}
+h2{font-size:20px;font-weight:700;color:#fff;margin-bottom:6px;text-align:center}
+.subtitle{font-size:13px;color:#6a7299;margin-bottom:20px;text-align:center}
+.scenarios{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;justify-content:center}
+.sc-btn{padding:8px 18px;border-radius:20px;border:1px solid #2a3250;background:#161b27;color:#8090c0;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.sc-btn.active{background:#1e3a6e;border-color:#3a6ec0;color:#a0c0ff}
+.stage{width:100%;max-width:820px;background:#161b27;border:1px solid #252d42;border-radius:16px;overflow:hidden;min-height:400px}
+.stage-header{padding:14px 20px;background:#12161f;border-bottom:1px solid #1e2535;display:flex;align-items:center;gap:10px}
+.dot{width:8px;height:8px;border-radius:50%}
+.stage-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#5a6480}
+.arena{display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:340px}
+.panel{padding:24px 20px;border-right:1px solid #1e2535}
+.panel:last-child{border-right:none}
+.panel-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+.code-line{font-family:'Cascadia Code','Fira Code',monospace;font-size:14px;line-height:1.9;padding:3px 10px;border-radius:6px;transition:all .35s;color:#7a8099;display:flex;align-items:center;gap:8px}
+.code-line.active{background:#1a2a4a;color:#c8d8ff;border-left:3px solid #4a7fff}
+.code-line.done{color:#4a6090;border-left:3px solid transparent}
+.code-line.error{background:#2a1018;color:#ff8090;border-left:3px solid #e04050}
+.code-line .kw{color:#a78bfa}.code-line .fn{color:#34d399}.code-line .num{color:#f59e0b}.code-line .str{color:#60a5fa}.code-line .cm{color:#4a5570}
+.arrow-indicator{font-size:12px;opacity:0;transition:opacity .3s}
+.code-line.active .arrow-indicator{opacity:1}
+
+.memory-box{background:#12161f;border:1px solid #252d42;border-radius:10px;padding:14px;margin-bottom:12px;transition:all .3s}
+.memory-box.lit{border-color:#4a7fff;background:#0e1830}
+.memory-box.lit-green{border-color:#34d399;background:#0a1e14}
+.memory-box.lit-red{border-color:#e04050;background:#1e0a10}
+.mem-label{font-size:11px;font-weight:700;color:#5a6480;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.mem-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:3px 0}
+.mem-var{color:#94a3b8;font-family:monospace}.mem-val{color:#f59e0b;font-family:monospace;font-weight:700}
+.mem-val.green{color:#34d399}.mem-val.gray{color:#4a5570;font-style:italic}
+.mem-val.red{color:#ff8090}
+
+.output-box{background:#0a0d14;border:1px solid #1e2535;border-radius:8px;padding:12px 14px;font-family:monospace;font-size:14px;min-height:48px;margin-top:8px;color:#34d399;transition:all .3s}
+
+.call-arrow{text-align:center;padding:8px 0;font-size:22px;transition:all .4s;opacity:0;color:#4a7fff}
+.call-arrow.show{opacity:1}
+.return-arrow{text-align:center;padding:8px 0;font-size:22px;transition:all .4s;opacity:0;color:#34d399}
+.return-arrow.show{opacity:1}
+
+.controls{display:flex;align-items:center;gap:12px;margin-top:18px;justify-content:center}
+.btn{padding:10px 24px;border-radius:8px;border:1px solid #2a3250;background:#1a2035;color:#8090c0;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn:hover{background:#1e2a4a;color:#a0b8e0}
+.btn.primary{background:linear-gradient(135deg,#1e3a8a,#2d5ac0);border-color:#3a6ec0;color:#c0d8ff}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.step-counter{font-size:13px;color:#5a6480;min-width:80px;text-align:center}
+
+.explanation{width:100%;max-width:820px;margin-top:14px;background:#0e1420;border:1px solid #1e2a40;border-radius:10px;padding:14px 18px;font-size:14px;line-height:1.7;color:#8090b8;min-height:52px;transition:all .3s}
+.explanation strong{color:#c8d8ff}
+</style>
+</head>
+<body>
+<h2>Function Call &amp; Return — Step by Step</h2>
+<p class="subtitle">Watch execution flow between the caller and the function in real time</p>
+
+<div class="scenarios">
+  <button class="sc-btn active" onclick="loadScenario(0)">① No return</button>
+  <button class="sc-btn" onclick="loadScenario(1)">② Return value</button>
+  <button class="sc-btn" onclick="loadScenario(2)">③ Dead code after return</button>
+  <button class="sc-btn" onclick="loadScenario(3)">④ Quiz 4 — return 0</button>
+</div>
+
+<div class="stage">
+  <div class="stage-header">
+    <div class="dot" style="background:#e05060"></div>
+    <div class="dot" style="background:#d4a030"></div>
+    <div class="dot" style="background:#5fca5f"></div>
+    <span class="stage-title" id="stageTitle">Scenario 1 — no return</span>
+  </div>
+  <div class="arena">
+    <div class="panel">
+      <div class="panel-label" style="color:#5b9bd5">Global scope (caller)</div>
+      <div id="callerCode"></div>
+      <div style="margin-top:14px">
+        <div class="panel-label" style="color:#5fca5f">Output</div>
+        <div class="output-box" id="outputBox"></div>
+      </div>
+    </div>
+    <div class="panel" style="background:#0d1020">
+      <div class="panel-label" style="color:#c084fc">Function scope (local)</div>
+      <div id="fnCode"></div>
+      <div style="margin-top:14px">
+        <div class="panel-label" style="color:#f59e0b">Memory</div>
+        <div id="memoryBox"></div>
+      </div>
+      <div class="call-arrow" id="callArrow">⬇ call</div>
+      <div class="return-arrow" id="returnArrow">⬆ return</div>
+    </div>
+  </div>
+</div>
+
+<div class="explanation" id="explanation">Press <strong>Next →</strong> to start stepping through the execution.</div>
+
+<div class="controls">
+  <button class="btn" id="prevBtn" onclick="step(-1)" disabled>← Prev</button>
+  <span class="step-counter" id="stepCounter">Step 0 / 0</span>
+  <button class="btn primary" id="nextBtn" onclick="step(1)">Next →</button>
+  <button class="btn" onclick="reset()">↺ Reset</button>
+</div>
+
+<script>
+const SCENARIOS = [
+  {
+    title:"Scenario 1 — no return (implicit None)",
+    caller:[
+      {code:'<span class="kw">def</span> <span class="fn">greet</span>():', note:'Define the function (no params, no return)'},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Hello!"</span>)', note:'Body: just prints. No return statement.'},
+      {code:'', note:''},
+      {code:'greet()&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># call it</span>', note:'Python jumps into the function body now'},
+      {code:'result = greet()', note:'Store whatever the function returns'},
+      {code:'<span class="kw">print</span>(result)&nbsp;&nbsp;<span class="cm"># None</span>', note:'Prints None — no return means None'},
+    ],
+    fn:[
+      {code:'<span class="kw">def</span> <span class="fn">greet</span>():', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Hello!"</span>)', note:'Runs print — output appears immediately'},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># (implicit return None)</span>', note:'No return → Python returns None automatically'},
+    ],
+    steps:[
+      {caller:3,fn:-1,mem:{},out:'',arrow:'',explain:'<strong>greet()</strong> is called. Python jumps from the caller into the function body.'},
+      {caller:3,fn:1,mem:{},out:'Hello!',arrow:'call',explain:'Inside the function: <strong>print("Hello!")</strong> runs and outputs "Hello!" immediately.'},
+      {caller:3,fn:2,mem:{},out:'Hello!',arrow:'',explain:'No <strong>return</strong> statement found — Python automatically returns <strong>None</strong>.'},
+      {caller:4,fn:-1,mem:{result:'None'},out:'Hello!',arrow:'return',explain:'Back in the caller: <strong>result = greet()</strong> stores the return value — which is <strong>None</strong>.'},
+      {caller:5,fn:-1,mem:{result:'None'},out:'Hello!\nNone',arrow:'',explain:'<strong>print(result)</strong> outputs <strong>None</strong>. Functions without return always hand back None.'},
+    ]
+  },
+  {
+    title:"Scenario 2 — return a value",
+    caller:[
+      {code:'<span class="kw">def</span> <span class="fn">area_circle</span>(radius):', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="num">3.14</span> * radius ** <span class="num">2</span>', note:''},
+      {code:'', note:''},
+      {code:'result = <span class="fn">area_circle</span>(<span class="num">5</span>)', note:'Call with argument 5 → radius = 5'},
+      {code:'<span class="kw">print</span>(result)', note:'Print the returned value'},
+    ],
+    fn:[
+      {code:'<span class="kw">def</span> <span class="fn">area_circle</span>(radius):', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="num">3.14</span> * radius ** <span class="num">2</span>', note:'Computes and returns 78.5'},
+    ],
+    steps:[
+      {caller:3,fn:-1,mem:{},out:'',arrow:'',explain:'<strong>area_circle(5)</strong> is called. The argument <strong>5</strong> is passed in.'},
+      {caller:3,fn:0,mem:{radius:'5'},out:'',arrow:'call',explain:'Python enters the function. The parameter <strong>radius</strong> is bound to the value <strong>5</strong>.'},
+      {caller:3,fn:1,mem:{radius:'5'},out:'',arrow:'',explain:'<strong>return 3.14 * 5² = 78.5</strong>. The computed value is handed back to the caller.'},
+      {caller:3,fn:-1,mem:{radius:'5 (freed)',result:'78.5'},out:'',arrow:'return',explain:'Function exits. Local variable <strong>radius</strong> is destroyed. Caller receives <strong>78.5</strong>.'},
+      {caller:4,fn:-1,mem:{result:'78.5'},out:'78.5',arrow:'',explain:'<strong>print(result)</strong> outputs <strong>78.5</strong>. The return value was successfully captured and used.'},
+    ]
+  },
+  {
+    title:"Scenario 3 — dead code after return",
+    caller:[
+      {code:'<span class="kw">def</span> <span class="fn">abc</span>():', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="num">5</span>', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Never runs"</span>)', note:'dead code'},
+      {code:'', note:''},
+      {code:'a = <span class="fn">abc</span>()', note:''},
+      {code:'<span class="kw">print</span>(a)', note:''},
+    ],
+    fn:[
+      {code:'<span class="kw">def</span> <span class="fn">abc</span>():', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="num">5</span>&nbsp;&nbsp;&nbsp;<span class="cm"># ← exits HERE</span>', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Never runs"</span>)&nbsp;<span class="cm"># ⚠ DEAD</span>', note:'dead'},
+    ],
+    steps:[
+      {caller:4,fn:-1,mem:{},out:'',arrow:'',explain:'<strong>abc()</strong> is called. Python jumps into the function body.'},
+      {caller:4,fn:0,mem:{},out:'',arrow:'call',explain:'Inside the function. First line is <strong>return 5</strong>.'},
+      {caller:4,fn:1,mem:{},out:'',arrow:'',explain:'<strong>return 5</strong> is hit — Python immediately exits the function. The next line is NEVER reached.'},
+      {caller:4,fn:2,mem:{},out:'',arrow:'',explain:'⚠ This line is <strong>dead code</strong>. It will never execute because return already exited.','err':true},
+      {caller:4,fn:-1,mem:{a:'5'},out:'',arrow:'return',explain:'Back in the caller: <strong>a = 5</strong> (the returned value). Local scope is destroyed.'},
+      {caller:5,fn:-1,mem:{a:'5'},out:'5',arrow:'',explain:'<strong>print(a)</strong> outputs <strong>5</strong>. Key rule: <em>return ends execution immediately</em>.'},
+    ]
+  },
+  {
+    title:"Scenario 4 — Quiz 4: return 0",
+    caller:[
+      {code:'<span class="kw">def</span> <span class="fn">solve</span>(a, b):', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Function Started"</span>)', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="num">0</span>', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;c = a + b', note:'dead'},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Function Ends"</span>)', note:'dead'},
+      {code:'', note:''},
+      {code:'c = <span class="fn">solve</span>(<span class="num">2</span>, <span class="num">3</span>)', note:''},
+      {code:'<span class="kw">print</span>(c)', note:''},
+    ],
+    fn:[
+      {code:'<span class="kw">def</span> <span class="fn">solve</span>(a, b):', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Function Started"</span>)', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="num">0</span>&nbsp;&nbsp;<span class="cm"># exits here!</span>', note:''},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;c = a + b&nbsp;&nbsp;<span class="cm"># ⚠ dead</span>', note:'dead'},
+      {code:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Function Ends"</span>)&nbsp;<span class="cm"># ⚠ dead</span>', note:'dead'},
+    ],
+    steps:[
+      {caller:6,fn:-1,mem:{},out:'',arrow:'',explain:'<strong>solve(2, 3)</strong> is called with arguments 2 and 3.'},
+      {caller:6,fn:0,mem:{a:'2',b:'3'},out:'',arrow:'call',explain:'Inside <strong>solve</strong>: parameters <strong>a=2</strong> and <strong>b=3</strong> are set.'},
+      {caller:6,fn:1,mem:{a:'2',b:'3'},out:'Function Started',arrow:'',explain:'<strong>print("Function Started")</strong> runs — this is the only print that will appear.'},
+      {caller:6,fn:2,mem:{a:'2',b:'3'},out:'Function Started',arrow:'',explain:'<strong>return 0</strong> is hit. Python exits the function IMMEDIATELY — no further lines run.'},
+      {caller:6,fn:3,mem:{a:'2',b:'3'},out:'Function Started',arrow:'',explain:'⚠ <strong>c = a + b</strong> is dead code — never reached.','err':true},
+      {caller:6,fn:4,mem:{a:'2',b:'3'},out:'Function Started',arrow:'',explain:'⚠ <strong>print("Function Ends")</strong> is dead code — never reached.','err':true},
+      {caller:6,fn:-1,mem:{c:'0'},out:'Function Started',arrow:'return',explain:'Back in the caller: <strong>c = 0</strong> (the returned value 0).'},
+      {caller:7,fn:-1,mem:{c:'0'},out:'Function Started\n0',arrow:'',explain:'<strong>print(c)</strong> outputs <strong>0</strong>. Total output: "Function Started" then "0". Not "Function Ends"!'},
+    ]
+  }
+];
+
+let scenario=0, stepIdx=0, steps=[];
+
+function loadScenario(i){
+  scenario=i; stepIdx=0;
+  document.querySelectorAll('.sc-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
+  const sc=SCENARIOS[i]; steps=sc.steps;
+  document.getElementById('stageTitle').textContent=sc.title;
+  renderCode('callerCode',sc.caller,[]);
+  renderCode('fnCode',sc.fn,[]);
+  document.getElementById('memoryBox').innerHTML='<div class="memory-box"><div class="mem-label">Variables</div><div style="color:#4a5570;font-size:13px;font-style:italic">— empty —</div></div>';
+  document.getElementById('outputBox').textContent='';
+  document.getElementById('callArrow').className='call-arrow';
+  document.getElementById('returnArrow').className='return-arrow';
+  document.getElementById('explanation').innerHTML='Press <strong>Next →</strong> to start stepping through the execution.';
+  updateControls();
+}
+
+function renderCode(id,lines,activeSet){
+  const el=document.getElementById(id);
+  el.innerHTML=lines.map((l,i)=>{
+    const cls=activeSet.includes(i)?'active':activeSet.includes('done'+i)?'done':'';
+    const dead=l.note==='dead'&&activeSet.includes('dead'+i)?'error':'';
+    return`<div class="code-line ${cls} ${dead}"><span class="arrow-indicator">▶</span><span>${l.code||'&nbsp;'}</span></div>`;
+  }).join('');
+}
+
+function applyStep(s, sc){
+  const callerLines=sc.caller, fnLines=sc.fn;
+  // caller highlight
+  const cActive=s.caller>=0?[s.caller]:[];
+  document.getElementById('callerCode').querySelectorAll('.code-line').forEach((el,i)=>{
+    el.className='code-line'+(cActive.includes(i)?' active':i<(s.caller>=0?s.caller:999)?' done':'');
+  });
+  // fn highlight
+  const fnActive=s.fn>=0?[s.fn]:[];
+  document.getElementById('fnCode').querySelectorAll('.code-line').forEach((el,i)=>{
+    const isDead=fnLines[i]&&fnLines[i].note==='dead';
+    const isErr=s.err&&fnActive.includes(i);
+    el.className='code-line'+(isErr?' error':fnActive.includes(i)?' active':i<(s.fn>=0?s.fn:999)&&!isDead?' done':'');
+  });
+  // memory
+  const mem=s.mem||{};
+  const keys=Object.keys(mem);
+  document.getElementById('memoryBox').innerHTML=keys.length===0
+    ?'<div class="memory-box"><div class="mem-label">Variables</div><div style="color:#4a5570;font-size:13px;font-style:italic">— empty —</div></div>'
+    :'<div class="memory-box lit"><div class="mem-label">Variables</div>'+keys.map(k=>`<div class="mem-row"><span class="mem-var">${k}</span><span class="mem-val ${mem[k].includes('freed')?'gray':''}">${mem[k]}</span></div>`).join('')+'</div>';
+  // output
+  document.getElementById('outputBox').textContent=s.out||'';
+  // arrows
+  document.getElementById('callArrow').className='call-arrow'+(s.arrow==='call'?' show':'');
+  document.getElementById('returnArrow').className='return-arrow'+(s.arrow==='return'?' show':'');
+  // explanation
+  document.getElementById('explanation').innerHTML=s.explain||'';
+}
+
+function step(dir){
+  stepIdx=Math.max(0,Math.min(steps.length-1,stepIdx+dir));
+  applyStep(steps[stepIdx],SCENARIOS[scenario]);
+  updateControls();
+}
+
+function updateControls(){
+  document.getElementById('prevBtn').disabled=stepIdx===0;
+  document.getElementById('nextBtn').disabled=stepIdx>=steps.length-1;
+  document.getElementById('stepCounter').textContent=`Step ${stepIdx+1} / ${steps.length}`;
+}
+
+function reset(){loadScenario(scenario)}
+
+loadScenario(0);
+</script>
+</body>
+</html>

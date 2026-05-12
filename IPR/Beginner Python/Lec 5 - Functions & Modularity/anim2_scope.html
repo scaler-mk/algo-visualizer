@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Variable Scope</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e0e4f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px}
+h2{font-size:20px;font-weight:700;color:#fff;margin-bottom:6px;text-align:center}
+.subtitle{font-size:13px;color:#6a7299;margin-bottom:20px;text-align:center}
+
+.scenarios{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;justify-content:center}
+.sc-btn{padding:8px 18px;border-radius:20px;border:1px solid #2a3250;background:#161b27;color:#8090c0;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.sc-btn.active{background:#1e3a6e;border-color:#3a6ec0;color:#a0c0ff}
+
+.main{width:100%;max-width:860px;display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+
+/* Code panel */
+.code-panel{background:#161b27;border:1px solid #252d42;border-radius:14px;overflow:hidden}
+.panel-hdr{padding:12px 16px;background:#12161f;border-bottom:1px solid #1e2535;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#5a6480}
+.code-body{padding:16px}
+.cl{font-family:'Cascadia Code','Fira Code',monospace;font-size:13px;line-height:1.9;padding:3px 10px;border-radius:6px;transition:all .3s;color:#5a6480;display:flex;align-items:center;gap:8px}
+.cl.active{background:#1a2a4a;color:#c8d8ff;border-left:3px solid #4a7fff}
+.cl.done{color:#4060a0;border-left:3px solid transparent}
+.cl.err{background:#2a1018;color:#ff8090;border-left:3px solid #e04050}
+.arr{font-size:11px;opacity:0;transition:opacity .3s;color:#4a7fff}
+.cl.active .arr{opacity:1}
+.kw{color:#a78bfa}.fn{color:#34d399}.nm{color:#f59e0b}.st{color:#60a5fa}.cm{color:#445070}
+
+/* Scope visualizer */
+.scope-panel{background:#161b27;border:1px solid #252d42;border-radius:14px;overflow:hidden}
+.scope-body{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:320px}
+
+/* Global zone */
+.global-zone{border:2px solid #3a6ec0;border-radius:12px;padding:14px;background:#0e1630;position:relative;transition:all .4s}
+.global-zone.lit{border-color:#60a0ff;background:#0f1d40;box-shadow:0 0 0 2px rgba(60,120,255,.15)}
+.zone-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.zone-badge{padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700}
+.var-row{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:6px;margin-bottom:4px;font-size:13px;font-family:monospace;transition:all .3s}
+.var-row.lit{background:#1a2a4a}
+.var-name{color:#94a3b8}.var-val{color:#f59e0b;font-weight:700}
+.var-val.none{color:#4a5570;font-style:italic}
+.var-val.err{color:#ff8090}
+
+/* Local zone */
+.local-zone{border:2px dashed #7c3aed;border-radius:12px;padding:14px;background:#150e28;position:relative;transition:all .4s}
+.local-zone.lit{border-color:#a78bfa;background:#1a1035;box-shadow:0 0 0 2px rgba(120,60,255,.15)}
+.local-zone.dead{opacity:.35;border-style:dashed}
+
+.poof{text-align:center;padding:12px;font-size:13px;color:#a78bfa;font-style:italic;display:none}
+.poof.show{display:block}
+
+/* Error message */
+.err-msg{background:#1e0a10;border:1px solid #5a1520;border-radius:8px;padding:10px 14px;color:#ff8090;font-size:12px;font-family:monospace;display:none;margin-top:8px}
+.err-msg.show{display:block}
+
+/* Bottom section */
+.bottom{width:100%;max-width:860px;display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.output-panel{background:#161b27;border:1px solid #252d42;border-radius:14px;overflow:hidden}
+.output-body{padding:12px 14px;font-family:monospace;font-size:13px;min-height:72px;color:#34d399;line-height:1.8}
+
+.explanation{width:100%;max-width:860px;background:#0e1420;border:1px solid #1e2a40;border-radius:10px;padding:14px 18px;font-size:14px;line-height:1.7;color:#8090b8;min-height:54px;transition:all .3s}
+.explanation strong{color:#c8d8ff}
+
+.controls{display:flex;align-items:center;gap:12px;margin-top:14px;justify-content:center}
+.btn{padding:10px 24px;border-radius:8px;border:1px solid #2a3250;background:#1a2035;color:#8090c0;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn:hover{background:#1e2a4a;color:#a0b8e0}
+.btn.primary{background:linear-gradient(135deg,#1e3a8a,#2d5ac0);border-color:#3a6ec0;color:#c0d8ff}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.step-counter{font-size:13px;color:#5a6480;min-width:80px;text-align:center}
+</style>
+</head>
+<body>
+<h2>Variable Scope — Local vs Global</h2>
+<p class="subtitle">Watch which variables are visible where, and what happens when a function ends</p>
+
+<div class="scenarios">
+  <button class="sc-btn active" onclick="load(0)">① Local vs global read</button>
+  <button class="sc-btn" onclick="load(1)">② Local shadows global</button>
+  <button class="sc-btn" onclick="load(2)">③ global keyword</button>
+</div>
+
+<div class="main">
+  <div class="code-panel">
+    <div class="panel-hdr">Python code</div>
+    <div class="code-body" id="codeEl"></div>
+  </div>
+  <div class="scope-panel">
+    <div class="panel-hdr">Scope visualizer</div>
+    <div class="scope-body">
+      <div class="global-zone" id="globalZone">
+        <div class="zone-label" style="color:#60a0ff">
+          <span class="zone-badge" style="background:#0e1840;color:#60a0ff;border:1px solid #2a4a90">Global scope</span>
+          <span style="font-size:11px;color:#3a5080;font-style:italic">— visible everywhere</span>
+        </div>
+        <div id="globalVars"></div>
+        <div class="err-msg" id="errMsg"></div>
+      </div>
+      <div class="local-zone dead" id="localZone">
+        <div class="zone-label" style="color:#a78bfa">
+          <span class="zone-badge" style="background:#1a0e30;color:#a78bfa;border:1px solid #5a3a90">Local scope — area_circle()</span>
+          <span style="font-size:11px;color:#5a3a80;font-style:italic">— disappears on exit</span>
+        </div>
+        <div id="localVars"><div style="color:#3a2a60;font-size:13px;font-style:italic">— not called yet —</div></div>
+        <div class="poof" id="poof">💨 local variables freed from memory</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom">
+  <div class="output-panel">
+    <div class="panel-hdr">Output</div>
+    <div class="output-body" id="outputEl">—</div>
+  </div>
+  <div class="output-panel">
+    <div class="panel-hdr">Key observation</div>
+    <div class="output-body" id="keyObs" style="color:#a78bfa">—</div>
+  </div>
+</div>
+
+<div class="explanation" id="explanation">Press <strong>Next →</strong> to step through execution.</div>
+<div class="controls">
+  <button class="btn" id="prevBtn" onclick="step(-1)" disabled>← Prev</button>
+  <span class="step-counter" id="stepCtr">Step 0 / 0</span>
+  <button class="btn primary" id="nextBtn" onclick="step(1)">Next →</button>
+  <button class="btn" onclick="reset()">↺ Reset</button>
+</div>
+
+<script>
+const SCENARIOS=[
+{
+  title:'① Local vs global — who can see what?',
+  localLabel:'area_circle(radius)',
+  code:[
+    {t:'<span class="nm">a</span> = <span class="nm">1</span>',s:'global'},
+    {t:'<span class="kw">def</span> <span class="fn">area_circle</span>(radius):',s:'def'},
+    {t:'&nbsp;&nbsp;&nbsp;&nbsp;area = <span class="nm">3.14</span> * radius**<span class="nm">2</span>',s:'fn'},
+    {t:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(a)&nbsp;&nbsp;<span class="cm"># global readable inside</span>',s:'fn'},
+    {t:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> area',s:'fn'},
+    {t:'b = <span class="fn">area_circle</span>(<span class="nm">10</span>)',s:'call'},
+    {t:'<span class="kw">print</span>(a)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># ✅ global</span>',s:'global'},
+    {t:'<span class="kw">print</span>(area)&nbsp;&nbsp;&nbsp;<span class="cm"># ❌ NameError</span>',s:'err'},
+    {t:'<span class="kw">print</span>(b)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># ✅ global</span>',s:'global'},
+  ],
+  steps:[
+    {ci:0,g:{a:'1'},l:null,o:'',obs:'a is defined globally — visible from ANYWHERE',dead:false,poof:false,err:'',ex:'<strong>a = 1</strong> is created in global scope. It can be read from inside any function.'},
+    {ci:5,g:{a:'1'},l:{radius:'10'},o:'',obs:'Function called — local scope CREATED',dead:false,poof:false,err:'',ex:'<strong>area_circle(10)</strong> is called. A new local scope is created. Parameter <strong>radius = 10</strong>.'},
+    {ci:2,g:{a:'1'},l:{radius:'10',area:'314.0'},o:'',obs:'area lives only inside the function',dead:false,poof:false,err:'',ex:'<strong>area = 314.0</strong> is created locally. It only exists inside <strong>area_circle</strong>.'},
+    {ci:3,g:{a:'1'},l:{radius:'10',area:'314.0'},o:'1',obs:'Globals are readable from inside functions',dead:false,poof:false,err:'',ex:'<strong>print(a)</strong> inside the function — works! Global variables are readable from inside any function.'},
+    {ci:4,g:{a:'1',b:'314.0'},l:null,o:'1',obs:'Function returns → local scope DESTROYED',dead:false,poof:true,err:'',ex:'<strong>return area</strong> exits the function. The local scope (radius, area) is FREED from memory. <strong>b</strong> gets 314.0.'},
+    {ci:6,g:{a:'1',b:'314.0'},l:null,o:'1\n1',obs:'a is still alive — it is global',dead:false,poof:false,err:'',ex:'<strong>print(a)</strong> — works fine. Global variable <strong>a</strong> was never touched by the function.'},
+    {ci:7,g:{a:'1',b:'314.0'},l:null,o:'1\n1\nNameError: area not defined',obs:'❌ area is gone — it was LOCAL',dead:false,poof:false,err:"NameError: name 'area' is not defined",ex:'<strong>print(area)</strong> — ❌ NameError! <strong>area</strong> only existed inside the function and was freed when it returned.'},
+    {ci:8,g:{a:'1',b:'314.0'},l:null,o:'1\n1\n[NameError]\n314.0',obs:'b is global — returned value was captured',dead:false,poof:false,err:'',ex:'<strong>print(b)</strong> — works fine. <strong>b = 314.0</strong> was assigned in global scope when we called <strong>area_circle(10)</strong>.'},
+  ]
+},
+{
+  title:'② Local shadows global — two different "a"s',
+  localLabel:'abc()',
+  code:[
+    {t:'<span class="nm">a</span> = <span class="nm">1</span>&nbsp;&nbsp;&nbsp;<span class="cm"># global a</span>',s:'global'},
+    {t:'<span class="kw">def</span> <span class="fn">abc</span>():',s:'def'},
+    {t:'&nbsp;&nbsp;&nbsp;&nbsp;a = <span class="nm">2</span>&nbsp;&nbsp;<span class="cm"># NEW local a</span>',s:'fn'},
+    {t:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(a)&nbsp;&nbsp;<span class="cm"># which a?</span>',s:'fn'},
+    {t:'<span class="fn">abc</span>()',s:'call'},
+    {t:'<span class="kw">print</span>(a)&nbsp;&nbsp;<span class="cm"># which a now?</span>',s:'global'},
+  ],
+  steps:[
+    {ci:0,g:{a:'1'},l:null,o:'',obs:'Global a = 1',dead:false,poof:false,err:'',ex:'<strong>a = 1</strong> is created in global scope.'},
+    {ci:4,g:{a:'1'},l:{a:'(being created...)'},o:'',obs:'abc() called — new local scope begins',dead:false,poof:false,err:'',ex:'<strong>abc()</strong> is called. A fresh local scope is created for this function.'},
+    {ci:2,g:{a:'1'},l:{a:'2'},o:'',obs:'LOCAL a = 2 — a completely separate variable!',dead:false,poof:false,err:'',ex:'<strong>a = 2</strong> inside the function creates a <em>new local</em> variable also called <strong>a</strong>. It shadows — but does NOT change — the global a.'},
+    {ci:3,g:{a:'1'},l:{a:'2'},o:'2',obs:'print(a) uses the LOCAL a',dead:false,poof:false,err:'',ex:'<strong>print(a)</strong> prints <strong>2</strong> — the local a. Python always looks in local scope first.'},
+    {ci:4,g:{a:'1'},l:null,o:'2',obs:'Function ends — local a is GONE',dead:false,poof:true,err:'',ex:'Function returns. The local <strong>a = 2</strong> is freed. The global <strong>a = 1</strong> was never touched.'},
+    {ci:5,g:{a:'1'},l:null,o:'2\n1',obs:'Global a is still 1 — untouched!',dead:false,poof:false,err:'',ex:'<strong>print(a)</strong> outside prints <strong>1</strong>. The global was never modified. Two separate variables shared the same name.'},
+  ]
+},
+{
+  title:'③ global keyword — modifying global from inside',
+  localLabel:'abc()',
+  code:[
+    {t:'<span class="nm">a</span> = <span class="nm">1</span>',s:'global'},
+    {t:'<span class="kw">def</span> <span class="fn">abc</span>():',s:'def'},
+    {t:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">global</span> a&nbsp;&nbsp;<span class="cm"># declare intent</span>',s:'fn'},
+    {t:'&nbsp;&nbsp;&nbsp;&nbsp;a = <span class="nm">2</span>&nbsp;&nbsp;&nbsp;<span class="cm"># now modifies global</span>',s:'fn'},
+    {t:'&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">print</span>(a)',s:'fn'},
+    {t:'<span class="fn">abc</span>()',s:'call'},
+    {t:'<span class="kw">print</span>(a)&nbsp;&nbsp;<span class="cm"># what now?</span>',s:'global'},
+  ],
+  steps:[
+    {ci:0,g:{a:'1'},l:null,o:'',obs:'Global a = 1',dead:false,poof:false,err:'',ex:'<strong>a = 1</strong> in global scope.'},
+    {ci:5,g:{a:'1'},l:{},o:'',obs:'abc() called',dead:false,poof:false,err:'',ex:'<strong>abc()</strong> is called. Local scope created.'},
+    {ci:2,g:{a:'1'},l:{},o:'',obs:'"global a" — tells Python: use the REAL global a',dead:false,poof:false,err:'',ex:'<strong>global a</strong> tells Python: "when I say a inside this function, I mean the global a — not a new local one."'},
+    {ci:3,g:{a:'2'},l:{},o:'',obs:'GLOBAL a is now 2!',dead:false,poof:false,err:'',ex:'<strong>a = 2</strong> now modifies the actual global variable because of the <strong>global</strong> declaration. No new local a is created.'},
+    {ci:4,g:{a:'2'},l:{},o:'2',obs:'Prints global a = 2',dead:false,poof:false,err:'',ex:'<strong>print(a)</strong> prints <strong>2</strong> — this is the same a as in global scope.'},
+    {ci:5,g:{a:'2'},l:null,o:'2',obs:'Function ends — global a remains 2',dead:false,poof:true,err:'',ex:'Function exits. Unlike scenario 2, there is no separate local a to destroy. The global a was changed.'},
+    {ci:6,g:{a:'2'},l:null,o:'2\n2',obs:'Global a is now permanently 2!',dead:false,poof:false,err:'',ex:'<strong>print(a)</strong> prints <strong>2</strong>. The global variable was mutated by the function. Use global keyword sparingly — it makes code harder to reason about.'},
+  ]
+}
+];
+
+let sc=0,si=0;
+
+function load(i){
+  sc=i; si=0;
+  document.querySelectorAll('.sc-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
+  const s=SCENARIOS[i];
+  document.getElementById('localZone').querySelector('.zone-badge').textContent='Local scope — '+s.localLabel;
+  renderCode(s.code,[]);
+  renderScope({},{},false,false,'');
+  document.getElementById('outputEl').textContent='—';
+  document.getElementById('keyObs').textContent='—';
+  document.getElementById('explanation').innerHTML='Press <strong>Next →</strong> to step through.';
+  upd();
+}
+
+function renderCode(lines,ais){
+  document.getElementById('codeEl').innerHTML=lines.map((l,i)=>`
+    <div class="cl ${ais.includes(i)?'active':ais.includes('e'+i)?'err':''}">
+      <span class="arr">▶</span><span>${l.t}</span>
+    </div>`).join('');
+}
+
+function renderScope(g,l,dead,poof,err){
+  const gz=document.getElementById('globalZone');
+  const lz=document.getElementById('localZone');
+  const gv=document.getElementById('globalVars');
+  const lv=document.getElementById('localVars');
+  // global
+  gz.classList.toggle('lit',Object.keys(g).length>0);
+  gv.innerHTML=Object.keys(g).length===0
+    ?'<div style="color:#3a5070;font-size:13px;font-style:italic">— empty —</div>'
+    :Object.keys(g).map(k=>`<div class="var-row lit"><span class="var-name">${k}</span><span class="var-val">${g[k]}</span></div>`).join('');
+  // local
+  const lAlive=l!==null;
+  lz.className='local-zone'+(lAlive?' lit':' dead');
+  if(lAlive){
+    lv.innerHTML=Object.keys(l).length===0
+      ?'<div style="color:#5a3a80;font-size:13px;font-style:italic">— function just entered —</div>'
+      :Object.keys(l).map(k=>`<div class="var-row lit"><span class="var-name">${k}</span><span class="var-val">${l[k]}</span></div>`).join('');
+  } else {
+    lv.innerHTML='<div style="color:#3a2a60;font-size:13px;font-style:italic">— not active —</div>';
+  }
+  document.getElementById('poof').className='poof'+(poof?' show':'');
+  const em=document.getElementById('errMsg');
+  em.textContent=err||'';
+  em.className='err-msg'+(err?' show':'');
+}
+
+function step(d){
+  si=Math.max(0,Math.min(SCENARIOS[sc].steps.length-1,si+d));
+  const s=SCENARIOS[sc].steps[si];
+  const code=SCENARIOS[sc].code;
+  // code highlight
+  document.getElementById('codeEl').innerHTML=code.map((l,i)=>{
+    const act=i===s.ci;
+    const isErr=s.err&&i===s.ci;
+    return`<div class="cl ${isErr?'err':act?'active':i<s.ci?'done':''}"><span class="arr">▶</span><span>${l.t}</span></div>`;
+  }).join('');
+  renderScope(s.g,s.l,s.dead,s.poof,s.err);
+  document.getElementById('outputEl').textContent=s.o||'—';
+  document.getElementById('keyObs').textContent=s.obs||'—';
+  document.getElementById('explanation').innerHTML=s.ex||'';
+  upd();
+}
+
+function upd(){
+  const n=SCENARIOS[sc].steps.length;
+  document.getElementById('prevBtn').disabled=si===0;
+  document.getElementById('nextBtn').disabled=si>=n-1;
+  document.getElementById('stepCtr').textContent=`Step ${si+1} / ${n}`;
+}
+
+function reset(){load(sc)}
+load(0);
+</script>
+</body>
+</html>
