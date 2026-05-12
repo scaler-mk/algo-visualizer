@@ -84,12 +84,16 @@
     line-height: 1.85;
     border: 1px solid var(--line);
     margin-bottom: 16px;
+    white-space: pre;
   }
   .cl {
+    display: block;
     padding: 1px 6px;
     border-radius: 3px;
     transition: all 0.3s;
     opacity: 0.4;
+    white-space: pre;
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
   }
   .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
   .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
@@ -356,16 +360,7 @@
   <div class="stage">
     <div class="panel">
       <div class="panel-title">CODE</div>
-      <div class="codebox">
-<div class="cl" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</div>
-<div class="cl" id="c2">  <span class="kw">int</span> result = a + b;</div>
-<div class="cl" id="c3">  <span class="kw">return</span> result;</div>
-<div class="cl" id="c4">}</div>
-<div class="cl" id="c5"> </div>
-<div class="cl" id="c6"><span class="kw">int</span> x = <span id="vX">15</span>, y = <span id="vY">5</span>;</div>
-<div class="cl" id="c7"><span class="kw">int</span> total = <span class="meth">sum</span>(x, y);</div>
-<div class="cl" id="c8">System.out.println(total);</div>
-      </div>
+      <div class="codebox"><span class="cl" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</span><span class="cl" id="c2">    <span class="kw">int</span> result = a + b;</span><span class="cl" id="c3">    <span class="kw">return</span> result;</span><span class="cl" id="c4">}</span><span class="cl" id="c5"> </span><span class="cl" id="c6"><span class="kw">int</span> x = <span id="vX">15</span>, y = <span id="vY">5</span>;</span><span class="cl" id="c7"><span class="kw">int</span> total = <span class="meth">sum</span>(x, y);</span><span class="cl" id="c8">System.out.println(total);</span></div>
 
       <div class="step-trace" id="stepTrace">
         <span id="traceText">— press Step to begin —</span>

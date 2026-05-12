@@ -84,12 +84,16 @@
     line-height: 1.85;
     border: 1px solid var(--line);
     margin-bottom: 16px;
+    white-space: pre;
   }
   .cl {
+    display: block;
     padding: 1px 6px;
     border-radius: 3px;
     transition: all 0.3s;
     opacity: 0.4;
+    white-space: pre;
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
   }
   .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
   .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
@@ -304,7 +308,10 @@
 </div>
 
 <script>
-  // Three scenarios mirroring quizzes
+  // Three scenarios mirroring quizzes.
+  // Code views use <span class="cl"> with display:block and white-space:pre,
+  // concatenated as a single string with NO newlines between spans so
+  // indentation comes only from leading spaces inside each line.
   const scenarios = {
     1: { // sum(a, 10)
       label: 'sum(a, 10)',
@@ -312,13 +319,13 @@
       arg1: 'a', arg2: '10',
       paramA: 15, paramB: 10,
       result: 25,
-      code: `
-<div class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</div>
-<div class="cl scope-fn" id="c2">  <span class="kw">return</span> a + b;</div>
-<div class="cl" id="c3">}</div>
-<div class="cl" id="c4"> </div>
-<div class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</div>
-<div class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(a, <span class="num">10</span>));</div>`
+      code:
+        '<span class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</span>' +
+        '<span class="cl scope-fn" id="c2">    <span class="kw">return</span> a + b;</span>' +
+        '<span class="cl" id="c3">}</span>' +
+        '<span class="cl" id="c4"> </span>' +
+        '<span class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</span>' +
+        '<span class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(a, <span class="num">10</span>));</span>'
     },
     2: { // sum(6, 10)
       label: 'sum(6, 10)',
@@ -326,13 +333,13 @@
       arg1: '6', arg2: '10',
       paramA: 6, paramB: 10,
       result: 16,
-      code: `
-<div class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</div>
-<div class="cl scope-fn" id="c2">  <span class="kw">return</span> a + b;</div>
-<div class="cl" id="c3">}</div>
-<div class="cl" id="c4"> </div>
-<div class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</div>
-<div class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(<span class="num">6</span>, <span class="num">10</span>));</div>`
+      code:
+        '<span class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</span>' +
+        '<span class="cl scope-fn" id="c2">    <span class="kw">return</span> a + b;</span>' +
+        '<span class="cl" id="c3">}</span>' +
+        '<span class="cl" id="c4"> </span>' +
+        '<span class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</span>' +
+        '<span class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(<span class="num">6</span>, <span class="num">10</span>));</span>'
     },
     3: { // sum(20, b)
       label: 'sum(20, b)',
@@ -340,13 +347,13 @@
       arg1: '20', arg2: 'b',
       paramA: 20, paramB: 5,
       result: 25,
-      code: `
-<div class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</div>
-<div class="cl scope-fn" id="c2">  <span class="kw">return</span> a + b;</div>
-<div class="cl" id="c3">}</div>
-<div class="cl" id="c4"> </div>
-<div class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</div>
-<div class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(<span class="num">20</span>, b));</div>`
+      code:
+        '<span class="cl scope-main" id="c1"><span class="kw">static int</span> <span class="meth">sum</span>(<span class="kw">int</span> a, <span class="kw">int</span> b) {</span>' +
+        '<span class="cl scope-fn" id="c2">    <span class="kw">return</span> a + b;</span>' +
+        '<span class="cl" id="c3">}</span>' +
+        '<span class="cl" id="c4"> </span>' +
+        '<span class="cl scope-main" id="c5"><span class="kw">int</span> a = <span class="num">15</span>, b = <span class="num">5</span>;</span>' +
+        '<span class="cl scope-main" id="c6">System.out.println(<span class="meth">sum</span>(<span class="num">20</span>, b));</span>'
     }
   };
 

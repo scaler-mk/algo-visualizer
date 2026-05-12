@@ -136,12 +136,16 @@
     margin-bottom: 16px;
     max-height: 460px;
     overflow-y: auto;
+    white-space: pre;
   }
   .cl {
+    display: block;
     padding: 1px 6px;
     border-radius: 3px;
     transition: all 0.3s;
     opacity: 0.45;
+    white-space: pre;
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
   }
   .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
   .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
@@ -385,31 +389,34 @@
 </div>
 
 <script>
-  const codeMono = `
-<div class="cl" id="m1"><span class="kw">static void</span> <span class="meth">primeNumbers</span>(<span class="kw">int</span> n) {</div>
-<div class="cl" id="m2">  <span class="kw">for</span> (<span class="kw">int</span> num = <span class="num">1</span>; num &lt;= n; num++) {</div>
-<div class="cl" id="m3">    <span class="kw">int</span> factors = <span class="num">0</span>;</div>
-<div class="cl" id="m4">    <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= num; i++) {</div>
-<div class="cl" id="m5">      <span class="kw">if</span> (num % i == <span class="num">0</span>) factors++;</div>
-<div class="cl" id="m6">    }</div>
-<div class="cl" id="m7">    <span class="kw">if</span> (factors == <span class="num">2</span>) System.out.print(num + <span class="str">" "</span>);</div>
-<div class="cl" id="m8">  }</div>
-<div class="cl" id="m9">}</div>`;
+  // Code views — single concatenated string of <span class="cl"> elements
+  // with no newlines between them. Each line's leading spaces define the
+  // indentation, preserved by white-space: pre.
+  const codeMono =
+    '<span class="cl" id="m1"><span class="kw">static void</span> <span class="meth">primeNumbers</span>(<span class="kw">int</span> n) {</span>' +
+    '<span class="cl" id="m2">    <span class="kw">for</span> (<span class="kw">int</span> num = <span class="num">1</span>; num &lt;= n; num++) {</span>' +
+    '<span class="cl" id="m3">        <span class="kw">int</span> factors = <span class="num">0</span>;</span>' +
+    '<span class="cl" id="m4">        <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= num; i++) {</span>' +
+    '<span class="cl" id="m5">            <span class="kw">if</span> (num % i == <span class="num">0</span>) factors++;</span>' +
+    '<span class="cl" id="m6">        }</span>' +
+    '<span class="cl" id="m7">        <span class="kw">if</span> (factors == <span class="num">2</span>) System.out.print(num + <span class="str">" "</span>);</span>' +
+    '<span class="cl" id="m8">    }</span>' +
+    '<span class="cl" id="m9">}</span>';
 
-  const codeDecomp = `
-<div class="cl in-helper" id="d1"><span class="kw">static boolean</span> <span class="meth">isPrime</span>(<span class="kw">int</span> num) {</div>
-<div class="cl in-helper" id="d2">  <span class="kw">int</span> factors = <span class="num">0</span>;</div>
-<div class="cl in-helper" id="d3">  <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= num; i++) {</div>
-<div class="cl in-helper" id="d4">    <span class="kw">if</span> (num % i == <span class="num">0</span>) factors++;</div>
-<div class="cl in-helper" id="d5">  }</div>
-<div class="cl in-helper" id="d6">  <span class="kw">return</span> factors == <span class="num">2</span>;</div>
-<div class="cl in-helper" id="d7">}</div>
-<div class="cl" id="d8"> </div>
-<div class="cl in-outer" id="d9"><span class="kw">static void</span> <span class="meth">primeNumbers</span>(<span class="kw">int</span> n) {</div>
-<div class="cl in-outer" id="d10">  <span class="kw">for</span> (<span class="kw">int</span> num = <span class="num">1</span>; num &lt;= n; num++) {</div>
-<div class="cl in-outer" id="d11">    <span class="kw">if</span> (<span class="meth">isPrime</span>(num)) System.out.print(num + <span class="str">" "</span>);</div>
-<div class="cl in-outer" id="d12">  }</div>
-<div class="cl in-outer" id="d13">}</div>`;
+  const codeDecomp =
+    '<span class="cl in-helper" id="d1"><span class="kw">static boolean</span> <span class="meth">isPrime</span>(<span class="kw">int</span> num) {</span>' +
+    '<span class="cl in-helper" id="d2">    <span class="kw">int</span> factors = <span class="num">0</span>;</span>' +
+    '<span class="cl in-helper" id="d3">    <span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= num; i++) {</span>' +
+    '<span class="cl in-helper" id="d4">        <span class="kw">if</span> (num % i == <span class="num">0</span>) factors++;</span>' +
+    '<span class="cl in-helper" id="d5">    }</span>' +
+    '<span class="cl in-helper" id="d6">    <span class="kw">return</span> factors == <span class="num">2</span>;</span>' +
+    '<span class="cl in-helper" id="d7">}</span>' +
+    '<span class="cl" id="d8"> </span>' +
+    '<span class="cl in-outer" id="d9"><span class="kw">static void</span> <span class="meth">primeNumbers</span>(<span class="kw">int</span> n) {</span>' +
+    '<span class="cl in-outer" id="d10">    <span class="kw">for</span> (<span class="kw">int</span> num = <span class="num">1</span>; num &lt;= n; num++) {</span>' +
+    '<span class="cl in-outer" id="d11">        <span class="kw">if</span> (<span class="meth">isPrime</span>(num)) System.out.print(num + <span class="str">" "</span>);</span>' +
+    '<span class="cl in-outer" id="d12">    }</span>' +
+    '<span class="cl in-outer" id="d13">}</span>';
 
   let mode = 'mono';
   let N = 10;
