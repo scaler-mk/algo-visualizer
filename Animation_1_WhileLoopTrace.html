@@ -114,12 +114,16 @@
     line-height: 1.85;
     border: 1px solid var(--line);
     margin-bottom: 16px;
+    white-space: pre;
   }
   .cl {
+    display: block;
     padding: 2px 8px;
     border-radius: 3px;
     transition: all 0.3s;
     opacity: 0.4;
+    white-space: pre;
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
   }
   .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 6px; }
   .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 6px; }
@@ -275,8 +279,8 @@
       code: [
         '<span class="kw">int</span> count = <span class="num">1</span>;',
         '<span class="kw">while</span> (count &lt;= N) {',
-        '  System.out.print(count + <span class="str">" "</span>);',
-        '  count++;',
+        '    System.out.print(count + <span class="str">" "</span>);',
+        '    count++;',
         '}'
       ]
     },
@@ -292,8 +296,8 @@
       code: [
         '<span class="kw">int</span> count = N;',
         '<span class="kw">while</span> (count &gt;= <span class="num">1</span>) {',
-        '  System.out.print(count + <span class="str">" "</span>);',
-        '  count--;',
+        '    System.out.print(count + <span class="str">" "</span>);',
+        '    count--;',
         '}'
       ]
     },
@@ -308,8 +312,8 @@
       code: [
         '<span class="kw">int</span> count = <span class="num">1</span>;',
         '<span class="kw">while</span> (count &lt;= N) {',
-        '  System.out.print(count + <span class="str">" "</span>);',
-        '  count += <span class="num">2</span>;',
+        '    System.out.print(count + <span class="str">" "</span>);',
+        '    count += <span class="num">2</span>;',
         '}'
       ]
     }
@@ -428,7 +432,7 @@
     let html = '';
     p.code.forEach((line, i) => {
       const cls = highlightLines.includes(i) ? ' eval' : '';
-      html += `<div class="cl${cls}">${line}</div>`;
+      html += `<span class="cl${cls}">${line}</span>`;
     });
     cb.innerHTML = html;
   }
