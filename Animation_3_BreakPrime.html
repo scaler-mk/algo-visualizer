@@ -95,12 +95,16 @@
     line-height: 1.8;
     border: 1px solid var(--line);
     margin-bottom: 16px;
+    white-space: pre;
   }
   .cl {
+    display: block;
     padding: 1px 6px;
     border-radius: 3px;
     transition: all 0.3s;
     opacity: 0.4;
+    white-space: pre;
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
   }
   .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
   .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
@@ -244,19 +248,7 @@
   <div class="stage">
     <div class="panel">
       <div class="panel-title">CODE</div>
-      <div class="codebox">
-<div class="cl" id="c1"><span class="kw">int</span> divisorCount = <span class="num">0</span>;</div>
-<div class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {</div>
-<div class="cl" id="c3">  <span class="kw">if</span> (N % i == <span class="num">0</span>) {</div>
-<div class="cl" id="c4">    divisorCount++;</div>
-<div class="cl" id="c5">    <span class="kw">if</span> (divisorCount &gt; <span class="num">2</span>) {</div>
-<div class="cl" id="c6">      <span class="kw">break</span>; <span class="com">// exit early</span></div>
-<div class="cl" id="c7">    }</div>
-<div class="cl" id="c8">  }</div>
-<div class="cl" id="c9">}</div>
-<div class="cl" id="c10"><span class="kw">if</span> (divisorCount == <span class="num">2</span>) print(<span class="str">"prime"</span>);</div>
-<div class="cl" id="c11"><span class="kw">else</span> print(<span class="str">"not prime"</span>);</div>
-      </div>
+      <div class="codebox"><span class="cl" id="c1"><span class="kw">int</span> divisorCount = <span class="num">0</span>;</span><span class="cl" id="c2"><span class="kw">for</span> (<span class="kw">int</span> i = <span class="num">1</span>; i &lt;= N; i++) {</span><span class="cl" id="c3">    <span class="kw">if</span> (N % i == <span class="num">0</span>) {</span><span class="cl" id="c4">        divisorCount++;</span><span class="cl" id="c5">        <span class="kw">if</span> (divisorCount &gt; <span class="num">2</span>) {</span><span class="cl" id="c6">            <span class="kw">break</span>; <span class="com">// exit early</span></span><span class="cl" id="c7">        }</span><span class="cl" id="c8">    }</span><span class="cl" id="c9">}</span><span class="cl" id="c10"><span class="kw">if</span> (divisorCount == <span class="num">2</span>) print(<span class="str">"prime"</span>);</span><span class="cl" id="c11"><span class="kw">else</span> print(<span class="str">"not prime"</span>);</span></div>
 
       <div class="state-grid">
         <div class="state-cell">
@@ -347,7 +339,6 @@
 
     // mark current iteration
     if (i > 1) {
-      // remove 'current' from previous
       const prev = document.getElementById(`pill${i-1}`);
       if (prev && prev.classList.contains('current')) prev.classList.remove('current');
     }
@@ -371,14 +362,12 @@
       document.getElementById('c5').className = 'cl eval';
 
       if (divisorCount > 2) {
-        // BREAK
         broken = true;
         done = true;
         pill.classList.remove('divisor');
         pill.classList.add('broken');
         document.getElementById('c6').className = 'cl broken';
 
-        // mark remaining as skipped
         for (let k = i + 1; k <= N; k++) {
           document.getElementById(`pill${k}`).classList.add('skipped');
         }
@@ -386,13 +375,11 @@
         document.getElementById('verdictLbl').textContent = '✗ BREAK';
         document.getElementById('verdictText').textContent = `divisorCount = ${divisorCount} (> 2) — exit immediately`;
 
-        // result
         document.getElementById('c11').className = 'cl taken';
         document.getElementById('resultBox').className = 'result-block notprime';
         document.getElementById('resultText').className = 'result-text notprime';
         document.getElementById('resultText').textContent = `${N} is not a prime number`;
 
-        // savings
         const saved = N - i;
         if (saved > 0) {
           const sv = document.getElementById('savings');
@@ -413,12 +400,9 @@
       document.getElementById('verdictText').textContent = `${N} % ${i} ≠ 0 — not a divisor`;
     }
 
-    // check end
     if (i >= N) {
       done = true;
-      // clean current marker
       pill.classList.remove('current');
-      // result
       const isPrime = divisorCount === 2;
       if (isPrime) {
         document.getElementById('c10').className = 'cl taken';
