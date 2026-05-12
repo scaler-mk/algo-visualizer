@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Loop Analyser</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e8eaf0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 780px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .header .badge {
+    display: inline-block;
+    background: #1a2a1a;
+    border: 1px solid #2d5a2d;
+    color: #5fca5f;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 1rem;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.5px;
+  }
+
+  .header p {
+    color: #7a8099;
+    font-size: 15px;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .panel {
+    background: #161b27;
+    border: 1px solid #252d42;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #252d42;
+    background: #12161f;
+  }
+
+  .panel-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .panel-header span {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #5a6480;
+  }
+
+  .panel-header .lang-tag {
+    margin-left: auto;
+    background: #1e2535;
+    border: 1px solid #2e3a55;
+    color: #4a8fd4;
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 200px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #c9d1e8;
+    font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 18px;
+    resize: vertical;
+    tab-size: 4;
+  }
+
+  textarea::placeholder { color: #3a4260; }
+
+  .quick-examples {
+    padding: 12px 18px;
+    border-top: 1px solid #252d42;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .quick-examples span {
+    font-size: 11px;
+    color: #4a5270;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+  }
+
+  .example-chip {
+    background: #1a2035;
+    border: 1px solid #2a3250;
+    color: #6a7aaa;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: monospace;
+  }
+
+  .example-chip:hover {
+    background: #1e2a4a;
+    border-color: #3a4e80;
+    color: #8a9acd;
+  }
+
+  .analyse-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #1d6b3a, #2d8a4a);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .analyse-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  .analyse-btn:active { transform: translateY(0); }
+  .analyse-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: none; }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result-panel {
+    display: none;
+    background: #161b27;
+    border: 1px solid #252d42;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.3s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-section {
+    padding: 18px;
+    border-bottom: 1px solid #1e2535;
+  }
+
+  .result-section:last-child { border-bottom: none; }
+
+  .result-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .result-label .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+
+  .result-text {
+    font-size: 14px;
+    line-height: 1.75;
+    color: #c0c8e0;
+  }
+
+  .result-text code {
+    background: #1e2535;
+    border: 1px solid #2a3350;
+    color: #7ab8f5;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 1px 7px;
+    border-radius: 5px;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+    letter-spacing: 0.4px;
+  }
+
+  .status-safe { background: #0d2218; border: 1px solid #1a5c30; color: #5fca5f; }
+  .status-warn { background: #221a08; border: 1px solid #5c4010; color: #d4a030; }
+  .status-danger { background: #22080a; border: 1px solid #5c1015; color: #e05060; }
+
+  .error-box {
+    background: #1a0d10;
+    border: 1px solid #4a1520;
+    border-radius: 10px;
+    padding: 14px 18px;
+    color: #e05060;
+    font-size: 14px;
+    display: none;
+  }
+
+  .footer-hint {
+    text-align: center;
+    color: #3a4260;
+    font-size: 12px;
+    margin-top: 1rem;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="badge">🤖 Powered by Claude AI</div>
+    <h1>Loop Analyser</h1>
+    <p>Paste any Python loop below. Claude will explain what it does, catch bugs, and suggest improvements — instantly.</p>
+  </div>
+
+  <!-- Code Input Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-dot" style="background:#e05060"></div>
+      <div class="panel-dot" style="background:#d4a030"></div>
+      <div class="panel-dot" style="background:#5fca5f"></div>
+      <span>Your Python Loop</span>
+      <span class="lang-tag">Python</span>
+    </div>
+    <textarea id="codeInput" spellcheck="false" placeholder="# Paste your loop here, e.g.:
+count = 1
+while count <= 5:
+    print(count)
+    count += 1"></textarea>
+    <div class="quick-examples">
+      <span>Try:</span>
+      <button class="example-chip" onclick="loadExample('while_basic')">while basic</button>
+      <button class="example-chip" onclick="loadExample('for_range')">for + range</button>
+      <button class="example-chip" onclick="loadExample('infinite')">infinite loop ⚠</button>
+      <button class="example-chip" onclick="loadExample('nested')">nested loop</button>
+      <button class="example-chip" onclick="loadExample('break_continue')">break/continue</button>
+    </div>
+  </div>
+
+  <button class="analyse-btn" id="analyseBtn" onclick="analyseLoop()">
+    <div class="spinner" id="spinner"></div>
+    <span id="btnText">✦ Analyse My Loop</span>
+  </button>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Result Panel -->
+  <div class="result-panel" id="resultPanel">
+    <div class="result-section">
+      <div class="result-label" style="color:#5fca5f">
+        <div class="dot" style="background:#5fca5f"></div>
+        What does this loop do?
+      </div>
+      <div class="result-text" id="res-what"></div>
+    </div>
+    <div class="result-section">
+      <div class="result-label" style="color:#d4a030">
+        <div class="dot" style="background:#d4a030"></div>
+        Infinite loop risk?
+      </div>
+      <div id="res-infinite-badge"></div>
+      <div class="result-text" id="res-infinite"></div>
+    </div>
+    <div class="result-section">
+      <div class="result-label" style="color:#7ab8f5">
+        <div class="dot" style="background:#7ab8f5"></div>
+        Step-by-step dry run
+      </div>
+      <div class="result-text" id="res-dryrun"></div>
+    </div>
+    <div class="result-section">
+      <div class="result-label" style="color:#c084fc">
+        <div class="dot" style="background:#c084fc"></div>
+        Suggestions & improvements
+      </div>
+      <div class="result-text" id="res-suggest"></div>
+    </div>
+    <div class="result-section">
+      <div class="result-label" style="color:#38c9b0">
+        <div class="dot" style="background:#38c9b0"></div>
+        Real-world AI/ML connection
+      </div>
+      <div class="result-text" id="res-ai"></div>
+    </div>
+  </div>
+
+  <div class="footer-hint">This tool is for learning — paste any loop from your exercises or assignment.<br>The AI explains it back to you in plain English.</div>
+</div>
+
+<script>
+const EXAMPLES = {
+  while_basic: `count = 1\nwhile count <= 5:\n    print(count)\n    count += 1`,
+  for_range: `for i in range(1, 101):\n    if i % 10 == 0:\n        print(i)`,
+  infinite: `count = 1\nwhile count <= 10:\n    if count == 4:\n        continue\n    print(count)\n    count += 1`,
+  nested: `for row in range(1, 4):\n    for col in range(1, 4):\n        print(row * col, end="\\t")\n    print()`,
+  break_continue: `for i in range(1, 20):\n    if i % 3 == 0:\n        continue\n    if i > 12:\n        break\n    print(i, end=" ")`
+};
+
+function loadExample(key) {
+  document.getElementById('codeInput').value = EXAMPLES[key];
+  document.getElementById('resultPanel').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+function formatText(text) {
+  return text
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+async function analyseLoop() {
+  const code = document.getElementById('codeInput').value.trim();
+  if (!code) { alert('Please paste a Python loop first!'); return; }
+
+  const btn = document.getElementById('analyseBtn');
+  const spinner = document.getElementById('spinner');
+  const btnText = document.getElementById('btnText');
+  const errorBox = document.getElementById('errorBox');
+  const resultPanel = document.getElementById('resultPanel');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Analysing…';
+  errorBox.style.display = 'none';
+  resultPanel.style.display = 'none';
+
+  const systemPrompt = `You are a Python teaching assistant for beginner programmers. When given a Python loop, analyse it and respond ONLY with a valid JSON object (no markdown, no backticks, no explanation outside JSON). Use this exact schema:
+{
+  "what": "Plain English explanation of what the loop does (2-4 sentences, use backticks for code terms)",
+  "infinite_risk": "safe" | "warning" | "danger",
+  "infinite_explanation": "Explanation of whether an infinite loop risk exists and why (mention the specific variable/condition)",
+  "dryrun": "A short step-by-step trace for small input — show variable values at each iteration (use backtick for code, newlines as \\n)",
+  "suggestions": "1-3 concrete improvements or observations (use backtick for code terms, newlines as \\n for multiple points)",
+  "ai_connection": "One concise real-world AI/ML concept this loop pattern resembles (e.g. training loop, early stopping, data filtering, batch processing). 2-3 sentences max."
+}`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: `Analyse this Python loop:\n\n${code}` }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content.map(b => b.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    document.getElementById('res-what').innerHTML = formatText(parsed.what || '');
+    document.getElementById('res-dryrun').innerHTML = formatText(parsed.dryrun || '');
+    document.getElementById('res-suggest').innerHTML = formatText(parsed.suggestions || '');
+    document.getElementById('res-ai').innerHTML = formatText(parsed.ai_connection || '');
+
+    const risk = parsed.infinite_risk || 'safe';
+    const badgeMap = {
+      safe: ['status-safe', '✓ No infinite loop risk'],
+      warning: ['status-warn', '⚠ Potential risk — check carefully'],
+      danger: ['status-danger', '🔴 Infinite loop detected!']
+    };
+    const [cls, label] = badgeMap[risk] || badgeMap.safe;
+    document.getElementById('res-infinite-badge').innerHTML = `<span class="status-badge ${cls}">${label}</span>`;
+    document.getElementById('res-infinite').innerHTML = formatText(parsed.infinite_explanation || '');
+
+    resultPanel.style.display = 'block';
+    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    errorBox.textContent = '⚠ Could not reach Claude API. Please check your connection and try again.';
+    errorBox.style.display = 'block';
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    btnText.textContent = '✦ Analyse My Loop';
+  }
+}
+</script>
+</body>
+</html>
