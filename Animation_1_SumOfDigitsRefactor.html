@@ -136,12 +136,16 @@
     margin-bottom: 16px;
     max-height: 560px;
     overflow-y: auto;
+    white-space: pre;
   }
   .cl {
+    display: block;
     padding: 1px 6px;
     border-radius: 3px;
     transition: all 0.3s;
     opacity: 0.4;
+    white-space: pre;
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
   }
   .cl.eval { background: rgba(240, 160, 75, 0.18); opacity: 1; color: var(--accent); border-left: 2px solid var(--accent); padding-left: 4px; }
   .cl.taken { background: rgba(163, 217, 119, 0.12); opacity: 1; color: var(--green); border-left: 2px solid var(--green); padding-left: 4px; }
@@ -355,45 +359,46 @@
 </div>
 
 <script>
-  // Two code views
-  const codeMono = `
-<div class="cl" id="m1"><span class="kw">int</span> a = <span id="vA">123</span>, b = <span id="vB">456</span>, c = <span id="vC">789</span>;</div>
-<div class="cl" id="m2">  </div>
-<div class="cl duplicate" id="m3"><span class="kw">int</span> sum1 = <span class="num">0</span>;</div>
-<div class="cl duplicate" id="m4"><span class="kw">while</span> (a &gt; <span class="num">0</span>) {</div>
-<div class="cl duplicate" id="m5">  sum1 += a % <span class="num">10</span>;</div>
-<div class="cl duplicate" id="m6">  a /= <span class="num">10</span>;</div>
-<div class="cl duplicate" id="m7">}</div>
-<div class="cl duplicate" id="m8">System.out.println(sum1);</div>
-<div class="cl" id="m9">  </div>
-<div class="cl duplicate" id="m10"><span class="kw">int</span> sum2 = <span class="num">0</span>;</div>
-<div class="cl duplicate" id="m11"><span class="kw">while</span> (b &gt; <span class="num">0</span>) {</div>
-<div class="cl duplicate" id="m12">  sum2 += b % <span class="num">10</span>;</div>
-<div class="cl duplicate" id="m13">  b /= <span class="num">10</span>;</div>
-<div class="cl duplicate" id="m14">}</div>
-<div class="cl duplicate" id="m15">System.out.println(sum2);</div>
-<div class="cl" id="m16">  </div>
-<div class="cl duplicate" id="m17"><span class="kw">int</span> sum3 = <span class="num">0</span>;</div>
-<div class="cl duplicate" id="m18"><span class="kw">while</span> (c &gt; <span class="num">0</span>) {</div>
-<div class="cl duplicate" id="m19">  sum3 += c % <span class="num">10</span>;</div>
-<div class="cl duplicate" id="m20">  c /= <span class="num">10</span>;</div>
-<div class="cl duplicate" id="m21">}</div>
-<div class="cl duplicate" id="m22">System.out.println(sum3);</div>`;
+  // Two code views — using spans with display:block and no newlines between them.
+  // Each line's own leading spaces define the indentation (white-space: pre).
+  const codeMono =
+    '<span class="cl" id="m1"><span class="kw">int</span> a = <span id="vA">123</span>, b = <span id="vB">456</span>, c = <span id="vC">789</span>;</span>' +
+    '<span class="cl" id="m2"> </span>' +
+    '<span class="cl duplicate" id="m3"><span class="kw">int</span> sum1 = <span class="num">0</span>;</span>' +
+    '<span class="cl duplicate" id="m4"><span class="kw">while</span> (a &gt; <span class="num">0</span>) {</span>' +
+    '<span class="cl duplicate" id="m5">    sum1 += a % <span class="num">10</span>;</span>' +
+    '<span class="cl duplicate" id="m6">    a /= <span class="num">10</span>;</span>' +
+    '<span class="cl duplicate" id="m7">}</span>' +
+    '<span class="cl duplicate" id="m8">System.out.println(sum1);</span>' +
+    '<span class="cl" id="m9"> </span>' +
+    '<span class="cl duplicate" id="m10"><span class="kw">int</span> sum2 = <span class="num">0</span>;</span>' +
+    '<span class="cl duplicate" id="m11"><span class="kw">while</span> (b &gt; <span class="num">0</span>) {</span>' +
+    '<span class="cl duplicate" id="m12">    sum2 += b % <span class="num">10</span>;</span>' +
+    '<span class="cl duplicate" id="m13">    b /= <span class="num">10</span>;</span>' +
+    '<span class="cl duplicate" id="m14">}</span>' +
+    '<span class="cl duplicate" id="m15">System.out.println(sum2);</span>' +
+    '<span class="cl" id="m16"> </span>' +
+    '<span class="cl duplicate" id="m17"><span class="kw">int</span> sum3 = <span class="num">0</span>;</span>' +
+    '<span class="cl duplicate" id="m18"><span class="kw">while</span> (c &gt; <span class="num">0</span>) {</span>' +
+    '<span class="cl duplicate" id="m19">    sum3 += c % <span class="num">10</span>;</span>' +
+    '<span class="cl duplicate" id="m20">    c /= <span class="num">10</span>;</span>' +
+    '<span class="cl duplicate" id="m21">}</span>' +
+    '<span class="cl duplicate" id="m22">System.out.println(sum3);</span>';
 
-  const codeFn = `
-<div class="cl in-fn" id="f1"><span class="kw">static int</span> <span class="meth">sumOfDigits</span>(<span class="kw">int</span> n) {</div>
-<div class="cl in-fn" id="f2">  <span class="kw">int</span> sum = <span class="num">0</span>;</div>
-<div class="cl in-fn" id="f3">  <span class="kw">while</span> (n &gt; <span class="num">0</span>) {</div>
-<div class="cl in-fn" id="f4">    sum += n % <span class="num">10</span>;</div>
-<div class="cl in-fn" id="f5">    n /= <span class="num">10</span>;</div>
-<div class="cl in-fn" id="f6">  }</div>
-<div class="cl in-fn" id="f7">  <span class="kw">return</span> sum;</div>
-<div class="cl in-fn" id="f8">}</div>
-<div class="cl" id="f9">  </div>
-<div class="cl" id="f10"><span class="kw">int</span> a = <span id="vA2">123</span>, b = <span id="vB2">456</span>, c = <span id="vC2">789</span>;</div>
-<div class="cl" id="f11">System.out.println(<span class="meth">sumOfDigits</span>(a));</div>
-<div class="cl" id="f12">System.out.println(<span class="meth">sumOfDigits</span>(b));</div>
-<div class="cl" id="f13">System.out.println(<span class="meth">sumOfDigits</span>(c));</div>`;
+  const codeFn =
+    '<span class="cl in-fn" id="f1"><span class="kw">static int</span> <span class="meth">sumOfDigits</span>(<span class="kw">int</span> n) {</span>' +
+    '<span class="cl in-fn" id="f2">    <span class="kw">int</span> sum = <span class="num">0</span>;</span>' +
+    '<span class="cl in-fn" id="f3">    <span class="kw">while</span> (n &gt; <span class="num">0</span>) {</span>' +
+    '<span class="cl in-fn" id="f4">        sum += n % <span class="num">10</span>;</span>' +
+    '<span class="cl in-fn" id="f5">        n /= <span class="num">10</span>;</span>' +
+    '<span class="cl in-fn" id="f6">    }</span>' +
+    '<span class="cl in-fn" id="f7">    <span class="kw">return</span> sum;</span>' +
+    '<span class="cl in-fn" id="f8">}</span>' +
+    '<span class="cl" id="f9"> </span>' +
+    '<span class="cl" id="f10"><span class="kw">int</span> a = <span id="vA2">123</span>, b = <span id="vB2">456</span>, c = <span id="vC2">789</span>;</span>' +
+    '<span class="cl" id="f11">System.out.println(<span class="meth">sumOfDigits</span>(a));</span>' +
+    '<span class="cl" id="f12">System.out.println(<span class="meth">sumOfDigits</span>(b));</span>' +
+    '<span class="cl" id="f13">System.out.println(<span class="meth">sumOfDigits</span>(c));</span>';
 
   let mode = 'mono';
   let a = 123, b = 456, c = 789;
