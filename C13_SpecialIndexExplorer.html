@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Special Index Explorer — Left stays, right flips</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #f0ecdc; color: #1a1a1a; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; }
+  h1 .accent { color: #c4541e; font-style: italic; }
+  .subtitle { color: #555; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 860px; }
+  .controls-bar { max-width: 1100px; width: 100%; background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+  .i-control { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 280px; }
+  .i-btn { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 7px 14px; background: #fff; border: 1.5px solid #1a1a1a; border-radius: 5px; cursor: pointer; font-weight: 700; }
+  .i-btn:hover { background: #fff8d6; }
+  .i-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .i-pill { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; padding: 6px 14px; background: #1a1a1a; color: #ffd95c; border-radius: 5px; min-width: 50px; text-align: center; }
+  .play-btn { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 7px 13px; background: #fff8d6; border: 1.5px solid #1a1a1a; border-radius: 5px; cursor: pointer; font-weight: 700; }
+  .play-btn:hover { background: #ffd95c; }
+  .panel { background: #fff; border: 2px solid #1a1a1a; border-radius: 10px; box-shadow: 6px 6px 0 #1a1a1a; padding: 22px 24px; margin-bottom: 18px; max-width: 1100px; width: 100%; }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; }
+  /* Array with removal line */
+  .array-stage { position: relative; padding: 30px 10px 18px; background: #f5efe2; border-radius: 8px; margin-bottom: 16px; }
+  .array-stage::before { content: ''; position: absolute; left: 0; right: 0; top: 30px; bottom: 18px; pointer-events: none; }
+  .removal-bg { position: absolute; top: 30px; bottom: 18px; pointer-events: none; transition: all 0.4s; }
+  .removal-bg.left-region { left: 10px; background: rgba(45, 110, 62, 0.10); border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+  .removal-bg.right-region { right: 10px; background: rgba(196, 30, 58, 0.10); border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+  .removal-bg .region-label { position: absolute; top: -22px; left: 0; right: 0; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+  .removal-bg.left-region .region-label { color: #2d6e3e; }
+  .removal-bg.right-region .region-label { color: #c41e3a; }
+  .removed-pill { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #ff6b6b; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 4px; white-space: nowrap; z-index: 5; }
+  .array-cells-wrap { position: relative; display: flex; gap: 8px; justify-content: center; z-index: 2; }
+  .arr-cell-stack { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .idx-pill { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888; transition: all 0.3s; }
+  .arr-cell { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; background: #fff; border: 2.5px solid #1a1a1a; border-radius: 6px; transition: all 0.4s; position: relative; }
+  .arr-cell.in-left { background: #d4f0d4; border-color: #2d6e3e; color: #1a3a23; }
+  .arr-cell.in-right { background: #ffe0e0; border-color: #c41e3a; color: #7a0e1f; }
+  .arr-cell.removed { background: #1a1a1a; color: #ff6b6b; border-color: #ff6b6b; transform: scale(0.85); text-decoration: line-through; opacity: 0.7; }
+  .arr-cell-stack .role { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #888; height: 12px; }
+  /* Computation grid */
+  .computation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+  @media (max-width: 700px) { .computation-grid { grid-template-columns: 1fr; } }
+  .calc-card { background: #f5efe2; border-radius: 8px; padding: 14px 16px; border: 1.5px solid #1a1a1a; }
+  .calc-card.Se { border-left: 5px solid #2d6e3e; }
+  .calc-card.So { border-left: 5px solid #c41e3a; }
+  .calc-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .calc-card.Se .calc-title { color: #2d6e3e; }
+  .calc-card.So .calc-title { color: #c41e3a; }
+  .calc-formula { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.55; color: #444; margin-bottom: 8px; }
+  .calc-formula .left-part { color: #2d6e3e; font-weight: 700; }
+  .calc-formula .right-part { color: #c41e3a; font-weight: 700; }
+  .calc-formula .num { color: #1a1a1a; font-weight: 700; background: rgba(255,217,92,0.3); padding: 1px 5px; border-radius: 3px; }
+  .calc-result { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 900; margin-top: 4px; }
+  .calc-card.Se .calc-result { color: #2d6e3e; }
+  .calc-card.So .calc-result { color: #c41e3a; }
+  /* Verdict bar */
+  .verdict-bar { background: #1a1a1a; color: #fff; padding: 14px 18px; border-radius: 8px; margin-top: 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .verdict-bar.is-special { background: #2d6e3e; }
+  .verdict-bar .label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; opacity: 0.7; }
+  .verdict-bar .check { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; }
+  .verdict-bar .check .equals { color: #ffd95c; padding: 2px 8px; background: rgba(0,0,0,0.3); border-radius: 4px; margin: 0 4px; }
+  .verdict-bar .verdict-pill { margin-left: auto; padding: 6px 16px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 900; background: #ff6b6b; color: #fff; }
+  .verdict-bar.is-special .verdict-pill { background: #ffd95c; color: #1a3a23; }
+  /* Prefix arrays panel */
+  .ps-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  @media (max-width: 700px) { .ps-panel { grid-template-columns: 1fr; } }
+  .ps-card { background: #f5efe2; border-radius: 8px; padding: 12px 14px; }
+  .ps-card-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; margin-bottom: 8px; }
+  .ps-card.PSe .ps-card-title { color: #2d6e3e; }
+  .ps-card.PSo .ps-card-title { color: #c41e3a; }
+  .ps-cells { display: flex; gap: 4px; }
+  .ps-cell { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; background: #fff; border: 1.5px solid #1a1a1a; border-radius: 4px; transition: all 0.3s; }
+  .ps-cell.highlight-end { box-shadow: 0 0 0 2px #ffd95c; }
+  .ps-cell.highlight-start { box-shadow: 0 0 0 2px #d2a8ff; }
+  .ps-card.PSe .ps-cell { color: #2d6e3e; }
+  .ps-card.PSo .ps-cell { color: #c41e3a; }
+  /* Summary at bottom */
+  .summary-card { background: #fff8d6; border: 2px solid #1a1a1a; border-radius: 8px; padding: 14px 18px; margin-top: 14px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .summary-card .count { font-family: 'Fraunces', serif; font-style: italic; font-size: 32px; font-weight: 900; color: #c4541e; }
+  .summary-card .count-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #555; }
+  .summary-card .visited { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555; }
+  .summary-card .visited .visited-cell { display: inline-block; padding: 2px 8px; border-radius: 3px; margin: 0 2px; font-weight: 700; }
+  .summary-card .visited .visited-cell.special-vc { background: #2d6e3e; color: #fff; }
+  .summary-card .visited .visited-cell.not-special-vc { background: #ddd; color: #555; }
+  .summary-card .visited .visited-cell.unvisited-vc { background: #fff; color: #aaa; border: 1px solid #aaa; }
+  .legend-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #555; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; }
+  .legend-dot.left { background: #d4f0d4; border-color: #2d6e3e; }
+  .legend-dot.right { background: #ffe0e0; border-color: #c41e3a; }
+  .legend-dot.removed { background: #1a1a1a; border-color: #ff6b6b; }
+</style>
+</head>
+<body>
+  <h1>Special Index <span class="accent">Explorer</span></h1>
+  <p class="subtitle">For each i, we "remove" A[i]. The <strong style="color:#2d6e3e;">LEFT side keeps its parity</strong>. The <strong style="color:#c41e3a;">RIGHT side flips parity</strong> (odd indices become even and vice versa). Special index = where Se equals So after the flip.</p>
+  <div class="controls-bar">
+    <span class="picker-label">Remove A[i] at:</span>
+    <div class="i-control">
+      <button class="i-btn" id="prevBtn">◀ prev</button>
+      <span class="i-pill" id="iPill">i = 0</span>
+      <button class="i-btn" id="nextBtn">next ▶</button>
+      <button class="play-btn" id="walkAllBtn">⏩ Walk through all i</button>
+      <button class="play-btn" id="resetBtn">↻ Reset</button>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">A = [4, 3, 2, 7, 6, -2]</div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-dot left"></div>LEFT — keeps parity (use PSe[i-1], PSo[i-1])</div>
+      <div class="legend-item"><div class="legend-dot right"></div>RIGHT — flips parity (use opposite prefix)</div>
+      <div class="legend-item"><div class="legend-dot removed"></div>removed</div>
+    </div>
+    <div class="array-stage" id="arrayStage">
+      <div class="removal-bg left-region" id="leftRegion"><span class="region-label">LEFT — same parity</span></div>
+      <div class="removal-bg right-region" id="rightRegion"><span class="region-label">RIGHT — flipped parity</span></div>
+      <div class="removed-pill" id="removedPill">removed: A[0] = 4</div>
+      <div class="array-cells-wrap" id="arrayCells"></div>
+    </div>
+    <div class="ps-panel">
+      <div class="ps-card PSe">
+        <div class="ps-card-title">PSe (prefix of even-indexed elements)</div>
+        <div class="ps-cells" id="psePanelCells"></div>
+      </div>
+      <div class="ps-card PSo">
+        <div class="ps-card-title">PSo (prefix of odd-indexed elements)</div>
+        <div class="ps-cells" id="psoPanelCells"></div>
+      </div>
+    </div>
+    <div class="computation-grid">
+      <div class="calc-card Se">
+        <div class="calc-title">Se (new even-position sum)</div>
+        <div class="calc-formula" id="seFormula"></div>
+        <div class="calc-result">Se = <span id="seVal">—</span></div>
+      </div>
+      <div class="calc-card So">
+        <div class="calc-title">So (new odd-position sum)</div>
+        <div class="calc-formula" id="soFormula"></div>
+        <div class="calc-result">So = <span id="soVal">—</span></div>
+      </div>
+    </div>
+    <div class="verdict-bar" id="verdictBar">
+      <span class="label">Check</span>
+      <span class="check"><span id="seChk">—</span><span class="equals">==</span><span id="soChk">—</span> ?</span>
+      <span class="verdict-pill" id="verdictPill">—</span>
+    </div>
+    <div class="summary-card">
+      <div>
+        <div class="count" id="totalCount">0</div>
+        <div class="count-label">special so far</div>
+      </div>
+      <div class="visited">
+        <div style="margin-bottom:4px;font-weight:700;">Indices visited:</div>
+        <div id="visitedRow"></div>
+      </div>
+    </div>
+  </div>
+<script>
+const A = [4, 3, 2, 7, 6, -2];
+const N = A.length;
+// Build prefix arrays
+const PSe = [A[0]];
+const PSo = [0];
+for (let i = 1; i < N; i++) {
+  PSe.push((i % 2 === 0) ? PSe[i-1] + A[i] : PSe[i-1]);
+  PSo.push((i % 2 === 1) ? PSo[i-1] + A[i] : PSo[i-1]);
+}
+// Compute Se/So for every i
+function computeSeSo(i) {
+  let Se, So;
+  if (i === 0) {
+    Se = PSo[N-1] - PSo[0];
+    So = PSe[N-1] - PSe[0];
+  } else {
+    Se = PSe[i-1] + PSo[N-1] - PSo[i];
+    So = PSo[i-1] + PSe[N-1] - PSe[i];
+  }
+  return { Se, So, special: Se === So };
+}
+let currentI = 0;
+const visited = {}; // i -> isSpecial
+
+function renderPSPanels() {
+  let pse = '', pso = '';
+  for (let i = 0; i < N; i++) {
+    let pseCls = 'ps-cell', psoCls = 'ps-cell';
+    if (currentI > 0 && i === currentI - 1) { pseCls += ' highlight-start'; psoCls += ' highlight-start'; }
+    if (i === currentI) { pseCls += ' highlight-end'; psoCls += ' highlight-end'; }
+    if (i === N - 1) { pseCls += ' highlight-end'; psoCls += ' highlight-end'; }
+    pse += '<div class="' + pseCls + '">' + PSe[i] + '</div>';
+    pso += '<div class="' + psoCls + '">' + PSo[i] + '</div>';
+  }
+  document.getElementById('psePanelCells').innerHTML = pse;
+  document.getElementById('psoPanelCells').innerHTML = pso;
+}
+function renderArray() {
+  // cells
+  let cellsHtml = '';
+  for (let i = 0; i < N; i++) {
+    let cls = 'arr-cell';
+    let role = '';
+    if (i < currentI) { cls += ' in-left'; role = 'same'; }
+    else if (i === currentI) { cls += ' removed'; role = ''; }
+    else { cls += ' in-right'; role = 'flipped'; }
+    cellsHtml += '<div class="arr-cell-stack"><div class="idx-pill">i=' + i + '</div><div class="' + cls + '">' + A[i] + '</div><div class="role">' + role + '</div></div>';
+  }
+  document.getElementById('arrayCells').innerHTML = cellsHtml;
+  // remove pill
+  document.getElementById('removedPill').textContent = 'remove A[' + currentI + '] = ' + A[currentI];
+  // region widths — based on currentI position relative to cells
+  // approximate: each cell is ~64+8=72px wide, gap centered. Use percentages computed from cell count.
+  const totalCells = N;
+  const leftPct = (currentI / totalCells) * 100;
+  const rightPct = ((totalCells - currentI - 1) / totalCells) * 100;
+  const leftEl = document.getElementById('leftRegion');
+  const rightEl = document.getElementById('rightRegion');
+  if (currentI === 0) {
+    leftEl.style.display = 'none';
+  } else {
+    leftEl.style.display = '';
+    leftEl.style.width = 'calc(' + leftPct + '% - 4px)';
+  }
+  if (currentI === N - 1) {
+    rightEl.style.display = 'none';
+  } else {
+    rightEl.style.display = '';
+    rightEl.style.width = 'calc(' + rightPct + '% - 4px)';
+  }
+}
+function renderFormulas() {
+  const { Se, So, special } = computeSeSo(currentI);
+  // Se formula
+  let seHtml, soHtml;
+  if (currentI === 0) {
+    seHtml = 'i=0 case: <span class="right-part">PSo[N-1] − PSo[0]</span> = <span class="num">' + PSo[N-1] + '</span> − <span class="num">' + PSo[0] + '</span> = <strong>' + Se + '</strong>';
+    soHtml = 'i=0 case: <span class="right-part">PSe[N-1] − PSe[0]</span> = <span class="num">' + PSe[N-1] + '</span> − <span class="num">' + PSe[0] + '</span> = <strong>' + So + '</strong>';
+  } else {
+    seHtml =
+      '<span class="left-part">PSe[i-1]</span> + <span class="right-part">PSo[N-1] − PSo[i]</span><br>' +
+      '= <span class="num">' + PSe[currentI-1] + '</span> + (<span class="num">' + PSo[N-1] + '</span> − <span class="num">' + PSo[currentI] + '</span>)' +
+      ' = ' + PSe[currentI-1] + ' + ' + (PSo[N-1] - PSo[currentI]) + ' = <strong>' + Se + '</strong>';
+    soHtml =
+      '<span class="left-part">PSo[i-1]</span> + <span class="right-part">PSe[N-1] − PSe[i]</span><br>' +
+      '= <span class="num">' + PSo[currentI-1] + '</span> + (<span class="num">' + PSe[N-1] + '</span> − <span class="num">' + PSe[currentI] + '</span>)' +
+      ' = ' + PSo[currentI-1] + ' + ' + (PSe[N-1] - PSe[currentI]) + ' = <strong>' + So + '</strong>';
+  }
+  document.getElementById('seFormula').innerHTML = seHtml;
+  document.getElementById('soFormula').innerHTML = soHtml;
+  document.getElementById('seVal').textContent = Se;
+  document.getElementById('soVal').textContent = So;
+  document.getElementById('seChk').textContent = 'Se = ' + Se;
+  document.getElementById('soChk').textContent = 'So = ' + So;
+  const vb = document.getElementById('verdictBar');
+  const vp = document.getElementById('verdictPill');
+  if (special) { vb.classList.add('is-special'); vp.textContent = '✓ SPECIAL'; }
+  else { vb.classList.remove('is-special'); vp.textContent = '✗ not special'; }
+  visited[currentI] = special;
+}
+function renderSummary() {
+  let count = 0;
+  for (const k in visited) if (visited[k]) count++;
+  document.getElementById('totalCount').textContent = count;
+  let html = '';
+  for (let i = 0; i < N; i++) {
+    let cls = 'visited-cell ';
+    if (visited[i] === true) cls += 'special-vc';
+    else if (visited[i] === false) cls += 'not-special-vc';
+    else cls += 'unvisited-vc';
+    html += '<span class="' + cls + '">i=' + i + '</span>';
+  }
+  document.getElementById('visitedRow').innerHTML = html;
+}
+function renderAll() {
+  document.getElementById('iPill').textContent = 'i = ' + currentI;
+  renderArray();
+  renderPSPanels();
+  renderFormulas();
+  renderSummary();
+  document.getElementById('prevBtn').disabled = currentI === 0;
+  document.getElementById('nextBtn').disabled = currentI === N - 1;
+}
+document.getElementById('prevBtn').addEventListener('click', () => { if (currentI > 0) { currentI--; renderAll(); } });
+document.getElementById('nextBtn').addEventListener('click', () => { if (currentI < N - 1) { currentI++; renderAll(); } });
+document.getElementById('resetBtn').addEventListener('click', () => { currentI = 0; for (const k in visited) delete visited[k]; renderAll(); });
+document.getElementById('walkAllBtn').addEventListener('click', () => {
+  for (const k in visited) delete visited[k];
+  currentI = 0;
+  renderAll();
+  let i = 1;
+  function step() {
+    if (i >= N) return;
+    currentI = i;
+    renderAll();
+    i++;
+    setTimeout(step, 1100);
+  }
+  setTimeout(step, 900);
+});
+renderAll();
+</script>
+</body>
+</html>

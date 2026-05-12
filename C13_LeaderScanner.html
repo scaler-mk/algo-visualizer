@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Leader Scanner — Right-to-left scan finds leaders in O(N)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #1a1f2e; color: #e6e6ed; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; color: #fff; }
+  h1 .accent { color: #56d364; font-style: italic; }
+  .subtitle { color: #aaa; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 860px; }
+  .controls-bar { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #56d364; border-radius: 10px; box-shadow: 6px 6px 0 #56d364; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #56d364; text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+  .scenario-btn { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 9px 13px; background: #1a1f2e; color: #e6e6ed; border: 1.5px solid #56d364; border-radius: 5px; cursor: pointer; transition: all 0.15s; line-height: 1.3; text-align: left; }
+  .scenario-btn:hover { background: #2e3a4d; }
+  .scenario-btn.active { background: #56d364; color: #1a3a23; }
+  .scenario-btn .preview { display: block; font-size: 9.5px; opacity: 0.75; margin-top: 2px; font-style: italic; }
+  .action-btn { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 9px 14px; background: #1a1f2e; color: #ffd95c; border: 1.5px solid #ffd95c; border-radius: 5px; cursor: pointer; font-weight: 700; }
+  .action-btn:hover { background: #ffd95c; color: #1a1f2e; }
+  .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .stage { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #fff; border-radius: 10px; box-shadow: 8px 8px 0 #fff; padding: 24px; margin-bottom: 18px; }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 14px; }
+  /* Array */
+  .array-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 30px; padding: 12px 10px 18px; background: #1a1f2e; border-radius: 8px; position: relative; }
+  .arr-cell-stack { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .idx-pill { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888; }
+  .arr-cell { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; background: #fff; border: 2.5px solid #fff; border-radius: 6px; transition: all 0.4s; color: #1a1f2e; position: relative; }
+  .arr-cell.unvisited { background: #2e3a4d; color: #aaa; border-color: #555; }
+  .arr-cell.leader { background: #56d364; color: #1a3a23; border-color: #56d364; box-shadow: 0 0 0 3px rgba(86,211,100,0.4); transform: scale(1.08); }
+  .arr-cell.not-leader { background: #ff6b6b; color: #fff; border-color: #ff6b6b; opacity: 0.85; }
+  .arr-cell.current { box-shadow: 0 0 0 4px #ffd95c; transform: scale(1.15); z-index: 2; }
+  .cursor-arrow { position: absolute; top: 3px; font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 900; color: #ffd95c; transition: left 0.4s; transform: translateX(-50%); pointer-events: none; }
+  .cursor-arrow::after { content: '▼'; display: block; }
+  .cursor-arrow-inline { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 900; color: #ffd95c; height: 22px; line-height: 22px; animation: bounce 0.8s ease-in-out infinite; }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  .cursor-arrow-spacer { height: 22px; }
+  /* max-from-right pill */
+  .max-pill-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 14px 18px; background: #1a1f2e; border-radius: 8px; margin-bottom: 14px; }
+  .max-pill-row .label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.1em; }
+  .max-pill { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 900; padding: 8px 18px; background: #ffd95c; color: #1a1f2e; border-radius: 6px; min-width: 70px; text-align: center; transition: all 0.3s; }
+  .max-pill.updated { animation: pulse 0.6s; }
+  @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); background: #56d364; } 100% { transform: scale(1); } }
+  .max-pill-row .compare { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #e6e6ed; }
+  .max-pill-row .compare .true-result { color: #56d364; font-weight: 900; }
+  .max-pill-row .compare .false-result { color: #ff6b6b; font-weight: 900; }
+  /* Leaders found list */
+  .leaders-card { background: #1a1f2e; border: 1.5px solid #56d364; border-radius: 8px; padding: 14px 18px; margin-bottom: 14px; }
+  .leaders-card .label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #56d364; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .leaders-list { display: flex; gap: 8px; flex-wrap: wrap; min-height: 50px; align-items: center; }
+  .leaders-list .leader-chip { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 900; padding: 8px 14px; background: #56d364; color: #1a3a23; border-radius: 6px; animation: slideIn 0.5s; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  .leaders-list .empty-msg { color: #888; font-style: italic; font-family: 'Fraunces', serif; font-size: 13px; }
+  /* Narration */
+  .narration { background: #1a1f2e; color: #e6edf3; padding: 16px 20px; border-radius: 8px; border-left: 5px solid #ffd95c; margin-bottom: 14px; line-height: 1.55; font-size: 14px; min-height: 60px; }
+  .narration-tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; padding: 3px 9px; border-radius: 3px; background: #ffd95c; color: #1a1f2e; margin-right: 10px; }
+  .narration-tag.leader { background: #56d364; color: #1a3a23; }
+  .narration-tag.not-leader { background: #ff6b6b; color: #fff; }
+  .narration-tag.start { background: #d2a8ff; color: #1a1f2e; }
+  .narration-tag.done { background: #56d364; color: #1a3a23; }
+  .narration strong { color: #ffd95c; }
+  .narration code { background: rgba(255,217,92,0.12); color: #ffd95c; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  /* Actions */
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn { font-family: 'JetBrains Mono', monospace; background: #ffd95c; color: #1a1f2e; border: none; padding: 10px 18px; cursor: pointer; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; border-radius: 5px; }
+  .btn:hover { background: #fff; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary { background: transparent; color: #fff; border: 2px solid #fff; }
+  .btn.fast { background: #56d364; color: #1a3a23; }
+  .step-info { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #aaa; }
+  /* Iteration counter */
+  .iter-counter-row { display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 16px; background: #1a1f2e; border-radius: 8px; margin-top: 14px; }
+  .iter-counter { display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .iter-counter .label { color: #888; text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; }
+  .iter-counter .val { font-size: 18px; font-weight: 900; padding: 3px 10px; border-radius: 4px; }
+  .iter-counter .val.opt { background: #56d364; color: #1a3a23; }
+  .iter-counter .val.brute { background: #ff6b6b; color: #fff; }
+  .iter-counter .savings { color: #ffd95c; font-weight: 700; margin-left: 6px; }
+</style>
+</head>
+<body>
+  <h1>Leader <span class="accent">Scanner</span></h1>
+  <p class="subtitle">Scan from right to left. Track the max seen so far. If current element beats that max → it's a leader. One pass, <strong style="color:#56d364;">O(N) time</strong>.</p>
+  <div class="controls-bar">
+    <span class="picker-label">Array:</span>
+    <span class="scenario-btn active" data-scenario="standard"><span>[16, 17, 4, 3, 5, 2]</span><span class="preview">3 leaders (script example)</span></span>
+    <span class="scenario-btn" data-scenario="all"><span>[10, 8, 6, 4, 2]</span><span class="preview">5 leaders (quiz 5 — strictly decreasing)</span></span>
+    <button class="action-btn" id="resetBtn">↻ Reset</button>
+  </div>
+  <div class="stage">
+    <div class="panel-title">Right-to-left scan</div>
+    <div class="array-row" id="arrayRow"></div>
+    <div class="max-pill-row">
+      <span class="label">max_from_right:</span>
+      <span class="max-pill" id="maxPill">—</span>
+      <span class="compare" id="compareText">Click "Next step" to begin</span>
+    </div>
+    <div class="leaders-card">
+      <div class="label">Leaders found (in scan order):</div>
+      <div class="leaders-list" id="leadersList"><div class="empty-msg">No leaders yet — click Next step</div></div>
+    </div>
+    <div class="narration" id="narration"><span class="narration-tag start">Ready</span>Pick an array above. Click <strong>Next step</strong> to start scanning from the rightmost element.</div>
+    <div class="actions">
+      <button class="btn secondary" id="resetBtn2">↻ Reset</button>
+      <button class="btn" id="stepBtn">▶ Next step</button>
+      <button class="btn fast" id="runBtn">⏩ Run all</button>
+      <span class="step-info" id="stepInfo">step 0</span>
+    </div>
+    <div class="iter-counter-row">
+      <div class="iter-counter"><span class="label">Optimized (this algo):</span><span class="val opt" id="optIter">0</span><span class="label">comparisons</span></div>
+      <div class="iter-counter"><span class="label">Brute force O(N²) would take:</span><span class="val brute" id="bruteIter">—</span><span class="savings" id="savings"></span></div>
+    </div>
+  </div>
+<script>
+const SCENARIOS = {
+  standard: { name: '[16, 17, 4, 3, 5, 2]', arr: [16, 17, 4, 3, 5, 2] },
+  all:      { name: '[10, 8, 6, 4, 2]',     arr: [10, 8, 6, 4, 2] }
+};
+let currentScenario = 'standard';
+let arr = SCENARIOS.standard.arr.slice();
+let i = arr.length;  // next index to process; start at N, then decrement
+let phase = 'ready'; // ready | started | done
+let max = null;
+let leaders = []; // list of {idx, val}
+let cellStatus = []; // 'unvisited' | 'leader' | 'not-leader'
+let optIters = 0;
+
+function renderArray() {
+  const arrWrap = document.getElementById('arrayRow');
+  let html = '';
+  for (let j = 0; j < arr.length; j++) {
+    let cls = 'arr-cell ' + cellStatus[j];
+    if (phase !== 'ready' && phase !== 'done' && j === i) cls += ' current';
+    const arrowHtml = (phase !== 'ready' && phase !== 'done' && j === i)
+      ? '<div class="cursor-arrow-inline">\u25BC</div>'
+      : '<div class="cursor-arrow-spacer"></div>';
+    html += '<div class="arr-cell-stack">' + arrowHtml + '<div class="idx-pill">i=' + j + '</div><div class="' + cls + '">' + arr[j] + '</div></div>';
+  }
+  arrWrap.innerHTML = html;
+}
+function renderMaxPill(updated) {
+  const pill = document.getElementById('maxPill');
+  pill.textContent = max === null ? '—' : max;
+  if (updated) { pill.classList.remove('updated'); void pill.offsetWidth; pill.classList.add('updated'); }
+}
+function renderLeaders() {
+  const wrap = document.getElementById('leadersList');
+  if (leaders.length === 0) { wrap.innerHTML = '<div class="empty-msg">No leaders yet — click Next step</div>'; return; }
+  let html = '';
+  leaders.forEach(l => { html += '<span class="leader-chip">' + l.val + '</span>'; });
+  wrap.innerHTML = html;
+}
+function renderIterCounters() {
+  document.getElementById('optIter').textContent = optIters;
+  if (phase === 'done') {
+    const n = arr.length;
+    const brute = n * (n - 1) / 2; // worst case O(N²) inner-loop work
+    document.getElementById('bruteIter').textContent = '~' + brute;
+    const savings = brute - optIters;
+    document.getElementById('savings').textContent = savings > 0 ? '(saved ' + savings + ')' : '';
+  } else {
+    document.getElementById('bruteIter').textContent = '—';
+    document.getElementById('savings').textContent = '';
+  }
+}
+function resetAll() {
+  arr = SCENARIOS[currentScenario].arr.slice();
+  i = arr.length;
+  phase = 'ready';
+  max = null;
+  leaders = [];
+  cellStatus = new Array(arr.length).fill('unvisited');
+  optIters = 0;
+  document.getElementById('stepBtn').disabled = false;
+  document.getElementById('stepBtn').textContent = '▶ Next step';
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('stepInfo').textContent = 'step 0';
+  document.getElementById('compareText').textContent = 'Click "Next step" to begin';
+  document.getElementById('narration').innerHTML = '<span class="narration-tag start">Ready</span>Array: <code>' + JSON.stringify(arr) + '</code>. Click <strong>Next step</strong> to start scanning from the rightmost element.';
+  renderArray(); renderMaxPill(false); renderLeaders(); renderIterCounters();
+}
+function nextStep() {
+  if (phase === 'ready') {
+    // First step: rightmost element
+    i = arr.length - 1;
+    max = arr[i];
+    cellStatus[i] = 'leader';
+    leaders.push({ idx: i, val: arr[i] });
+    phase = 'started';
+    optIters++; // 1 comparison-like op for init
+    document.getElementById('compareText').innerHTML = 'Initialize <strong>max_from_right</strong> with <strong>A[' + i + '] = ' + arr[i] + '</strong>';
+    document.getElementById('narration').innerHTML = '<span class="narration-tag leader">Leader!</span>Start at i = ' + i + '. The rightmost element is <strong>always a leader</strong> (nothing to its right). Push <code>' + arr[i] + '</code> to leaders. <code>max_from_right = ' + max + '</code>.';
+    document.getElementById('stepInfo').textContent = 'step 1 / ' + arr.length;
+    renderArray(); renderMaxPill(true); renderLeaders(); renderIterCounters();
+    if (arr.length === 1) finishUp();
+    return;
+  }
+  if (phase === 'started') {
+    i--;
+    if (i < 0) { finishUp(); return; }
+    optIters++;
+    const cur = arr[i];
+    if (cur > max) {
+      cellStatus[i] = 'leader';
+      leaders.push({ idx: i, val: cur });
+      const oldMax = max;
+      max = cur;
+      document.getElementById('compareText').innerHTML = 'A[' + i + '] = ' + cur + ' > max(' + oldMax + ') ? <span class="true-result">YES → leader!</span>';
+      document.getElementById('narration').innerHTML = '<span class="narration-tag leader">Leader!</span>i = ' + i + ', A[' + i + '] = <code>' + cur + '</code>. Is ' + cur + ' > max (<code>' + oldMax + '</code>)? <strong>YES</strong>. Push <code>' + cur + '</code> to leaders, update <code>max_from_right = ' + max + '</code>.';
+      renderArray(); renderMaxPill(true); renderLeaders();
+    } else {
+      cellStatus[i] = 'not-leader';
+      document.getElementById('compareText').innerHTML = 'A[' + i + '] = ' + cur + ' > max(' + max + ') ? <span class="false-result">NO → not a leader</span>';
+      document.getElementById('narration').innerHTML = '<span class="narration-tag not-leader">Not a leader</span>i = ' + i + ', A[' + i + '] = <code>' + cur + '</code>. Is ' + cur + ' > max (<code>' + max + '</code>)? <strong>NO</strong>. Skip. <code>max_from_right</code> stays <code>' + max + '</code>.';
+      renderArray();
+    }
+    document.getElementById('stepInfo').textContent = 'step ' + (arr.length - i) + ' / ' + arr.length;
+    renderIterCounters();
+    if (i === 0) finishUp();
+  }
+}
+function finishUp() {
+  phase = 'done';
+  document.getElementById('stepBtn').disabled = true;
+  document.getElementById('stepBtn').textContent = '✓ done';
+  document.getElementById('runBtn').disabled = true;
+  const leaderVals = leaders.map(l => l.val).join(', ');
+  document.getElementById('narration').innerHTML = '<span class="narration-tag done">Done</span>Scan complete in <strong>O(N) = ' + optIters + ' comparisons</strong>. Leaders found (in scan order): <code>[' + leaderVals + ']</code>.';
+  renderArray();
+  renderIterCounters();
+}
+function runAll() {
+  function loop() {
+    if (phase === 'done') return;
+    nextStep();
+    setTimeout(loop, 850);
+  }
+  loop();
+}
+document.querySelectorAll('.scenario-btn').forEach(b => b.addEventListener('click', () => {
+  currentScenario = b.dataset.scenario;
+  document.querySelectorAll('.scenario-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  resetAll();
+}));
+document.getElementById('resetBtn').addEventListener('click', resetAll);
+document.getElementById('resetBtn2').addEventListener('click', resetAll);
+document.getElementById('stepBtn').addEventListener('click', nextStep);
+document.getElementById('runBtn').addEventListener('click', runAll);
+resetAll();
+</script>
+</body>
+</html>
