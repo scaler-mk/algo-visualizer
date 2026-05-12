@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Prompting Playground — 5 prompts that teach you optimization</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #1a1a2e; color: #e6e6ed; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; color: #fff; }
+  h1 .accent { color: #ffd95c; font-style: italic; }
+  .subtitle { color: #aaa; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 860px; }
+  .prompt-picker { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #ffd95c; border-radius: 10px; box-shadow: 6px 6px 0 #ffd95c; padding: 14px 18px; margin-bottom: 18px; display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; }
+  .prompt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  @media (max-width: 900px) { .prompt-grid { grid-template-columns: repeat(2, 1fr); } .prompt-picker { grid-template-columns: 1fr; } }
+  .prompt-btn { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 9px 12px; background: #1a1a2e; color: #d2a8ff; border: 1.5px solid #d2a8ff; border-radius: 5px; cursor: pointer; transition: all 0.15s; line-height: 1.3; text-align: left; }
+  .prompt-btn:hover { background: #2e2e4a; }
+  .prompt-btn.active { background: #d2a8ff; color: #1a1a2e; }
+  .prompt-btn .num { display: inline-block; background: rgba(255,255,255,0.15); color: inherit; padding: 1px 6px; border-radius: 3px; font-weight: 900; margin-right: 4px; }
+  .prompt-btn.active .num { background: rgba(0,0,0,0.2); }
+  .prompt-btn .preview { display: block; font-size: 9.5px; opacity: 0.75; margin-top: 2px; font-style: italic; }
+  .prompt-box { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #d2a8ff; border-radius: 10px; box-shadow: 6px 6px 0 #d2a8ff; padding: 18px 22px; margin-bottom: 18px; }
+  .prompt-box h3 { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #d2a8ff; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .prompt-box h3::before { content: '🤖'; font-size: 16px; }
+  .prompt-text { background: #1a1a2e; border-radius: 6px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; color: #d2a8ff; border-left: 4px solid #d2a8ff; }
+  .prompt-text em { color: #ffd95c; font-style: italic; }
+  .panels-grid { max-width: 1100px; width: 100%; display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .panels-grid { grid-template-columns: 1fr; } }
+  .panel { background: #25253d; border-radius: 10px; padding: 22px 24px; }
+  .panel.code-panel { border: 2px solid #ffd95c; box-shadow: 6px 6px 0 #ffd95c; }
+  .panel.response-panel { border: 2px solid #56d364; box-shadow: 6px 6px 0 #56d364; }
+  .panel-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .panel.code-panel .panel-title { color: #ffd95c; }
+  .panel.response-panel .panel-title { color: #b0e0b8; }
+  .badge-you { padding: 2px 8px; background: #ffd95c; color: #1a1a2e; border-radius: 3px; font-weight: 700; font-size: 9px; }
+  .badge-ai { padding: 2px 8px; background: #56d364; color: #1a3a23; border-radius: 3px; font-weight: 700; font-size: 9px; }
+  .code-block { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; color: #e6edf3; background: #0d1117; border-radius: 6px; padding: 14px 16px; overflow-x: auto; }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .var { color: #d2a8ff; }
+  .code-block .num { color: #ffa657; }
+  .code-block .op { color: #ffd95c; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .method { color: #ffd95c; }
+  .code-block .comment { color: #6e7681; font-style: italic; }
+  .code-block .indent { display: inline-block; width: 1.3em; }
+  .code-block .highlight-line { background: rgba(255,217,92,0.15); padding: 2px 6px; margin: 0 -6px; border-radius: 3px; border-left: 3px solid #ffd95c; }
+  .code-block .redundant-line { background: rgba(255,107,107,0.18); padding: 2px 6px; margin: 0 -6px; border-radius: 3px; border-left: 3px solid #ff6b6b; }
+  .response-content { font-family: 'Fraunces', serif; font-size: 13.5px; line-height: 1.6; color: #e6edf3; }
+  .response-content h4 { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #b0e0b8; text-transform: uppercase; letter-spacing: 0.1em; margin: 12px 0 6px; }
+  .response-content h4:first-child { margin-top: 0; }
+  .response-content p { margin-bottom: 8px; }
+  .response-content code { background: #0d1117; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #ffd95c; }
+  .response-content strong { color: #ffd95c; }
+  .response-content ul { margin: 6px 0 8px 18px; padding: 0; }
+  .response-content li { margin-bottom: 5px; }
+  .response-content .pattern-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 10.5px; font-weight: 700; margin-right: 6px; font-family: 'JetBrains Mono', monospace; }
+  .response-content .pattern-tag.warn { background: #ff6b6b; color: #fff; }
+  .response-content .pattern-tag.win { background: #56d364; color: #1a3a23; }
+  .response-content .pattern-tag.flip { background: #d2a8ff; color: #1a1a2e; }
+  .response-content .pattern-tag.predict { background: #ffd95c; color: #1a1a2e; }
+  .response-content .key-callout { background: #1a1a2e; border-left: 4px solid #ffd95c; padding: 10px 14px; margin: 10px 0; border-radius: 4px; }
+  .response-content .key-callout strong { color: #ffd95c; }
+  .response-content .ai-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+  .response-content .ai-table th { background: #1a1a2e; color: #ffd95c; padding: 6px 10px; text-align: left; border-bottom: 2px solid #444; }
+  .response-content .ai-table td { padding: 5px 10px; border-bottom: 1px solid #333; color: #e6edf3; }
+  .response-content .ai-table tr.changed-row { background: rgba(86, 211, 100, 0.12); }
+  .response-content .converted-code { background: #0d1117; padding: 10px 14px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.55; color: #e6edf3; margin: 8px 0; white-space: pre; overflow-x: auto; }
+  .takeaway-card { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #ffd95c; border-radius: 10px; box-shadow: 6px 6px 0 #ffd95c; padding: 16px 22px; margin-bottom: 18px; }
+  .takeaway-card h4 { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; }
+  .takeaway-card p { font-family: 'Fraunces', serif; font-size: 14px; line-height: 1.55; color: #e6edf3; }
+  .takeaway-card p strong { color: #ffd95c; }
+</style>
+</head>
+<body>
+  <h1>Smart Prompting <span class="accent">Playground</span></h1>
+  <p class="subtitle">5 prompts that turn AI into a thinking partner for code optimization. Pick a prompt, see the code on the left, see what AI returns on the right.</p>
+  <div class="prompt-picker">
+    <span class="picker-label">Prompt:</span>
+    <div class="prompt-grid">
+      <span class="prompt-btn active" data-prompt="redundancy"><span class="num">1</span><span>Find redundancy</span><span class="preview">"what's wasted work?"</span></span>
+      <span class="prompt-btn" data-prompt="compare"><span class="num">2</span><span>Compare two solutions</span><span class="preview">"what's structurally same/different?"</span></span>
+      <span class="prompt-btn" data-prompt="flip"><span class="num">3</span><span>Flip the perspective</span><span class="preview">"iterate over X instead of Y?"</span></span>
+      <span class="prompt-btn" data-prompt="predict"><span class="num">4</span><span>Predict the optimization</span><span class="preview">"cheapest way to compute X?"</span></span>
+      <span class="prompt-btn" data-prompt="library"><span class="num">5</span><span>My prompt library</span><span class="preview">"when to use which?"</span></span>
+    </div>
+  </div>
+  <div class="prompt-box">
+    <h3>The prompt you paste into AI</h3>
+    <div class="prompt-text" id="promptText">—</div>
+  </div>
+  <div class="panels-grid">
+    <div class="panel code-panel">
+      <div class="panel-title"><span class="badge-you">YOU PASTE</span> <span id="codeLabel">Your code / situation</span></div>
+      <div class="code-block" id="codePanel"></div>
+    </div>
+    <div class="panel response-panel">
+      <div class="panel-title"><span class="badge-ai">AI RETURNS</span> Analysis</div>
+      <div class="response-content" id="responsePanel">—</div>
+    </div>
+  </div>
+  <div class="takeaway-card">
+    <h4>The takeaway</h4>
+    <p id="takeawayText">—</p>
+  </div>
+<script>
+const PROMPTS = {
+  redundancy: {
+    promptText: 'Here is my brute force solution for [problem]. Tell me which lines do <em>redundant work</em>, what previously-computed values could be <em>reused</em>, and what data structure or technique would let me reuse them.',
+    codeLabel: 'Brute force: sum of all subarrays',
+    code:
+      '<div><span class="kw">function</span> <span class="method">subArraysSumBruteForce</span>(<span class="var">arr</span>[], <span class="var">n</span>) {</div>' +
+      '<div><span class="indent"></span><span class="var">total</span> = <span class="num">0</span>;</div>' +
+      '<div><span class="indent"></span><span class="kw">for</span> (<span class="var">i</span> -> <span class="num">0</span> <span class="kw">to</span> <span class="var">n</span>-<span class="num">1</span>) {</div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="kw">for</span> (<span class="var">j</span> -> <span class="var">i</span> <span class="kw">to</span> <span class="var">n</span>-<span class="num">1</span>) {</div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="indent"></span><span class="var">subarray_sum</span> = <span class="num">0</span>;</div>' +
+      '<div class="redundant-line"><span class="indent"></span><span class="indent"></span><span class="indent"></span><span class="kw">for</span> (<span class="var">k</span> -> <span class="var">i</span> <span class="kw">to</span> <span class="var">j</span>) {</div>' +
+      '<div class="redundant-line"><span class="indent"></span><span class="indent"></span><span class="indent"></span><span class="indent"></span><span class="var">subarray_sum</span> += <span class="var">arr</span>[<span class="var">k</span>];</div>' +
+      '<div class="redundant-line"><span class="indent"></span><span class="indent"></span><span class="indent"></span>}</div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="indent"></span><span class="var">total</span> += <span class="var">subarray_sum</span>;</div>' +
+      '<div><span class="indent"></span><span class="indent"></span>}</div>' +
+      '<div><span class="indent"></span>}</div>' +
+      '<div>}</div>',
+    response:
+      '<h4>The redundancy AI flags</h4>' +
+      '<p><span class="pattern-tag warn">REDUNDANT</span>The inner <code>k</code>-loop (lines 6-8). For each (i, j) pair, you re-sum <code>arr[i..j]</code> from scratch. But you already summed <code>arr[i..j-1]</code> on the previous iteration!</p>' +
+      '<h4>Two ways to reuse</h4>' +
+      '<p><strong>Option A — Prefix Sum:</strong> precompute <code>prefix[i] = sum of arr[0..i]</code>. Then <code>sum(i, j) = prefix[j] − prefix[i-1]</code> in O(1).</p>' +
+      '<p><strong>Option B — Carry Forward:</strong> when j moves to j+1, add ONE element instead of re-summing: <code>currSum += arr[j]</code>. No new array needed.</p>' +
+      '<div class="key-callout"><strong>Complexity drop:</strong> O(n³) → O(n²). The k-loop disappears entirely.</div>',
+    takeaway: '<strong>Find-the-redundancy</strong> is the optimization prompt. Almost every "slow" solution is doing the same work twice. Ask AI to find what\u0027s being recomputed and what you could reuse — that\u0027s where prefix sums, carry forward, memoization, and caching all come from.'
+  },
+  compare: {
+    promptText: 'I have two solutions to the same problem. Compare them <em>side by side</em>. What\u0027s structurally identical? What\u0027s the only thing that changed? Which would you use when?',
+    codeLabel: 'Two O(n²) solutions to the same problem',
+    code:
+      '<div style="color:#aaa;margin-bottom:6px;">// A · Prefix Sum approach</div>' +
+      '<div><span class="kw">for</span> (<span class="var">i</span> -> <span class="num">0</span> <span class="kw">to</span> <span class="var">n</span>-<span class="num">1</span>) {</div>' +
+      '<div><span class="indent"></span><span class="kw">for</span> (<span class="var">j</span> -> <span class="var">i</span> <span class="kw">to</span> <span class="var">n</span>-<span class="num">1</span>) {</div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="var">sum</span> = <span class="var">prefix</span>[<span class="var">j</span>] - <span class="var">prefix</span>[<span class="var">i</span>-<span class="num">1</span>];</div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="var">total</span> += <span class="var">sum</span>;</div>' +
+      '<div><span class="indent"></span>}</div>' +
+      '<div>}</div>' +
+      '<div style="height:8px;"></div>' +
+      '<div style="color:#aaa;margin-bottom:6px;">// B · Carry Forward approach</div>' +
+      '<div><span class="kw">for</span> (<span class="var">i</span> -> <span class="num">0</span> <span class="kw">to</span> <span class="var">n</span>-<span class="num">1</span>) {</div>' +
+      '<div><span class="indent"></span><span class="var">currSum</span> = <span class="num">0</span>;</div>' +
+      '<div><span class="indent"></span><span class="kw">for</span> (<span class="var">j</span> -> <span class="var">i</span> <span class="kw">to</span> <span class="var">n</span>-<span class="num">1</span>) {</div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="var">currSum</span> += <span class="var">arr</span>[<span class="var">j</span>];</div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="var">total</span> += <span class="var">currSum</span>;</div>' +
+      '<div><span class="indent"></span>}</div>' +
+      '<div>}</div>',
+    response:
+      '<h4>Structural comparison</h4>' +
+      '<table class="ai-table"><thead><tr><th>Aspect</th><th>Prefix Sum</th><th>Carry Forward</th></tr></thead><tbody>' +
+      '<tr><td>Nested loops</td><td>2</td><td>2</td></tr>' +
+      '<tr><td>Time complexity</td><td>O(n²)</td><td>O(n²)</td></tr>' +
+      '<tr class="changed-row"><td>Space complexity</td><td>O(n) — prefix array</td><td>O(1) — just currSum</td></tr>' +
+      '<tr><td>Preprocessing</td><td>O(n) to build prefix</td><td>None</td></tr>' +
+      '<tr class="changed-row"><td>What you store</td><td>Cumulative sums for every prefix</td><td>One running sum, reset per i</td></tr>' +
+      '<tr><td>How sum(i,j) is computed</td><td><code>prefix[j] - prefix[i-1]</code></td><td><code>currSum += arr[j]</code></td></tr>' +
+      '</tbody></table>' +
+      '<h4>The pattern</h4>' +
+      '<p>Both solutions share the <strong>same 2-loop skeleton</strong>. The only thing that changed is <em>how the inner sum is maintained</em> — pre-stored values (prefix) vs incremental update (carry forward).</p>' +
+      '<div class="key-callout"><strong>When to use which:</strong><ul><li><strong>Prefix sum</strong> when you need many queries on different ranges (build once, query in O(1)).</li><li><strong>Carry forward</strong> when you walk subarrays sequentially and don\u0027t need random-range queries (saves space).</li></ul></div>',
+    takeaway: '<strong>Compare-structurally</strong> reveals that "different techniques" often share the same skeleton with one thing swapped. Ask AI to highlight what\u0027s the same vs. what changed — that\u0027s how you build pattern recognition across problems.'
+  },
+  flip: {
+    promptText: 'I\u0027m iterating over subarrays and summing their elements. Can I flip the perspective and iterate over <em>elements</em> instead, counting how many subarrays each one belongs to? Show me the formula.',
+    codeLabel: 'Current approach: iterate over subarrays',
+    code:
+      '<div style="color:#aaa;">// O(n²) — iterate over EVERY subarray</div>' +
+      '<div><span class="kw">for</span> (<span class="var">i</span> -> <span class="num">0</span> <span class="kw">to</span> <span class="var">n</span>-<span class="num">1</span>) {</div>' +
+      '<div><span class="indent"></span><span class="kw">for</span> (<span class="var">j</span> -> <span class="var">i</span> <span class="kw">to</span> <span class="var">n</span>-<span class="num">1</span>) {</div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="comment">// each (i,j) is one subarray</span></div>' +
+      '<div><span class="indent"></span><span class="indent"></span><span class="comment">// sum its contents, add to total</span></div>' +
+      '<div><span class="indent"></span>}</div>' +
+      '<div>}</div>' +
+      '<div style="height:8px;"></div>' +
+      '<div style="color:#aaa;">// Example A = [1, 2, 3]</div>' +
+      '<div style="color:#aaa;">// 6 subarrays: [1],[1,2],[1,2,3],[2],[2,3],[3]</div>' +
+      '<div style="color:#aaa;">// Total = 1+3+6+2+5+3 = 20</div>',
+    response:
+      '<h4>The flip</h4>' +
+      '<p><span class="pattern-tag flip">FLIP</span>Instead of "for each subarray, sum its elements," ask: "<strong>for each element, how many subarrays contain it?</strong>" Multiply the element by its count, sum across all elements.</p>' +
+      '<h4>Count for element at index <code>i</code></h4>' +
+      '<ul>' +
+      '<li>Start of subarray can be anywhere in <code>[0, i]</code> → <strong>i + 1 choices</strong></li>' +
+      '<li>End of subarray can be anywhere in <code>[i, n-1]</code> → <strong>n - i choices</strong></li>' +
+      '<li>Total subarrays containing <code>arr[i]</code>: <strong>(i + 1) × (n - i)</strong></li>' +
+      '</ul>' +
+      '<h4>Verify on A = [1, 2, 3], n = 3</h4>' +
+      '<table class="ai-table"><thead><tr><th>i</th><th>arr[i]</th><th>(i+1)·(n-i)</th><th>Contribution</th></tr></thead><tbody>' +
+      '<tr><td>0</td><td>1</td><td>1 × 3 = 3</td><td>1 × 3 = 3</td></tr>' +
+      '<tr><td>1</td><td>2</td><td>2 × 2 = 4</td><td>2 × 4 = 8</td></tr>' +
+      '<tr><td>2</td><td>3</td><td>3 × 1 = 3</td><td>3 × 3 = 9</td></tr>' +
+      '</tbody></table>' +
+      '<p>Total = <strong>3 + 8 + 9 = 20</strong> ✓ matches the expected answer.</p>' +
+      '<div class="key-callout"><strong>Complexity drop:</strong> O(n²) → O(n). One pass over the array, one multiplication per element.</div>',
+    takeaway: '<strong>Flip-the-perspective</strong> is the hardest optimization to discover on your own. Ask AI: "instead of iterating over [X], can I iterate over [Y]?" Works for counting problems, contribution problems, "sum over pairs" problems. The framing change is the entire trick.'
+  },
+  predict: {
+    promptText: 'I\u0027m computing sums of consecutive K-length windows. If I already know the sum of <em>[A, B, C, D]</em>, what is the cheapest way to compute the sum of the next window <em>[B, C, D, E]</em>? Derive the formula before writing any code.',
+    codeLabel: 'Brute force: re-sum each window from scratch',
+    code:
+      '<div style="color:#aaa;">// O(N × K) — recomputes K elements for each window</div>' +
+      '<div><span class="kw">while</span> (<span class="var">j</span> &lt; <span class="var">N</span>) {</div>' +
+      '<div><span class="indent"></span><span class="var">sum</span> = <span class="num">0</span>;</div>' +
+      '<div class="redundant-line"><span class="indent"></span><span class="kw">for</span> (<span class="var">idx</span> -> <span class="var">i</span> <span class="kw">to</span> <span class="var">j</span>) {</div>' +
+      '<div class="redundant-line"><span class="indent"></span><span class="indent"></span><span class="var">sum</span> += <span class="var">A</span>[<span class="var">idx</span>];</div>' +
+      '<div class="redundant-line"><span class="indent"></span>}</div>' +
+      '<div><span class="indent"></span><span class="var">ans</span> = <span class="method">max</span>(<span class="var">sum</span>, <span class="var">ans</span>);</div>' +
+      '<div><span class="indent"></span><span class="var">i</span>++; <span class="var">j</span>++;</div>' +
+      '<div>}</div>' +
+      '<div style="height:8px;"></div>' +
+      '<div style="color:#aaa;">// Example N=10, K=5</div>' +
+      '<div style="color:#aaa;">// Windows: [0..4],[1..5],[2..6],...</div>' +
+      '<div style="color:#aaa;">// 6 windows × 5 adds = 30 adds total</div>',
+    response:
+      '<h4>What changes between consecutive windows</h4>' +
+      '<p><span class="pattern-tag predict">PREDICT</span>Going from <code>[A, B, C, D]</code> to <code>[B, C, D, E]</code>:</p>' +
+      '<ul>' +
+      '<li>The middle elements <code>B, C, D</code> are <strong>identical</strong> — they don\u0027t need to be re-summed.</li>' +
+      '<li>One element is <strong>dropped</strong>: <code>A</code> (the old left end)</li>' +
+      '<li>One element is <strong>added</strong>: <code>E</code> (the new right end)</li>' +
+      '</ul>' +
+      '<h4>The derived formula</h4>' +
+      '<div class="converted-code">newSum = oldSum + newElement - droppedElement<br><br>// In array index terms:<br>sum = sum + A[j] - A[i-1]</div>' +
+      '<p>This is the <strong>sliding window</strong> formula. Each window now costs <strong>O(1)</strong> instead of <strong>O(K)</strong> after the first one is computed.</p>' +
+      '<div class="key-callout"><strong>Complexity drop:</strong> O(N × K) → O(N). For N=10, K=5: from 30 adds down to 5 + 5 = 10 adds. The savings grow as K grows.</div>' +
+      '<h4>Where this pattern appears</h4>' +
+      '<ul><li>Moving averages (stock prices, sensor readings)</li><li>Rolling totals over time windows</li><li>Max/min in any K consecutive elements</li><li>Anywhere the question is "in the last K things..."</li></ul>',
+    takeaway: '<strong>Predict-the-optimization</strong> is the self-testing prompt. Before you read the optimal solution, ask AI to derive it from first principles. You learn WHY the formula exists, not just WHAT it is. Use this before reading any "optimized approach" section.'
+  },
+  library: {
+    promptText: 'I\u0027m stuck on a problem. Which of my smart prompts should I try? Match my situation to a prompt pattern.',
+    codeLabel: 'Your situation (pick one)',
+    code:
+      '<div style="color:#aaa;">// Situations students hit:</div>' +
+      '<div style="height:6px;"></div>' +
+      '<div><span style="color:#ff6b6b;">1.</span> "My code works but it\u0027s too slow."</div>' +
+      '<div><span style="color:#ff6b6b;">2.</span> "I have 2 solutions, which to use?"</div>' +
+      '<div><span style="color:#ff6b6b;">3.</span> "I can\u0027t see an optimization at all."</div>' +
+      '<div><span style="color:#ff6b6b;">4.</span> "About to read optimized code — want to derive first."</div>' +
+      '<div><span style="color:#ff6b6b;">5.</span> "Same kind of problem keeps appearing."</div>',
+    response:
+      '<h4>Your situation → prompt to use</h4>' +
+      '<table class="ai-table"><thead><tr><th>If you...</th><th>Use prompt</th></tr></thead><tbody>' +
+      '<tr><td>Have working but slow code</td><td><strong>Find redundancy</strong> — "which lines repeat work?"</td></tr>' +
+      '<tr><td>Have two solutions</td><td><strong>Compare structurally</strong> — "same skeleton, what changed?"</td></tr>' +
+      '<tr><td>Are completely stuck</td><td><strong>Flip the perspective</strong> — "iterate over X instead of Y?"</td></tr>' +
+      '<tr><td>About to read an answer</td><td><strong>Predict</strong> — derive from first principles first</td></tr>' +
+      '<tr><td>See a recurring pattern</td><td>Any combination — build mental library</td></tr>' +
+      '</tbody></table>' +
+      '<div class="key-callout"><strong>The rule:</strong> never ask AI "solve this for me." Always frame the prompt around the THINKING step you want help with — finding waste, comparing, reframing, or deriving. The answer is for AI; the thinking is yours.</div>' +
+      '<h4>One more meta-prompt</h4>' +
+      '<p style="background:#1a1a2e;padding:10px 14px;border-radius:4px;border-left:3px solid #d2a8ff;"><em>"Don\u0027t give me the answer yet. First, ask me one clarifying question that would help you guide me toward the answer."</em></p>' +
+      '<p>This single line turns AI from autopilot into a tutor.</p>',
+    takeaway: '<strong>Your prompt library</strong> grows class by class. The 4 prompts above cover ~80% of stuck-on-code moments. The meta-prompt at the end (<em>"ask me a clarifying question first"</em>) works for almost any problem, programming or otherwise.'
+  }
+};
+let currentPrompt = 'redundancy';
+function renderPicker() { document.querySelectorAll('.prompt-btn').forEach(el => el.classList.toggle('active', el.dataset.prompt === currentPrompt)); }
+function renderPromptText() { document.getElementById('promptText').innerHTML = PROMPTS[currentPrompt].promptText; }
+function renderCode() {
+  document.getElementById('codeLabel').textContent = PROMPTS[currentPrompt].codeLabel;
+  document.getElementById('codePanel').innerHTML = PROMPTS[currentPrompt].code;
+}
+function renderResponse() { document.getElementById('responsePanel').innerHTML = PROMPTS[currentPrompt].response; }
+function renderTakeaway() { document.getElementById('takeawayText').innerHTML = PROMPTS[currentPrompt].takeaway; }
+function renderAll() { renderPicker(); renderPromptText(); renderCode(); renderResponse(); renderTakeaway(); }
+document.querySelectorAll('.prompt-btn').forEach(el => el.addEventListener('click', () => { currentPrompt = el.dataset.prompt; renderAll(); }));
+renderAll();
+</script>
+</body>
+</html>

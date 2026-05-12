@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Prompt Comparison Lab — Bad prompt vs good prompt, same problem</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', serif; background: #1a1a2e; color: #e6e6ed; min-height: 100vh; padding: 28px 20px 60px; display: flex; flex-direction: column; align-items: center; }
+  h1 { font-weight: 900; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; text-align: center; margin-bottom: 6px; color: #fff; }
+  h1 .accent { color: #ffd95c; font-style: italic; }
+  .subtitle { color: #aaa; font-style: italic; text-align: center; margin-bottom: 22px; max-width: 860px; }
+  .scenario-picker { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #ffd95c; border-radius: 10px; box-shadow: 6px 6px 0 #ffd95c; padding: 14px 18px; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .picker-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+  .scenario-btn { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 9px 14px; background: #1a1a2e; color: #d2a8ff; border: 1.5px solid #d2a8ff; border-radius: 5px; cursor: pointer; transition: all 0.15s; line-height: 1.3; text-align: left; flex: 1; min-width: 200px; }
+  .scenario-btn:hover { background: #2e2e4a; }
+  .scenario-btn.active { background: #d2a8ff; color: #1a1a2e; }
+  .scenario-btn .preview { display: block; font-size: 9.5px; opacity: 0.75; margin-top: 2px; font-style: italic; }
+  .problem-card { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #fff; border-radius: 10px; box-shadow: 6px 6px 0 #fff; padding: 16px 22px; margin-bottom: 18px; }
+  .problem-card h3 { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #fff; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; }
+  .problem-card p { font-family: 'Fraunces', serif; font-size: 14px; line-height: 1.55; color: #e6e6ed; }
+  .problem-card code { background: rgba(255,217,92,0.12); color: #ffd95c; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .panels-grid { max-width: 1100px; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .panels-grid { grid-template-columns: 1fr; } }
+  .panel { background: #25253d; border-radius: 10px; padding: 20px 22px; }
+  .panel.bad { border: 2px solid #ff6b6b; box-shadow: 6px 6px 0 #ff6b6b; }
+  .panel.good { border: 2px solid #56d364; box-shadow: 6px 6px 0 #56d364; }
+  .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .badge { padding: 3px 10px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+  .badge.bad { background: #ff6b6b; color: #fff; }
+  .badge.good { background: #56d364; color: #1a3a23; }
+  .panel-label { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
+  .panel.bad .panel-label { color: #ff9999; }
+  .panel.good .panel-label { color: #b0e0b8; }
+  .prompt-box-inline { background: #1a1a2e; border-radius: 6px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.55; margin-bottom: 12px; min-height: 70px; }
+  .panel.bad .prompt-box-inline { color: #ff9999; border-left: 3px solid #ff6b6b; }
+  .panel.good .prompt-box-inline { color: #b0e0b8; border-left: 3px solid #56d364; }
+  .ai-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .ai-label::before { content: '🤖'; font-size: 14px; }
+  .ai-response { background: #0d1117; border-radius: 6px; padding: 12px 14px; font-family: 'Fraunces', serif; font-size: 12.5px; line-height: 1.55; color: #e6e6ed; max-height: 380px; overflow-y: auto; }
+  .ai-response code { background: rgba(255,217,92,0.12); color: #ffd95c; padding: 1px 5px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+  .ai-response strong { color: #ffd95c; }
+  .ai-response .full-code { background: #1a1a2e; padding: 8px 10px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #b0e0b8; margin: 6px 0; white-space: pre; overflow-x: auto; line-height: 1.5; }
+  .ai-response ul { margin: 6px 0 6px 18px; padding: 0; }
+  .ai-response li { margin-bottom: 4px; }
+  .verdict-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+  .verdict-pill { padding: 4px 10px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700; }
+  .verdict-pill.learning { background: #56d364; color: #1a3a23; }
+  .verdict-pill.no-learning { background: #ff6b6b; color: #fff; }
+  .verdict-pill.tip { background: #ffd95c; color: #1a1a2e; }
+  .insight-card { max-width: 1100px; width: 100%; background: #25253d; border: 2px solid #ffd95c; border-radius: 10px; box-shadow: 6px 6px 0 #ffd95c; padding: 16px 22px; margin-bottom: 18px; }
+  .insight-card h4 { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #ffd95c; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; }
+  .insight-card p { font-family: 'Fraunces', serif; font-size: 14px; line-height: 1.55; color: #e6e6ed; margin-bottom: 6px; }
+  .insight-card p:last-child { margin-bottom: 0; }
+  .insight-card strong { color: #ffd95c; }
+  .insight-card code { background: rgba(255,217,92,0.12); color: #ffd95c; padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Prompt Comparison <span class="accent">Lab</span></h1>
+  <p class="subtitle">Same problem, two prompts. Watch how the way you ASK changes everything AI gives back. One leaves you with an answer; the other leaves you with a skill.</p>
+  <div class="scenario-picker">
+    <span class="picker-label">Problem:</span>
+    <span class="scenario-btn active" data-scenario="bruteforce"><span>Sum of all subarrays</span><span class="preview">your brute force is too slow</span></span>
+    <span class="scenario-btn" data-scenario="window"><span>Max subarray of length K</span><span class="preview">window keeps recomputing</span></span>
+    <span class="scenario-btn" data-scenario="contribution"><span>Counting contributions</span><span class="preview">need to flip perspective</span></span>
+  </div>
+  <div class="problem-card">
+    <h3 id="problemTitle">The problem</h3>
+    <p id="problemDesc">—</p>
+  </div>
+  <div class="panels-grid">
+    <div class="panel bad">
+      <div class="panel-header">
+        <span class="badge bad">✗ BAD</span>
+        <span class="panel-label">"Just solve it for me"</span>
+      </div>
+      <div class="prompt-box-inline" id="badPrompt">—</div>
+      <div class="ai-label">AI returns</div>
+      <div class="ai-response" id="badResponse">—</div>
+      <div class="verdict-row" id="badVerdict"></div>
+    </div>
+    <div class="panel good">
+      <div class="panel-header">
+        <span class="badge good">✓ GOOD</span>
+        <span class="panel-label">"Help me think about it"</span>
+      </div>
+      <div class="prompt-box-inline" id="goodPrompt">—</div>
+      <div class="ai-label">AI returns</div>
+      <div class="ai-response" id="goodResponse">—</div>
+      <div class="verdict-row" id="goodVerdict"></div>
+    </div>
+  </div>
+  <div class="insight-card">
+    <h4>Why this matters</h4>
+    <p id="insightText">—</p>
+  </div>
+<script>
+const SCENARIOS = {
+  bruteforce: {
+    problemTitle: 'Sum of all subarrays — your O(n³) brute force is too slow',
+    problemDesc: 'You wrote a brute force with three nested loops and it works for n=10 but times out on n=1000. You go to AI. What you ask determines what you learn.',
+    badPrompt: '"My code times out on large inputs. Give me a faster solution."',
+    badResponse:
+      '<p>Sure. Here\u0027s an O(n) solution using the <strong>contribution technique</strong>:</p>' +
+      '<div class="full-code">function sumOfAllSubarraySums(arr) {<br>  let n = arr.length, total = 0;<br>  for (let i = 0; i &lt; n; i++) {<br>    total += arr[i] * (i + 1) * (n - i);<br>  }<br>  return total;<br>}</div>' +
+      '<p>Each element <code>arr[i]</code> appears in <code>(i+1) × (n-i)</code> subarrays. Multiply, sum, done.</p>',
+    badVerdict: [
+      { cls: 'no-learning', text: 'No learning' },
+      { cls: 'no-learning', text: 'Skipped prefix sum, carry forward, contribution discovery' },
+      { cls: 'no-learning', text: 'Can\u0027t reproduce on a similar problem' }
+    ],
+    goodPrompt: '"Here\u0027s my brute force [paste code]. Find the redundant work and suggest what data structure or technique would let me reuse it. Don\u0027t give me the final solution yet."',
+    goodResponse:
+      '<p><strong>The redundancy:</strong> your inner <code>k</code>-loop re-sums <code>arr[i..j]</code> from scratch. But the previous iteration already computed <code>arr[i..j-1]</code> — you\u0027re doing work twice.</p>' +
+      '<p><strong>Two ways to reuse:</strong></p>' +
+      '<ul><li><strong>Prefix sum array</strong> — precompute cumulative sums, get any range in O(1).</li><li><strong>Carry forward</strong> — when j moves, add one element instead of re-summing.</li></ul>' +
+      '<p><strong>What this teaches:</strong> the optimization pattern is "spot the repeated work, cache or accumulate it." Same trick applies to range queries, running averages, sliding totals.</p>' +
+      '<p>Want to try writing the prefix sum version yourself first?</p>',
+    goodVerdict: [
+      { cls: 'learning', text: 'Names the pattern' },
+      { cls: 'learning', text: 'Teaches the WHY' },
+      { cls: 'learning', text: 'Opens follow-up dialogue' }
+    ],
+    insight: 'The bad prompt gets you ONE specific solution. The good prompt gets you a <strong>pattern</strong> — "spot redundant work, cache it" — that works on hundreds of problems. <code>O(n³) → O(n²)</code> isn\u0027t the lesson. <em>How to find</em> the optimization is the lesson.'
+  },
+  window: {
+    problemTitle: 'Max subarray sum of length K — brute force O(N × K)',
+    problemDesc: 'Your brute force recomputes the sum from scratch for every window. You suspect there\u0027s a smarter way. You ask AI for help.',
+    badPrompt: '"What\u0027s the optimal algorithm for max subarray sum of length K?"',
+    badResponse:
+      '<p>Use the <strong>sliding window technique</strong>. O(N) time, O(1) space:</p>' +
+      '<div class="full-code">function maxSubarrayK(A, K) {<br>  let sum = 0, ans;<br>  for (let i = 0; i &lt; K; i++) sum += A[i];<br>  ans = sum;<br>  for (let i = K; i &lt; A.length; i++) {<br>    sum += A[i] - A[i - K];<br>    ans = Math.max(ans, sum);<br>  }<br>  return ans;<br>}</div>' +
+      '<p>Compute the first window, then slide: add the new right element, subtract the old left element.</p>',
+    badVerdict: [
+      { cls: 'no-learning', text: 'You got the formula' },
+      { cls: 'no-learning', text: 'But not where it comes from' },
+      { cls: 'no-learning', text: 'Can\u0027t derive it on a new problem' }
+    ],
+    goodPrompt: '"I\u0027m computing sums of consecutive K-length windows. Going from window [A,B,C,D] to [B,C,D,E], what is the cheapest update? Derive the formula step-by-step before showing me code."',
+    goodResponse:
+      '<p><strong>What changes between consecutive windows:</strong></p>' +
+      '<ul><li>Middle elements <code>B, C, D</code> are <strong>identical</strong> — same in both windows.</li><li>One element <strong>drops out</strong>: <code>A</code> (the old left).</li><li>One element <strong>enters</strong>: <code>E</code> (the new right).</li></ul>' +
+      '<p><strong>The natural formula:</strong></p>' +
+      '<div class="full-code">newSum = oldSum - droppedElement + newElement<br>// Or:<br>sum = sum + A[j] - A[i-1]</div>' +
+      '<p>That\u0027s O(1) per window after the first one. The cost no longer depends on K.</p>' +
+      '<p><strong>Try thinking next:</strong> what other "in the last K things" problems have this same shape? (moving average, K-window max, K-window min...)</p>',
+    goodVerdict: [
+      { cls: 'learning', text: 'Derives from observation' },
+      { cls: 'learning', text: 'Builds intuition' },
+      { cls: 'tip', text: 'Generalizes to related problems' }
+    ],
+    insight: 'The bad prompt got you <em>working code</em>. The good prompt got you the <strong>insight</strong> that drives the code. When you see the next "compute X for every K-window" problem (moving average, K-min, K-product), the bad-prompt student googles again. The good-prompt student already knows what to derive.'
+  },
+  contribution: {
+    problemTitle: 'Sum of all subarrays — your O(n²) is still too slow for n=10⁶',
+    problemDesc: 'You have prefix sum or carry forward (both O(n²)). You suspect there\u0027s an O(n) solution but you can\u0027t see it. You ask AI.',
+    badPrompt: '"Make this O(n) please."',
+    badResponse:
+      '<p>Use the <strong>contribution technique</strong>:</p>' +
+      '<div class="full-code">function sumOfAllSubarraySums(arr) {<br>  let n = arr.length, total = 0;<br>  for (let i = 0; i &lt; n; i++) {<br>    total += arr[i] * (i + 1) * (n - i);<br>  }<br>  return total;<br>}</div>' +
+      '<p>O(n) time, O(1) space. Each element contributes <code>arr[i] × (i+1) × (n-i)</code>.</p>',
+    badVerdict: [
+      { cls: 'no-learning', text: 'Code is correct' },
+      { cls: 'no-learning', text: 'But formula looks like magic' },
+      { cls: 'no-learning', text: 'Where did (i+1)·(n-i) come from?' }
+    ],
+    goodPrompt: '"I\u0027m iterating over all subarrays to sum them. Can I flip the perspective and iterate over <strong>elements</strong> instead, counting how many subarrays each one belongs to? Walk me through the counting."',
+    goodResponse:
+      '<p><strong>The flip:</strong> instead of "for each subarray, sum its elements," ask: "for each element <code>arr[i]</code>, how many subarrays contain it?"</p>' +
+      '<p><strong>Counting subarrays containing index <code>i</code>:</strong></p>' +
+      '<ul><li>A subarray is defined by its <code>start</code> and <code>end</code>.</li><li>For <code>arr[i]</code> to be inside, we need <code>start ≤ i ≤ end</code>.</li><li>start can be any of <code>0, 1, ..., i</code> → <strong>(i + 1)</strong> choices</li><li>end can be any of <code>i, i+1, ..., n-1</code> → <strong>(n - i)</strong> choices</li><li>Total: <strong>(i + 1) × (n - i)</strong> subarrays contain <code>arr[i]</code></li></ul>' +
+      '<p><strong>Sum across all elements:</strong></p>' +
+      '<div class="full-code">total = sum of arr[i] × (i+1) × (n-i) for i = 0..n-1</div>' +
+      '<p>One pass, O(n). The "magic formula" is just counting start × end choices.</p>',
+    goodVerdict: [
+      { cls: 'learning', text: 'Formula is no longer magic' },
+      { cls: 'learning', text: 'Counting reasoning is portable' },
+      { cls: 'tip', text: 'Reuses on every contribution problem' }
+    ],
+    insight: 'The "flip the perspective" framing is the secret of contribution problems. You can\u0027t derive <code>(i+1) × (n-i)</code> by squinting at a brute-force solution — you need to ASK the perspective-flip question. AI is great at this kind of reframe IF you ask for it. If you just ask "make it O(n)", you get the formula but not the thought.'
+  }
+};
+let currentScenario = 'bruteforce';
+function renderVerdict(elId, items) {
+  let html = '';
+  items.forEach(it => { html += '<span class="verdict-pill ' + it.cls + '">' + it.text + '</span>'; });
+  document.getElementById(elId).innerHTML = html;
+}
+function renderAll() {
+  document.querySelectorAll('.scenario-btn').forEach(el => el.classList.toggle('active', el.dataset.scenario === currentScenario));
+  const s = SCENARIOS[currentScenario];
+  document.getElementById('problemTitle').textContent = s.problemTitle;
+  document.getElementById('problemDesc').textContent = s.problemDesc;
+  document.getElementById('badPrompt').textContent = s.badPrompt;
+  document.getElementById('badResponse').innerHTML = s.badResponse;
+  renderVerdict('badVerdict', s.badVerdict);
+  document.getElementById('goodPrompt').textContent = s.goodPrompt;
+  document.getElementById('goodResponse').innerHTML = s.goodResponse;
+  renderVerdict('goodVerdict', s.goodVerdict);
+  document.getElementById('insightText').innerHTML = s.insight;
+}
+document.querySelectorAll('.scenario-btn').forEach(el => el.addEventListener('click', () => { currentScenario = el.dataset.scenario; renderAll(); }));
+renderAll();
+</script>
+</body>
+</html>
