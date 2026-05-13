@@ -271,7 +271,7 @@
 
   <div class="controls">
     <div style="display:flex; gap:10px;">
-      <button class="step-btn" id="stepBtn" onclick="step()">Step ▸</button>
+      <button class="step-btn" id="stepBtn" onclick="step()">Step &#9654;</button>
       <button class="qb" onclick="autoplay()">Auto-play</button>
       <button class="qb" onclick="reset()">Reset</button>
     </div>
@@ -287,7 +287,7 @@
 <div class="cl" id="c4">arr.<span class="meth">add</span>(-<span class="num">1</span>);</div>
 <div class="cl" id="c5">arr.<span class="meth">add</span>(<span class="num">5</span>);</div>
 <div class="cl" id="c6">System.out.println(arr);</div>
-<div class="cl" id="c7">System.out.println(<span class="str">"2nd element is: "</span> + arr.<span class="meth">get</span>(<span class="num">2</span>));</div>
+<div class="cl" id="c7">System.out.println(<span class="str">"element at index 2 is: "</span> + arr.<span class="meth">get</span>(<span class="num">2</span>));</div>
 <div class="cl" id="c8">System.out.println(<span class="str">"Size is: "</span> + arr.<span class="meth">size</span>());</div>
 <div class="cl" id="c9">arr.<span class="meth">remove</span>(<span class="num">1</span>);</div>
 <div class="cl" id="c10">System.out.println(arr);</div>
@@ -340,9 +340,9 @@
     { line: 6, action: 'print', output: '[2, -1, 5]',
       trace: `print list → <span class="formula-piece fp green">[2, -1, 5]</span>`,
       desc: 'print after adds' },
-    { line: 7, action: 'get', idx: 2, output: '2nd element is: 5',
-      trace: `<span class="formula-piece fp blue">get(2)</span> — read value at index 2 → returns <span class="formula-piece fp orange">5</span>. Index 2 means the THIRD element.`,
-      desc: 'get(2) returns 5' },
+    { line: 7, action: 'get', idx: 2, output: 'element at index 2 is: 5',
+      trace: `<span class="formula-piece fp blue">get(2)</span> — read value at index 2 → returns <span class="formula-piece fp orange">5</span>. Index 2 is the <em>third</em> element (0-based indexing).`,
+      desc: 'get(2) → index 2 = 5' },
     { line: 8, action: 'size', output: 'Size is: 3',
       trace: `<span class="formula-piece fp purple">size()</span> — returns the count of elements → <span class="formula-piece fp orange">3</span>`,
       desc: 'size() returns 3' },
