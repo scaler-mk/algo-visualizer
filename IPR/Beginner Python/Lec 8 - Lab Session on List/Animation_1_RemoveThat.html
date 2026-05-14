@@ -91,13 +91,13 @@
 <body>
 <div class="wrap">
   <h1>Remove That — the shift-left vacuum</h1>
-  <div class="sub">Removing an element leaves a gap. Every element after it slides one step left to fill the vacuum — the last cell becomes redundant. Step through to see the shift in motion.</div>
+  <div class="sub">Removing an element by its 0-based index leaves a gap. Every element after it slides one step left to fill the vacuum — the last cell becomes redundant. Step through to see the shift in motion.</div>
 
   <div class="controls">
     <span class="ctl-label">SCENARIO</span>
-    <button class="qb active" data-sc="0">Remove position 3 — [2, 3, 1, 4, 2]</button>
-    <button class="qb" data-sc="1">Remove the first — position 1</button>
-    <button class="qb" data-sc="2">Remove the last — position 5</button>
+    <button class="qb active" data-sc="0">Remove index 2 — [2, 3, 1, 4, 2]</button>
+    <button class="qb" data-sc="1">Remove the first — index 0</button>
+    <button class="qb" data-sc="2">Remove the last — index 4</button>
     <span style="flex:1"></span>
     <span class="iter-counter">STEP<span class="num-c" id="iter">0</span>/<span id="total">0</span></span>
     <button class="step-btn" id="stepBtn">Step ▸</button>
@@ -124,9 +124,9 @@
         <div class="n-display" id="nDisplay">
           <span class="label">N =</span><span class="val" id="nVal">—</span>
           <span class="arrow">·</span>
-          <span class="label">X =</span><span class="val" id="xVal">—</span>
-          <span class="arrow">·</span>
-          <span class="label">INDEX =</span><span class="val" id="idxVal">—</span>
+          <span class="label">X (0-based index) =</span><span class="val" id="xVal">—</span>
+          <span class="arrow" style="display:none">·</span>
+          <span class="label" style="display:none">X (0-based) =</span><span class="val" id="idxVal" style="display:none">—</span>
         </div>
       </div>
       <div class="commentary" id="commentary">Pick a scenario above. The array will shift left to fill the vacuum left by the removed element.</div>
@@ -137,14 +137,14 @@
 <script>
 const SCENARIOS = [
   {
-    name: 'Remove position 3 — [2, 3, 1, 4, 2]',
-    sub: 'The everyday case. Position 3 maps to index 2; everything to its right shifts one step left.',
+    name: 'Remove index 2 — [2, 3, 1, 4, 2]',
+    sub: 'The everyday case. Index 2 is directly used; everything to its right shifts one step left.',
     code: [
       'n = int(input())                    # 5',
       'a = list(map(int, input().split())) # [2,3,1,4,2]',
-      'x = int(input())                    # 3',
+      'x = int(input())                    # 2  (0-based)',
       '',
-      'for i in range(x, n):',
+      'for i in range(x + 1, n):',
       '    a[i-1] = a[i]   # shift left',
       'n -= 1',
       '',
@@ -152,19 +152,19 @@ const SCENARIOS = [
       '    print(a[i], end=" ")',
     ],
     initial: [2, 3, 1, 4, 2],
-    x: 3,
-    plan: buildPlan([2, 3, 1, 4, 2], 3),
+    x: 2,
+    plan: buildPlan([2, 3, 1, 4, 2], 2),
     insight: `Every element <em>after</em> the target index moves one step left. The last cell still holds its old value — we just ignore it by tracking a smaller <strong>N</strong>.`,
   },
   {
-    name: 'Remove the first — position 1',
-    sub: 'X = 1 means index 0. The whole tail shifts left — the most work the algorithm can do.',
+    name: 'Remove the first — index 0',
+    sub: 'X = 0 is the first element. The whole tail shifts left — the most work the algorithm can do.',
     code: [
       'n = int(input())                    # 5',
       'a = list(map(int, input().split())) # [2,3,1,4,2]',
-      'x = int(input())                    # 1',
+      'x = int(input())                    # 0  (0-based)',
       '',
-      'for i in range(x, n):',
+      'for i in range(x + 1, n):',
       '    a[i-1] = a[i]',
       'n -= 1',
       '',
@@ -172,19 +172,19 @@ const SCENARIOS = [
       '    print(a[i], end=" ")',
     ],
     initial: [2, 3, 1, 4, 2],
-    x: 1,
-    plan: buildPlan([2, 3, 1, 4, 2], 1),
+    x: 0,
+    plan: buildPlan([2, 3, 1, 4, 2], 0),
     insight: `Worst case for this algorithm: removing the first element shifts <strong>every</strong> remaining element. Still O(N), but the constant is the largest.`,
   },
   {
-    name: 'Remove the last — position 5',
-    sub: 'X = N means the loop body never runs. Just decrement N and the last cell becomes garbage.',
+    name: 'Remove the last — index 4',
+    sub: 'X = N-1 means the loop body never runs. Just decrement N and the last cell becomes garbage.',
     code: [
       'n = int(input())                    # 5',
       'a = list(map(int, input().split())) # [2,3,1,4,2]',
-      'x = int(input())                    # 5',
+      'x = int(input())                    # 4  (0-based)',
       '',
-      'for i in range(x, n):     # range(5, 5) is empty!',
+      'for i in range(x + 1, n): # range(5, 5) is empty!',
       '    a[i-1] = a[i]',
       'n -= 1',
       '',
@@ -192,33 +192,33 @@ const SCENARIOS = [
       '    print(a[i], end=" ")',
     ],
     initial: [2, 3, 1, 4, 2],
-    x: 5,
-    plan: buildPlan([2, 3, 1, 4, 2], 5),
-    insight: `When X equals N, the shift loop's range is empty — no shifts happen. The cell is "removed" purely by reducing N. Best case: O(1).`,
+    x: 4,
+    plan: buildPlan([2, 3, 1, 4, 2], 4),
+    insight: `When X equals N-1, the shift loop's range is empty — no shifts happen. The cell is "removed" purely by reducing N. Best case: O(1).`,
   },
 ];
 
 function buildPlan(initial, x) {
   const n = initial.length;
-  const targetIdx = x - 1;
+  const targetIdx = x;          // x is already 0-based
   const arr = initial.slice();
   const plan = [];
 
   plan.push({
     line: 0, kind: 'init', arr: arr.slice(), n, x,
-    msg: `Inputs read: <strong>N = ${n}</strong>, array = <strong>[${arr.join(', ')}]</strong>, <strong>X = ${x}</strong>.`
+    msg: `Inputs read: <strong>N = ${n}</strong>, array = <strong>[${arr.join(', ')}]</strong>, <strong>X = ${x}</strong> (0-based).`
   });
   plan.push({
     line: 2, kind: 'mark', arr: arr.slice(), n, x, targetIdx,
-    msg: `Position <strong>${x}</strong> maps to index <strong>${targetIdx}</strong>. The value there — <strong>${arr[targetIdx]}</strong> — will be overwritten by the shift.`
+    msg: `Index <strong>${x}</strong> is already 0-based — no offset needed. The value there — <strong>${arr[targetIdx]}</strong> — will be overwritten by the shift.`
   });
   plan.push({
     line: 4, kind: 'vacuum', arr: arr.slice(), n, x, targetIdx, vacuumIdx: targetIdx,
     msg: `Imagine a <span class="bad">vacuum</span> at index <strong>${targetIdx}</strong>. The shift loop will fill it by copying from the right.`
   });
 
-  // Loop: for i in range(x, n) — copy a[i] to a[i-1]
-  for (let i = x; i < n; i++) {
+  // Loop: for i in range(x+1, n) — copy a[i] to a[i-1]
+  for (let i = x + 1; i < n; i++) {
     const srcIdx = i;
     const dstIdx = i - 1;
     const srcVal = arr[srcIdx];
@@ -230,11 +230,11 @@ function buildPlan(initial, x) {
     arr[dstIdx] = srcVal;
   }
 
-  // If x == n, no shifts ran
-  if (x === n) {
+  // If x == n-1, no shifts ran
+  if (x === n - 1) {
     plan.push({
       line: 4, kind: 'noshift', arr: arr.slice(), n, x, targetIdx,
-      msg: `<strong>range(${x}, ${n})</strong> is empty — the loop body never runs. Nothing to shift.`
+      msg: `<strong>range(${x + 1}, ${n})</strong> is empty — the loop body never runs. Nothing to shift.`
     });
   }
 
@@ -301,7 +301,7 @@ function render() {
   // Visualization
   const arr = cur ? cur.arr : sc.initial;
   const n = sc.initial.length;
-  const targetIdx = sc.x - 1;
+  const targetIdx = sc.x;          // x is already 0-based
 
   // Pointers
   let ptrHtml = '';
@@ -360,7 +360,7 @@ function render() {
   // N/X/index display
   document.getElementById('nVal').textContent = cur ? cur.n : sc.initial.length;
   document.getElementById('xVal').textContent = sc.x;
-  document.getElementById('idxVal').textContent = sc.x - 1;
+  document.getElementById('idxVal').textContent = sc.x;
 
   // Viz label
   let vizLabel = '— press Step ▸ to begin —';
