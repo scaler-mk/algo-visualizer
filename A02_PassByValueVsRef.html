@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Pass by Value vs Pass by Reference</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #334155;
+    --border: #475569;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #fbbf24;
+    --good: #22c55e;
+    --bad: #ef4444;
+    --primitive: #6366f1;
+    --reference: #10b981;
+    --heap-bg: #422006;
+    --heap-border: #f97316;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 14px;
+    min-height: 100vh;
+  }
+  h1 {
+    margin: 0 0 4px 0;
+    font-size: 19px;
+    color: var(--accent);
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 12.5px;
+    margin-bottom: 12px;
+  }
+  .side-by-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 900px) {
+    .side-by-side { grid-template-columns: 1fr; }
+  }
+  .column {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .column.value { border-top: 3px solid var(--primitive); }
+  .column.ref   { border-top: 3px solid var(--reference); }
+  .col-title {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .column.value .col-title { color: #a5b4fc; }
+  .column.ref   .col-title { color: #6ee7b7; }
+  .col-title .badge {
+    font-size: 10px;
+    background: rgba(255,255,255,0.08);
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 6px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+  pre.code {
+    margin: 0;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 9px;
+    overflow-x: auto;
+    border: 1px solid #1e293b;
+  }
+  pre.code .line {
+    display: block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border-left: 3px solid transparent;
+    margin-left: -6px;
+    padding-left: 6px;
+    transition: background 0.25s, border-color 0.25s;
+  }
+  pre.code .line.active {
+    background: rgba(251,191,36,0.18);
+    border-left-color: var(--accent-2);
+  }
+  .kw { color: #c084fc; }
+  .typ { color: #38bdf8; }
+  .fn  { color: #fbbf24; }
+  .num { color: #f472b6; }
+  .com { color: #64748b; font-style: italic; }
+
+  .memory {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    min-height: 220px;
+  }
+  .mem-box {
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 8px;
+    border: 1px solid #1e293b;
+    position: relative;
+  }
+  .mem-box .mem-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .mem-box.heap {
+    background: #2a1505;
+    border-color: var(--heap-border);
+  }
+  .mem-box.heap .mem-label { color: #fdba74; }
+
+  .stack-frames {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 6px;
+  }
+  .frame {
+    border-radius: 5px;
+    padding: 6px 8px;
+    border: 1px solid;
+    background: var(--panel-2);
+    animation: pushIn 0.35s ease;
+    transition: opacity 0.3s;
+  }
+  .frame.popping { animation: popOut 0.3s ease forwards; }
+  @keyframes pushIn {
+    from { transform: translateX(-20px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes popOut {
+    from { opacity: 1; }
+    to   { opacity: 0; transform: translateX(20px); }
+  }
+  .frame.main   { border-color: #6366f1; }
+  .frame.change { border-color: #f97316; }
+  .frame-name {
+    font-weight: 600;
+    font-size: 11.5px;
+    color: var(--accent-2);
+    margin-bottom: 3px;
+  }
+  .vars {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 11.5px;
+  }
+  .var-row {
+    background: rgba(0,0,0,0.25);
+    padding: 3px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .var-row.updated {
+    animation: flash 0.7s ease;
+  }
+  @keyframes flash {
+    0%   { background: rgba(251,191,36,0.5); }
+    100% { background: rgba(0,0,0,0.25); }
+  }
+  .var-row .vname { color: var(--muted); }
+  .var-row .vval  { color: var(--accent-2); font-weight: 600; }
+  .var-row .vval.ref { color: #6ee7b7; }
+
+  .heap-object {
+    background: rgba(249,115,22,0.12);
+    border: 1px solid var(--heap-border);
+    border-radius: 5px;
+    padding: 6px 8px;
+    animation: pushIn 0.35s ease;
+  }
+  .heap-addr {
+    font-size: 10px;
+    color: #fdba74;
+    margin-bottom: 4px;
+    font-family: "SF Mono", Monaco, monospace;
+  }
+  .heap-cells {
+    display: flex;
+    gap: 4px;
+  }
+  .cell {
+    background: #0b1220;
+    border: 1px solid #475569;
+    border-radius: 3px;
+    padding: 4px 8px;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12px;
+    color: var(--accent-2);
+    font-weight: 600;
+    min-width: 28px;
+    text-align: center;
+  }
+  .cell.updated {
+    animation: cellFlash 0.7s ease;
+  }
+  @keyframes cellFlash {
+    0%   { background: rgba(251,191,36,0.6); color: #0b1220; }
+    100% { background: #0b1220; color: var(--accent-2); }
+  }
+
+  .output-box {
+    margin-top: 8px;
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12px;
+    min-height: 40px;
+  }
+  .output-box .label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .output-box .out-line {
+    color: var(--good);
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateX(-5px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .output-box.final-10 .out-line { color: var(--primitive); font-weight: 700; }
+  .output-box.final-50 .out-line { color: var(--reference); font-weight: 700; }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  button {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: background 0.15s, transform 0.1s;
+  }
+  button:hover:not(:disabled) { background: #475569; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: #0b1220; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #7dd3fc; }
+
+  .step-info {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .step-info b { color: var(--text); }
+
+  .narration {
+    background: rgba(56,189,248,0.07);
+    border: 1px solid rgba(56,189,248,0.25);
+    border-radius: 6px;
+    padding: 9px 12px;
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    min-height: 42px;
+  }
+  .narration .step-num {
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .narration code { background: rgba(255,255,255,0.08); padding: 1px 4px; border-radius: 3px; font-size: 11.5px; }
+
+  .verdict {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .verdict-card {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid;
+    background: rgba(255,255,255,0.03);
+    opacity: 0.45;
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .verdict-card.show {
+    opacity: 1;
+    transform: scale(1.0);
+  }
+  .verdict-card.value { border-color: var(--primitive); }
+  .verdict-card.ref   { border-color: var(--reference); }
+  .verdict-card h3 { margin: 0 0 4px 0; font-size: 13px; }
+  .verdict-card.value h3 { color: #a5b4fc; }
+  .verdict-card.ref   h3 { color: #6ee7b7; }
+  .verdict-card p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+</style>
+</head>
+<body>
+
+<h1>Pass by Value vs Pass by Reference — Side by Side</h1>
+<div class="subtitle">Same code shape. Left works on a <b>primitive</b>. Right works on an <b>array</b>. Watch where they diverge.</div>
+
+<div class="side-by-side">
+
+  <!-- LEFT: Quiz 1 (primitive) -->
+  <div class="column value">
+    <div class="col-title">Quiz 1 — Primitive <span class="badge">pass by value</span></div>
+    <pre class="code" id="code1"><span class="line" data-line="1"><span class="kw">static void</span> <span class="fn">change</span>(<span class="typ">int</span> a) {</span><span class="line" data-line="2">    a = <span class="num">50</span>;</span><span class="line" data-line="3">}</span><span class="line" data-line="4"><span class="kw">public static void</span> <span class="fn">main</span>(String[] args) {</span><span class="line" data-line="5">    <span class="typ">int</span> a = <span class="num">10</span>;</span><span class="line" data-line="6">    <span class="fn">change</span>(a);</span><span class="line" data-line="7">    System.out.println(a);</span><span class="line" data-line="8">}</span></pre>
+
+    <div class="memory">
+      <div class="mem-box">
+        <div class="mem-label"><span>Stack</span><span>↑ top</span></div>
+        <div class="stack-frames" id="stack1"></div>
+      </div>
+      <div class="mem-box heap">
+        <div class="mem-label"><span>Heap</span><span>(unused)</span></div>
+        <div id="heap1" style="color:var(--muted); font-size:11px; text-align:center; padding-top:30px; font-style:italic;">
+          Primitives don't live here.
+        </div>
+      </div>
+    </div>
+
+    <div class="output-box" id="out1">
+      <div class="label">Console output</div>
+      <div id="console1"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Quiz 2 (array) -->
+  <div class="column ref">
+    <div class="col-title">Quiz 2 — Array <span class="badge">pass by reference</span></div>
+    <pre class="code" id="code2"><span class="line" data-line="1"><span class="kw">static void</span> <span class="fn">change</span>(<span class="typ">int[]</span> a) {</span><span class="line" data-line="2">    a[<span class="num">0</span>] = <span class="num">50</span>;</span><span class="line" data-line="3">}</span><span class="line" data-line="4"><span class="kw">public static void</span> <span class="fn">main</span>(String[] args) {</span><span class="line" data-line="5">    <span class="typ">int[]</span> a = {<span class="num">10</span>};</span><span class="line" data-line="6">    <span class="fn">change</span>(a);</span><span class="line" data-line="7">    System.out.println(a[<span class="num">0</span>]);</span><span class="line" data-line="8">}</span></pre>
+
+    <div class="memory">
+      <div class="mem-box">
+        <div class="mem-label"><span>Stack</span><span>↑ top</span></div>
+        <div class="stack-frames" id="stack2"></div>
+      </div>
+      <div class="mem-box heap">
+        <div class="mem-label"><span>Heap</span><span>objects</span></div>
+        <div id="heap2"></div>
+      </div>
+    </div>
+
+    <div class="output-box" id="out2">
+      <div class="label">Console output</div>
+      <div id="console2"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="narration" id="narration">
+  <span class="step-num">Step 0</span>Press <b>Next</b> to step both programs forward together.
+</div>
+
+<div class="controls">
+  <button id="btn-prev">‹ Previous</button>
+  <button class="primary" id="btn-next">Next ›</button>
+  <button id="btn-play">▶ Auto-play</button>
+  <button id="btn-reset">↺ Reset</button>
+  <div class="step-info">Step <b id="step-count">0</b> / <b id="step-total">0</b></div>
+</div>
+
+<div class="verdict">
+  <div class="verdict-card value" id="verdict-value">
+    <h3>✓ Prints 10</h3>
+    <p><code>change()</code>'s <b>a</b> was a copy. Reassigning it changed nothing in main's frame. Stack changes are local.</p>
+  </div>
+  <div class="verdict-card ref" id="verdict-ref">
+    <h3>✓ Prints 50</h3>
+    <p>Both <b>a</b>'s held the <i>same heap address</i>. Mutating <code>a[0]</code> changed the single shared array. Heap changes persist.</p>
+  </div>
+</div>
+
+<script>
+  // Each step describes BOTH sides simultaneously.
+  // side1 (primitive): { stack: [frames], output? }   frame: { id, name, color, vars: [{name, val, updated}] }
+  // side2 (reference): { stack, heap: [{addr, cells:[{val, updated}]}], output? }
+  //   For reference side, vars may have val: "→ #addr" rendered as ref color.
+
+  const steps = [
+    {
+      narr: "Both programs start. Nothing on the stack yet.",
+      line1: 4, line2: 4,
+      side1: { stack: [] },
+      side2: { stack: [], heap: [] },
+    },
+    {
+      narr: "<b>main()</b> is pushed in both programs.",
+      line1: 4, line2: 4,
+      side1: { stack: [{ id: "main", name: "main()", color: "main", vars: [] }] },
+      side2: { stack: [{ id: "main", name: "main()", color: "main", vars: [] }], heap: [] },
+    },
+    {
+      narr: "<b>Left:</b> <code>int a = 10;</code> — primitive <b>a</b> sits directly in the stack frame. &nbsp;&nbsp; <b>Right:</b> <code>int[] a = {10};</code> — the array object is created on the <b>heap</b>; <b>a</b> in the stack only holds its address.",
+      line1: 5, line2: 5,
+      side1: { stack: [{ id: "main", name: "main()", color: "main", vars: [{ name: "a", val: 10, updated: true }] }] },
+      side2: {
+        stack: [{ id: "main", name: "main()", color: "main", vars: [{ name: "a", val: "→ #4k", isRef: true, updated: true }] }],
+        heap: [{ addr: "#4k", cells: [{ val: 10, updated: true }] }],
+      },
+    },
+    {
+      narr: "<code>change(a)</code> is about to be called on both sides.",
+      line1: 6, line2: 6,
+      side1: { stack: [{ id: "main", name: "main()", color: "main", vars: [{ name: "a", val: 10 }] }] },
+      side2: {
+        stack: [{ id: "main", name: "main()", color: "main", vars: [{ name: "a", val: "→ #4k", isRef: true }] }],
+        heap: [{ addr: "#4k", cells: [{ val: 10 }] }],
+      },
+    },
+    {
+      narr: "<b>change()</b> is pushed on both. <b>Left:</b> parameter <b>a</b> is a <i>copy of the value</i> (10). &nbsp;&nbsp; <b>Right:</b> parameter <b>a</b> is a <i>copy of the address</i> (#4k) — it points to the same heap array!",
+      line1: 1, line2: 1,
+      side1: {
+        stack: [
+          { id: "main", name: "main()", color: "main", vars: [{ name: "a", val: 10 }] },
+          { id: "change", name: "change(a)", color: "change", vars: [{ name: "a", val: 10, updated: true }] },
+        ]
+      },
+      side2: {
+        stack: [
+          { id: "main", name: "main()", color: "main", vars: [{ name: "a", val: "→ #4k", isRef: true }] },
+          { id: "change", name: "change(a)", color: "change", vars: [{ name: "a", val: "→ #4k", isRef: true, updated: true }] },
+        ],
+        heap: [{ addr: "#4k", cells: [{ val: 10 }] }],
+      },
+    },
+    {
+      narr: "💥 The key step. <b>Left:</b> <code>a = 50;</code> overwrites the <i>local copy</i> in change's frame — main's a is untouched. &nbsp;&nbsp; <b>Right:</b> <code>a[0] = 50;</code> follows the address into the heap and rewrites the shared cell — main sees it too.",
+      line1: 2, line2: 2,
+      side1: {
+        stack: [
+          { id: "main", name: "main()", color: "main", vars: [{ name: "a", val: 10 }] },
+          { id: "change", name: "change(a)", color: "change", vars: [{ name: "a", val: 50, updated: true }] },
+        ]
+      },
+      side2: {
+        stack: [
+          { id: "main", name: "main()", color: "main", vars: [{ name: "a", val: "→ #4k", isRef: true }] },
+          { id: "change", name: "change(a)", color: "change", vars: [{ name: "a", val: "→ #4k", isRef: true }] },
+        ],
+        heap: [{ addr: "#4k", cells: [{ val: 50, updated: true }] }],
+      },
+    },
+    {
+      narr: "<b>change()</b> ends and is popped on both sides. Its frame — and any local changes — vanish.",
+      line1: 3, line2: 3,
+      side1: { stack: [{ id: "main", name: "main()", color: "main", vars: [{ name: "a", val: 10 }] }] },
+      side2: {
+        stack: [{ id: "main", name: "main()", color: "main", vars: [{ name: "a", val: "→ #4k", isRef: true }] }],
+        heap: [{ addr: "#4k", cells: [{ val: 50 }] }],
+      },
+    },
+    {
+      narr: "<code>System.out.println(...)</code> runs in main on both sides. Look at what main's <b>a</b> resolves to.",
+      line1: 7, line2: 7,
+      side1: { stack: [{ id: "main", name: "main()", color: "main", vars: [{ name: "a", val: 10, updated: true }] }], output: "10" },
+      side2: {
+        stack: [{ id: "main", name: "main()", color: "main", vars: [{ name: "a", val: "→ #4k", isRef: true }] }],
+        heap: [{ addr: "#4k", cells: [{ val: 50, updated: true }] }],
+        output: "50",
+      },
+    },
+    {
+      narr: "Programs complete. The stack change on the left didn't survive; the heap change on the right did. <b>That's the whole rule.</b>",
+      line1: 8, line2: 8,
+      side1: { stack: [] },
+      side2: { stack: [], heap: [{ addr: "#4k", cells: [{ val: 50 }] }] },
+      revealVerdict: true,
+    },
+  ];
+
+  // ---------- Rendering ----------
+  const narrEl = document.getElementById("narration");
+  const stepCountEl = document.getElementById("step-count");
+  const stepTotalEl = document.getElementById("step-total");
+  const btnPrev = document.getElementById("btn-prev");
+  const btnNext = document.getElementById("btn-next");
+  const btnPlay = document.getElementById("btn-play");
+  const btnReset = document.getElementById("btn-reset");
+
+  stepTotalEl.textContent = steps.length - 1;
+
+  let cur = 0;
+  let playing = false;
+  let playTimer = null;
+
+  function renderCodeHighlight(codeId, lineNum) {
+    document.getElementById(codeId).querySelectorAll(".line").forEach(el => {
+      el.classList.toggle("active", parseInt(el.dataset.line, 10) === lineNum);
+    });
+  }
+
+  function renderStack(containerId, frames) {
+    const container = document.getElementById(containerId);
+    const existing = {};
+    container.querySelectorAll(".frame").forEach(el => { existing[el.dataset.id] = el; });
+
+    const nextIds = new Set(frames.map(f => f.id));
+    Object.keys(existing).forEach(id => {
+      if (!nextIds.has(id)) {
+        const el = existing[id];
+        el.classList.add("popping");
+        setTimeout(() => el.remove(), 280);
+      }
+    });
+
+    frames.forEach(frame => {
+      let el = existing[frame.id];
+      if (!el) {
+        el = document.createElement("div");
+        el.className = `frame ${frame.color}`;
+        el.dataset.id = frame.id;
+        container.appendChild(el);
+      }
+      const varsHtml = frame.vars.length === 0
+        ? '<div style="color:var(--muted); font-size:10.5px; font-style:italic;">(no locals)</div>'
+        : frame.vars.map(v => `
+            <div class="var-row ${v.updated ? 'updated' : ''}">
+              <span class="vname">${v.name}</span>
+              <span class="vval ${v.isRef ? 'ref' : ''}">${v.val}</span>
+            </div>`).join("");
+      el.innerHTML = `<div class="frame-name">${frame.name}</div><div class="vars">${varsHtml}</div>`;
+    });
+  }
+
+  function renderHeap(containerId, heap) {
+    const container = document.getElementById(containerId);
+    if (!heap || heap.length === 0) {
+      container.innerHTML = '<div style="color:var(--muted); font-size:11px; text-align:center; padding-top:30px; font-style:italic;">(empty)</div>';
+      return;
+    }
+    container.innerHTML = heap.map(obj => `
+      <div class="heap-object">
+        <div class="heap-addr">addr ${obj.addr}</div>
+        <div class="heap-cells">
+          ${obj.cells.map(c => `<div class="cell ${c.updated ? 'updated' : ''}">${c.val}</div>`).join("")}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function renderOutput(consoleId, boxId, stepIdx, finalClass) {
+    const consoleEl = document.getElementById(consoleId);
+    const lines = [];
+    for (let i = 0; i <= stepIdx; i++) {
+      const s = steps[i];
+      const out = consoleId === "console1" ? s.side1.output : s.side2.output;
+      if (out !== undefined) lines.push(out);
+    }
+    const box = document.getElementById(boxId);
+    box.classList.remove("final-10", "final-50");
+    if (lines.length > 0) box.classList.add(finalClass);
+    consoleEl.innerHTML = lines.map(l => `<div class="out-line">${l}</div>`).join("");
+  }
+
+  function render() {
+    const s = steps[cur];
+    renderCodeHighlight("code1", s.line1);
+    renderCodeHighlight("code2", s.line2);
+    renderStack("stack1", s.side1.stack);
+    renderStack("stack2", s.side2.stack);
+    renderHeap("heap2", s.side2.heap);
+    renderOutput("console1", "out1", cur, "final-10");
+    renderOutput("console2", "out2", cur, "final-50");
+
+    narrEl.innerHTML = `<span class="step-num">Step ${cur}</span>${s.narr}`;
+
+    const showVerdict = !!s.revealVerdict;
+    document.getElementById("verdict-value").classList.toggle("show", showVerdict);
+    document.getElementById("verdict-ref").classList.toggle("show", showVerdict);
+
+    stepCountEl.textContent = cur;
+    btnPrev.disabled = cur === 0;
+    btnNext.disabled = cur === steps.length - 1;
+  }
+
+  function next() {
+    if (cur < steps.length - 1) { cur++; render(); }
+    else stopPlay();
+  }
+  function prev() { if (cur > 0) { cur--; render(); } }
+  function reset() {
+    stopPlay();
+    cur = 0;
+    document.getElementById("stack1").innerHTML = "";
+    document.getElementById("stack2").innerHTML = "";
+    render();
+  }
+  function togglePlay() { playing ? stopPlay() : startPlay(); }
+  function startPlay() {
+    if (cur === steps.length - 1) reset();
+    playing = true;
+    btnPlay.textContent = "⏸ Pause";
+    playTimer = setInterval(() => {
+      if (cur < steps.length - 1) next();
+      else stopPlay();
+    }, 2200);
+  }
+  function stopPlay() {
+    playing = false;
+    btnPlay.textContent = "▶ Auto-play";
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  btnNext.addEventListener("click", next);
+  btnPrev.addEventListener("click", prev);
+  btnReset.addEventListener("click", reset);
+  btnPlay.addEventListener("click", togglePlay);
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowRight") next();
+    else if (e.key === "ArrowLeft") prev();
+    else if (e.key === " ") { e.preventDefault(); togglePlay(); }
+  });
+
+  render();
+</script>
+</body>
+</html>
