@@ -1,188 +1,583 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Why Fundamentals Matter More Than Ever</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Fraunces', serif;
-    background: #fdf7e3;
-    color: #1a1a1a;
-    min-height: 100vh;
-    padding: 40px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  /* ---------- Base ---------- */
+  :root {
+    --navy: #0F2C4A;
+    --subtle: #475569;
+    --line: #E2E8F0;
+    --bg: #F8FAFC;
+    --green-bg: #E8F7EE;
+    --green: #16A34A;
+    --green-text: #0F5132;
+    --red-bg: #FDECEC;
+    --red: #DC2626;
+    --red-text: #7F1D1D;
+    --blue: #2563EB;
+    --blue-bg: #EFF6FF;
+    --purple: #7C3AED;
+    --purple-bg: #F5F3FF;
+    --amber-bg: #FEF3C7;
+    --amber-text: #92400E;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--navy);
+  }
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 28px 24px 48px;
   }
   h1 {
-    font-weight: 900;
-    font-size: clamp(28px, 4vw, 42px);
-    margin-bottom: 6px;
-    text-align: center;
-    letter-spacing: -0.02em;
-    max-width: 900px;
+    font-size: 24px;
+    margin: 0 0 6px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
   }
-  h1 .accent { color: #e63946; font-style: italic; }
   .subtitle {
-    color: #555;
+    color: var(--subtle);
+    font-size: 14.5px;
+    margin: 0 0 22px;
     font-style: italic;
-    text-align: center;
-    margin-bottom: 36px;
-    max-width: 700px;
   }
-  .scene {
-    max-width: 1000px;
-    width: 100%;
-  }
-  .row {
+
+  /* ---------- Controls ---------- */
+  .controls {
     display: flex;
-    gap: 20px;
+    gap: 10px;
     align-items: center;
     margin-bottom: 18px;
-    opacity: 0;
-    transform: translateX(-20px);
-    animation: in 0.6s forwards;
+    flex-wrap: wrap;
   }
-  @keyframes in { to { opacity: 1; transform: translateX(0); } }
-  .row.right { flex-direction: row-reverse; transform: translateX(20px); }
-  .avatar {
-    flex-shrink: 0;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: #fff;
-    border: 2px solid #1a1a1a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-    box-shadow: 4px 4px 0 #1a1a1a;
-  }
-  .row.right .avatar { background: #ffd95c; }
-  .bubble {
-    background: #fff;
-    border: 2px solid #1a1a1a;
-    border-radius: 14px;
-    padding: 14px 18px;
-    max-width: 700px;
-    box-shadow: 4px 4px 0 #1a1a1a;
-    font-size: 16px;
-    line-height: 1.5;
-  }
-  .row.right .bubble { background: #fff8d6; }
-  .bubble .label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: #888;
-    margin-bottom: 6px;
-  }
-  .bubble pre {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    background: #1a1a1a;
-    color: #e6edf3;
-    padding: 12px 14px;
-    border-radius: 6px;
-    margin-top: 8px;
-    overflow-x: auto;
-  }
-  .bubble pre .keyword { color: #ff7b72; }
-  .bubble pre .string { color: #a5d6ff; }
-  .bubble pre .number { color: #ffa657; }
-  .bubble pre .bug { background: rgba(230, 57, 70, 0.3); padding: 1px 4px; border-radius: 2px; }
-  .bubble pre .fix { background: rgba(86, 211, 100, 0.3); padding: 1px 4px; border-radius: 2px; }
-  .bug-note {
-    background: #ffe0e0;
-    border: 2px dashed #e63946;
-    color: #b71c2e;
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-top: 10px;
+  button {
+    font-family: inherit;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all .15s ease;
   }
-  .bug-note::before { content: "🚨 "; }
+  .btn-primary {
+    background: var(--blue);
+    color: white;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:disabled { background: #94A3B8; cursor: not-allowed; }
+  .btn-ghost {
+    background: white;
+    color: var(--navy);
+    border: 1px solid var(--line);
+  }
+  .btn-ghost:hover { background: #F1F5F9; }
+  .step-tag {
+    margin-left: auto;
+    font-size: 12.5px;
+    color: var(--subtle);
+    font-weight: 600;
+  }
 
-  .punchline {
-    margin-top: 30px;
-    background: #1a1a1a;
-    color: #ffd95c;
-    padding: 24px 28px;
-    border-radius: 12px;
-    max-width: 1000px;
-    width: 100%;
-    text-align: center;
-    font-size: 19px;
-    line-height: 1.5;
-    font-weight: 700;
+  /* ---------- Stage card ---------- */
+  .stage {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px 28px 24px;
+    min-height: 540px;
+    box-shadow: 0 2px 8px rgba(15, 44, 74, 0.04);
+  }
+
+  /* ---------- Speech bubble ---------- */
+  .turn {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 18px;
     opacity: 0;
-    animation: in 0.8s 3.5s forwards;
+    transform: translateY(8px);
+    transition: opacity .4s ease, transform .4s ease;
   }
-  .punchline .big {
-    display: block;
-    font-size: 28px;
-    font-weight: 900;
-    margin-bottom: 8px;
-    color: #fff;
-    letter-spacing: -0.02em;
+  .turn.show { opacity: 1; transform: translateY(0); }
+  .turn.user { justify-content: flex-end; }
+  .avatar {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    font-weight: 700;
+    color: white;
   }
-  .punchline em { color: #00d9ff; font-style: italic; }
+  .avatar.user { background: var(--blue); order: 2; }
+  .avatar.ai { background: var(--purple); }
+  .bubble {
+    background: var(--bg);
+    padding: 12px 16px;
+    border-radius: 12px;
+    max-width: 78%;
+    font-size: 15px;
+    line-height: 1.5;
+    border: 1px solid var(--line);
+  }
+  .turn.user .bubble {
+    background: var(--blue-bg);
+    border-color: #BFDBFE;
+    color: var(--navy);
+  }
+  .turn.ai .bubble {
+    background: var(--purple-bg);
+    border-color: #DDD6FE;
+  }
+  .bubble strong { color: var(--navy); }
+  .bubble code {
+    background: rgba(15, 44, 74, 0.07);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+  }
+
+  /* ---------- Array boxes ---------- */
+  .array-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 18px 0 8px;
+  }
+  .cell {
+    width: 64px; height: 64px;
+    border-radius: 10px;
+    background: white;
+    border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy);
+    transition: all .35s ease;
+    position: relative;
+  }
+  .cell.hl-blue {
+    background: var(--blue-bg);
+    border-color: var(--blue);
+    color: var(--blue);
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  }
+  .cell.hl-green {
+    background: var(--green-bg);
+    border-color: var(--green);
+    color: var(--green-text);
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+  }
+  .cell-label {
+    text-align: center;
+    font-size: 12px;
+    color: var(--subtle);
+    margin-top: 4px;
+    height: 16px;
+  }
+  .label-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .label-row > div { width: 64px; }
+
+  /* ---------- Math callout ---------- */
+  .math {
+    text-align: center;
+    font-size: 17px;
+    margin: 18px 0 4px;
+    color: var(--navy);
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .math.show { opacity: 1; transform: translateY(0); }
+  .math .answer-pill {
+    display: inline-block;
+    background: var(--amber-bg);
+    color: var(--amber-text);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-weight: 800;
+    margin-left: 6px;
+  }
+
+  /* ---------- Comparison table (step 4) ---------- */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .compare-cell {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .compare-cell h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--subtle);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .compare-cell .answer {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--navy);
+    margin: 4px 0 6px;
+  }
+  .compare-cell .reason {
+    font-size: 13.5px;
+    color: var(--subtle);
+    line-height: 1.5;
+  }
+
+  /* ---------- Punchline (final step) ---------- */
+  .punchline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .punch-card {
+    border-radius: 12px;
+    padding: 16px 18px;
+    border: 1px solid;
+  }
+  .punch-card.bad {
+    background: var(--red-bg);
+    border-color: #FCA5A5;
+  }
+  .punch-card.good {
+    background: var(--green-bg);
+    border-color: #86EFAC;
+  }
+  .punch-card h4 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .punch-card.bad h4 { color: var(--red-text); }
+  .punch-card.good h4 { color: var(--green-text); }
+  .punch-card ul {
+    margin: 0; padding-left: 18px;
+    color: var(--navy);
+    font-size: 13.8px;
+    line-height: 1.55;
+  }
+  .punch-card li { margin-bottom: 4px; }
+
+  .final-line {
+    margin-top: 22px;
+    background: #F1F5F9;
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-align: center;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--navy);
+    line-height: 1.55;
+  }
+  .final-line em {
+    color: var(--blue);
+    font-style: normal;
+  }
+
+  /* ---------- Section title inside stage ---------- */
+  .section-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--navy);
+    margin: 6px 0 4px;
+  }
+  .reveal-line {
+    text-align: center;
+    color: var(--subtle);
+    font-size: 14.5px;
+    margin: 12px 0 6px;
+    opacity: 0;
+    transition: opacity .4s ease;
+  }
+  .reveal-line.show { opacity: 1; }
+
+  /* ---------- Hidden state ---------- */
+  .hidden { display: none !important; }
+
+  /* ---------- Progress dots ---------- */
+  .dots {
+    display: flex; gap: 6px;
+    justify-content: center;
+    margin-top: 16px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--line);
+    transition: background .25s ease, width .25s ease;
+  }
+  .dot.active { background: var(--blue); width: 22px; border-radius: 4px; }
+  .dot.done { background: #93C5FD; }
 </style>
 </head>
 <body>
-  <h1>Without fundamentals, you can't <span class="accent">tell when AI is wrong.</span></h1>
-  <p class="subtitle">Here's a real scenario. AI writes code that <em>looks</em> right. Can you spot the bug?</p>
 
-  <div class="scene">
-    <div class="row" style="animation-delay: 0.2s">
-      <div class="avatar">🧑‍💻</div>
-      <div class="bubble">
-        <div class="label">You ask AI</div>
-        Write Java code to print numbers from 1 to 5.
-      </div>
-    </div>
+<div class="wrap">
+  <h1>Why Fundamentals Matter More Than Ever</h1>
+  <p class="subtitle">Without fundamentals, you can't tell when AI silently changes its mind.</p>
 
-    <div class="row right" style="animation-delay: 1.2s">
-      <div class="avatar">🤖</div>
-      <div class="bubble">
-        <div class="label">AI responds</div>
-        Here you go!
-        <pre><span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">1</span>; <span class="bug">i &lt; 5</span>; i++) {
-   System.out.println(i);
-}</pre>
-      </div>
-    </div>
-
-    <div class="row" style="animation-delay: 2.2s">
-      <div class="avatar">🧐</div>
-      <div class="bubble">
-        <div class="label">If you don't know Java...</div>
-        "Looks good! Ship it." → Output is <strong>1, 2, 3, 4</strong>. The 5 is missing. Your program is broken.
-        <div class="bug-note">The condition should be <code>i &lt;= 5</code>, not <code>i &lt; 5</code>.</div>
-      </div>
-    </div>
-
-    <div class="row right" style="animation-delay: 3s">
-      <div class="avatar">🦸</div>
-      <div class="bubble">
-        <div class="label">If you know Java...</div>
-        You catch the bug in 2 seconds:
-        <pre><span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">1</span>; <span class="fix">i &lt;= 5</span>; i++) {
-   System.out.println(i);
-}</pre>
-      </div>
-    </div>
+  <div class="controls">
+    <button id="btnNext" class="btn-primary">▶ Start</button>
+    <button id="btnReplay" class="btn-ghost">↻ Replay</button>
+    <span id="stepTag" class="step-tag">Step 0 / 5</span>
   </div>
 
-  <div class="punchline">
-    <span class="big">This is why you're here.</span>
-    AI can write the code. But <em>you</em> are the one who decides whether it's right.<br>
-    Fundamentals don't make you obsolete — they make you <em>essential</em>.
+  <div class="stage" id="stage">
+
+    <!-- STEP 1: The setup -->
+    <div class="step" id="step1">
+      <div class="section-title">The scenario</div>
+      <p style="color:var(--subtle); font-size:14.5px; margin:6px 0 16px;">
+        You have a list of 4 marks from a small quiz.
+      </p>
+      <div class="array-row" id="arr1">
+        <div class="cell">10</div>
+        <div class="cell">20</div>
+        <div class="cell">30</div>
+        <div class="cell">40</div>
+      </div>
+      <div class="label-row">
+        <div class="cell-label">index 0</div>
+        <div class="cell-label">index 1</div>
+        <div class="cell-label">index 2</div>
+        <div class="cell-label">index 3</div>
+      </div>
+      <p style="text-align:center; color:var(--subtle); font-size:13.5px; margin-top:18px;">
+        4 numbers in a row. We'll ask AI about the "middle" of this list — twice.
+      </p>
+    </div>
+
+    <!-- STEP 2: Question 1 -->
+    <div class="step hidden" id="step2">
+      <div class="section-title">Question 1</div>
+      <div class="turn user" id="t2u">
+        <div class="bubble">Find the middle value of this list: [10, 20, 30, 40].</div>
+        <div class="avatar user">You</div>
+      </div>
+      <div class="turn ai" id="t2a">
+        <div class="avatar ai">AI</div>
+        <div class="bubble">
+          The middle is <strong>25</strong> — I took the average of the two middle values, <code>20</code> and <code>30</code>.
+        </div>
+      </div>
+      <div class="array-row" id="arr2">
+        <div class="cell">10</div>
+        <div class="cell" data-hl="2">20</div>
+        <div class="cell" data-hl="2">30</div>
+        <div class="cell">40</div>
+      </div>
+      <div class="math" id="math2">
+        (20 + 30) ÷ 2 =
+        <span class="answer-pill">25</span>
+      </div>
+      <p style="text-align:center; color:var(--subtle); font-size:13.5px; margin-top:14px;">
+        Sounds reasonable. Now watch what happens next.
+      </p>
+    </div>
+
+    <!-- STEP 3: Question 2 -->
+    <div class="step hidden" id="step3">
+      <div class="section-title">Question 2 (follow-up)</div>
+      <div class="turn user" id="t3u">
+        <div class="bubble">Now multiply the middle value by 10.</div>
+        <div class="avatar user">You</div>
+      </div>
+      <div class="turn ai" id="t3a">
+        <div class="avatar ai">AI</div>
+        <div class="bubble">
+          The middle value is <strong>20</strong>, so 20 × 10 = <strong>200</strong>.
+        </div>
+      </div>
+      <div class="array-row" id="arr3">
+        <div class="cell">10</div>
+        <div class="cell" data-hl="3">20</div>
+        <div class="cell">30</div>
+        <div class="cell">40</div>
+      </div>
+      <div class="math" id="math3">
+        20 × 10 =
+        <span class="answer-pill">200</span>
+      </div>
+      <p class="reveal-line" id="rev3">Hold on… did you catch that?</p>
+    </div>
+
+    <!-- STEP 4: The reveal -->
+    <div class="step hidden" id="step4">
+      <div class="section-title">Same list. Same word. Two different answers.</div>
+      <p style="color:var(--subtle); font-size:14.5px; margin:6px 0 14px;">
+        AI silently switched its definition of "middle" between the two questions — and didn't tell you.
+      </p>
+      <div class="compare">
+        <div class="compare-cell">
+          <h4>Question 1 — "Find the middle"</h4>
+          <div class="answer">25</div>
+          <div class="reason">AI used the <strong>average</strong> of the two middle values (20 and 30).</div>
+        </div>
+        <div class="compare-cell">
+          <h4>Question 2 — "Middle × 10"</h4>
+          <div class="answer">200</div>
+          <div class="reason">AI <strong>picked one</strong> middle value (20) and multiplied it.</div>
+        </div>
+      </div>
+      <p style="text-align:center; color:var(--navy); font-size:14.5px; margin-top:18px; font-weight:600;">
+        Why? Because with an <em style="color:var(--blue); font-style:normal;">even-sized</em> list, there's no single middle — there are two. AI chose differently each time.
+      </p>
+    </div>
+
+    <!-- STEP 5: Punchline -->
+    <div class="step hidden" id="step5">
+      <div class="section-title">Two kinds of people see this</div>
+      <div class="punchline">
+        <div class="punch-card bad">
+          <h4>✕ Without fundamentals</h4>
+          <ul>
+            <li>"AI said it, must be right."</li>
+            <li>Ships the answer 200 to the manager.</li>
+            <li>Never notices the definition switched.</li>
+            <li>Looks careless when it's caught.</li>
+          </ul>
+        </div>
+        <div class="punch-card good">
+          <h4>✓ With fundamentals</h4>
+          <ul>
+            <li>"Wait — earlier the middle was 25, now it's 20?"</li>
+            <li>Spots the inconsistency in seconds.</li>
+            <li>Picks the right definition for <em>this</em> problem.</li>
+            <li>Looks sharp and trustworthy.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="final-line">
+        AI can give you an answer. But <em>YOU</em> decide whether it's the <em>right</em> answer.<br/>
+        Fundamentals don't make you obsolete — they make you the person who catches what AI misses.
+      </div>
+    </div>
+
   </div>
+
+  <div class="dots" id="dots">
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+</div>
+
+<script>
+  const TOTAL = 5;
+  let current = 0; // 0 = not started; 1..5 = steps shown
+
+  const btnNext = document.getElementById('btnNext');
+  const btnReplay = document.getElementById('btnReplay');
+  const stepTag = document.getElementById('stepTag');
+  const dots = document.querySelectorAll('.dot');
+
+  function setBtnLabel() {
+    if (current === 0)        btnNext.textContent = '▶ Start';
+    else if (current < TOTAL) btnNext.textContent = '▶ Next';
+    else                      btnNext.textContent = '✓ Done';
+    btnNext.disabled = current >= TOTAL;
+  }
+
+  function setDots() {
+    dots.forEach((d, i) => {
+      d.classList.remove('active', 'done');
+      if (i + 1 < current) d.classList.add('done');
+      else if (i + 1 === current) d.classList.add('active');
+    });
+  }
+
+  function setTag() {
+    stepTag.textContent = `Step ${current} / ${TOTAL}`;
+  }
+
+  function showStep(n) {
+    // Hide all steps
+    for (let i = 1; i <= TOTAL; i++) {
+      document.getElementById('step' + i).classList.add('hidden');
+    }
+    // Reset transient animation classes
+    document.querySelectorAll('.turn').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.math').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.reveal-line').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.cell').forEach(el => {
+      el.classList.remove('hl-blue', 'hl-green');
+    });
+
+    if (n < 1) return;
+    const step = document.getElementById('step' + n);
+    step.classList.remove('hidden');
+
+    if (n === 2) {
+      setTimeout(() => document.getElementById('t2u').classList.add('show'), 100);
+      setTimeout(() => {
+        document.getElementById('t2a').classList.add('show');
+        document.querySelectorAll('#arr2 .cell[data-hl="2"]').forEach(c => c.classList.add('hl-green'));
+      }, 900);
+      setTimeout(() => document.getElementById('math2').classList.add('show'), 1500);
+    }
+    if (n === 3) {
+      setTimeout(() => document.getElementById('t3u').classList.add('show'), 100);
+      setTimeout(() => {
+        document.getElementById('t3a').classList.add('show');
+        document.querySelectorAll('#arr3 .cell[data-hl="3"]').forEach(c => c.classList.add('hl-blue'));
+      }, 900);
+      setTimeout(() => document.getElementById('math3').classList.add('show'), 1500);
+      setTimeout(() => document.getElementById('rev3').classList.add('show'), 2400);
+    }
+  }
+
+  function next() {
+    if (current < TOTAL) {
+      current++;
+      showStep(current);
+      setBtnLabel(); setDots(); setTag();
+    }
+  }
+
+  function replay() {
+    current = 0;
+    for (let i = 1; i <= TOTAL; i++) {
+      document.getElementById('step' + i).classList.add('hidden');
+    }
+    document.getElementById('step1').classList.remove('hidden');
+    current = 1;
+    setBtnLabel(); setDots(); setTag();
+  }
+
+  btnNext.addEventListener('click', next);
+  btnReplay.addEventListener('click', replay);
+
+  // Initialize on first step
+  replay();
+</script>
+
 </body>
 </html>
