@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sliding Window Animation</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #67e8f9;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    margin-bottom: 28px;
+  }
+
+  .config-bar {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .config-bar label {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  .config-bar span.val {
+    font-family: 'JetBrains Mono', monospace;
+    color: #67e8f9;
+    font-weight: 600;
+  }
+
+  .array-container {
+    position: relative;
+    display: flex;
+    gap: 6px;
+    margin-bottom: 40px;
+    padding: 20px 12px;
+  }
+
+  .cell {
+    width: 58px;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #1e2030;
+    border: 2px solid #2a2d3e;
+    color: #cbd5e1;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2;
+  }
+
+  .cell.in-window {
+    background: #1a2744;
+    border-color: #3b82f6;
+    color: #93c5fd;
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.2);
+  }
+
+  .cell.leaving {
+    background: #2a1215;
+    border-color: #ef4444;
+    color: #fca5a5;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.25);
+    animation: pulseRed 0.5s ease;
+  }
+
+  .cell.entering {
+    background: #132a1a;
+    border-color: #22c55e;
+    color: #86efac;
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.25);
+    animation: pulseGreen 0.5s ease;
+  }
+
+  @keyframes pulseRed {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  @keyframes pulseGreen {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  .index-label {
+    position: absolute;
+    bottom: -20px;
+    font-size: 0.7rem;
+    color: #64748b;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .window-bracket {
+    position: absolute;
+    top: -10px;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #67e8f9);
+    border-radius: 4px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+  }
+
+  .stats-panel {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .stat-card {
+    background: #1e2030;
+    border: 1px solid #2a2d3e;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .stat-card .label {
+    font-size: 0.72rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .stat-card .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+
+  .stat-card .value.sum { color: #67e8f9; }
+  .stat-card .value.max { color: #f59e0b; }
+  .stat-card .value.step { color: #a78bfa; }
+
+  .formula-bar {
+    background: #161825;
+    border: 1px solid #2a2d3e;
+    border-radius: 12px;
+    padding: 14px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    margin-bottom: 28px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #94a3b8;
+    max-width: 620px;
+    width: 100%;
+    text-align: center;
+    flex-wrap: wrap;
+    transition: all 0.3s ease;
+  }
+
+  .formula-bar .op { color: #67e8f9; }
+  .formula-bar .remove { color: #f87171; }
+  .formula-bar .add { color: #4ade80; }
+  .formula-bar .result { color: #fbbf24; font-weight: 700; }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  button {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.88rem;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  button:active { transform: scale(0.96); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: #fff;
+  }
+  .btn-primary:hover { box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4); }
+  .btn-primary:disabled {
+    background: #2a2d3e;
+    color: #4a5568;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .btn-secondary {
+    background: #1e2030;
+    border: 1px solid #2a2d3e;
+    color: #94a3b8;
+  }
+  .btn-secondary:hover { border-color: #3b82f6; color: #e2e8f0; }
+
+  .btn-auto {
+    background: linear-gradient(135deg, #a78bfa, #7c3aed);
+    color: #fff;
+  }
+  .btn-auto:hover { box-shadow: 0 4px 20px rgba(167, 139, 250, 0.4); }
+  .btn-auto.playing {
+    background: linear-gradient(135deg, #f87171, #dc2626);
+  }
+
+  .history-table {
+    margin-top: 28px;
+    width: 100%;
+    max-width: 480px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #1e2030;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #2a2d3e;
+  }
+
+  .history-table th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+    padding: 12px 16px;
+    background: #161825;
+    font-weight: 600;
+  }
+
+  .history-table td {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    padding: 10px 16px;
+    text-align: center;
+    border-top: 1px solid #2a2d3e;
+    color: #cbd5e1;
+  }
+
+  .history-table tr.current-row {
+    background: #1a2744;
+  }
+
+  .history-table tr.current-row td {
+    color: #93c5fd;
+  }
+
+  .max-badge {
+    display: inline-block;
+    background: #422006;
+    color: #fbbf24;
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-left: 6px;
+    font-weight: 600;
+  }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    border: 2px solid;
+  }
+
+  .legend-dot.window { background: #1a2744; border-color: #3b82f6; }
+  .legend-dot.leaving { background: #2a1215; border-color: #ef4444; }
+  .legend-dot.entering { background: #132a1a; border-color: #22c55e; }
+</style>
+</head>
+<body>
+
+<h1>Sliding Window Technique</h1>
+<p class="subtitle">Maximum subarray sum with length K</p>
+
+<div class="config-bar">
+  <label>Array: <span class="val">[-3, 4, -2, 5, 3, -2, 8, 2, -1, 4]</span></label>
+  <label>K = <span class="val">5</span></label>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot window"></div> Current Window</div>
+  <div class="legend-item"><div class="legend-dot leaving"></div> Leaving Element</div>
+  <div class="legend-item"><div class="legend-dot entering"></div> Entering Element</div>
+</div>
+
+<div class="array-container" id="arrayContainer"></div>
+
+<div class="stats-panel">
+  <div class="stat-card">
+    <div class="label">Window Sum</div>
+    <div class="value sum" id="currentSum">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Max Sum</div>
+    <div class="value max" id="maxSum">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Step</div>
+    <div class="value step" id="stepNum">0 / 7</div>
+  </div>
+</div>
+
+<div class="formula-bar" id="formulaBar">
+  Press <span class="op">Next Step</span> to begin
+</div>
+
+<div class="controls">
+  <button class="btn-secondary" id="resetBtn" onclick="reset()">Reset</button>
+  <button class="btn-primary" id="nextBtn" onclick="nextStep()">Next Step →</button>
+  <button class="btn-auto" id="autoBtn" onclick="toggleAuto()">▶ Auto Play</button>
+</div>
+
+<table class="history-table" id="historyTable">
+  <thead>
+    <tr><th>Window</th><th>s</th><th>e</th><th>Sum</th></tr>
+  </thead>
+  <tbody id="historyBody"></tbody>
+</table>
+
+<script>
+const A = [-3, 4, -2, 5, 3, -2, 8, 2, -1, 4];
+const K = 5;
+const N = A.length;
+const totalSteps = N - K + 1; // 6 windows, but we have init + 5 slides = 7 steps
+
+let step = 0; // 0 = not started, 1 = first window, 2..6 = sliding
+let maxSoFar = -Infinity;
+let currentWindowSum = 0;
+let windowStart = 0;
+let autoInterval = null;
+let history = [];
+
+// Build cells
+const container = document.getElementById('arrayContainer');
+A.forEach((val, i) => {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.id = `cell-${i}`;
+  cell.innerHTML = `${val}<span class="index-label">${i}</span>`;
+  container.appendChild(cell);
+});
+
+// Add window bracket
+const bracket = document.createElement('div');
+bracket.className = 'window-bracket';
+bracket.id = 'bracket';
+bracket.style.opacity = '0';
+container.appendChild(bracket);
+
+function updateCells(start, end, leavingIdx, enteringIdx) {
+  A.forEach((_, i) => {
+    const cell = document.getElementById(`cell-${i}`);
+    cell.className = 'cell';
+    if (i === leavingIdx) {
+      cell.classList.add('leaving');
+    } else if (i === enteringIdx) {
+      cell.classList.add('entering');
+    } else if (i >= start && i <= end) {
+      cell.classList.add('in-window');
+    }
+  });
+
+  // Update bracket position
+  const firstCell = document.getElementById(`cell-${start}`);
+  const lastCell = document.getElementById(`cell-${end}`);
+  if (firstCell && lastCell) {
+    const containerRect = container.getBoundingClientRect();
+    const firstRect = firstCell.getBoundingClientRect();
+    const lastRect = lastCell.getBoundingClientRect();
+    bracket.style.opacity = '1';
+    bracket.style.left = (firstRect.left - containerRect.left) + 'px';
+    bracket.style.width = (lastRect.right - firstRect.left) + 'px';
+  }
+}
+
+function updateStats(sum, maxVal, stepIdx) {
+  document.getElementById('currentSum').textContent = sum;
+  document.getElementById('maxSum').textContent = maxVal;
+  document.getElementById('stepNum').textContent = `${stepIdx} / ${totalSteps}`;
+}
+
+function updateFormula(html) {
+  document.getElementById('formulaBar').innerHTML = html;
+}
+
+function addHistoryRow(s, e, sum, isCurrent, isMax) {
+  history.push({ s, e, sum, isCurrent, isMax });
+  renderHistory();
+}
+
+function renderHistory() {
+  const tbody = document.getElementById('historyBody');
+  tbody.innerHTML = '';
+  let runningMax = -Infinity;
+  history.forEach((h, i) => {
+    if (h.sum > runningMax) runningMax = h.sum;
+    const isMaxRow = h.sum >= runningMax && h.sum === Math.max(...history.map(x => x.sum).slice(0, i + 1));
+    const tr = document.createElement('tr');
+    if (i === history.length - 1) tr.className = 'current-row';
+    tr.innerHTML = `
+      <td>[${h.s}..${h.e}]</td>
+      <td>${h.s}</td>
+      <td>${h.e}</td>
+      <td>${h.sum}${h.sum === Math.max(...history.map(x => x.sum)) ? '<span class="max-badge">MAX</span>' : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function nextStep() {
+  if (step >= totalSteps) return;
+
+  step++;
+
+  if (step === 1) {
+    // First window: sum elements 0..K-1
+    currentWindowSum = 0;
+    for (let i = 0; i < K; i++) currentWindowSum += A[i];
+    maxSoFar = currentWindowSum;
+    windowStart = 0;
+
+    updateCells(0, K - 1, -1, -1);
+    updateStats(currentWindowSum, maxSoFar, step);
+
+    const terms = A.slice(0, K).map(v => `<span class="op">${v >= 0 ? v : '(' + v + ')'}</span>`).join(' + ');
+    updateFormula(`First window: ${terms} = <span class="result">${currentWindowSum}</span>`);
+
+    addHistoryRow(0, K - 1, currentWindowSum);
+  } else {
+    // Slide window
+    const removeIdx = windowStart;
+    const removeVal = A[removeIdx];
+    windowStart++;
+    const addIdx = windowStart + K - 1;
+    const addVal = A[addIdx];
+    const prevSum = currentWindowSum;
+
+    currentWindowSum = currentWindowSum - removeVal + addVal;
+    maxSoFar = Math.max(maxSoFar, currentWindowSum);
+
+    updateCells(windowStart, windowStart + K - 1, removeIdx, addIdx);
+    updateStats(currentWindowSum, maxSoFar, step);
+
+    updateFormula(
+      `<span class="op">${prevSum}</span> − <span class="remove">${removeVal >= 0 ? removeVal : '(' + removeVal + ')'}</span> + <span class="add">${addVal >= 0 ? addVal : '(' + addVal + ')'}</span> = <span class="result">${currentWindowSum}</span>`
+    );
+
+    addHistoryRow(windowStart, windowStart + K - 1, currentWindowSum);
+  }
+
+  if (step >= totalSteps) {
+    document.getElementById('nextBtn').disabled = true;
+    stopAuto();
+    setTimeout(() => {
+      updateFormula(`Done! Maximum subarray sum = <span class="result">${maxSoFar}</span>`);
+    }, 600);
+  }
+}
+
+function reset() {
+  step = 0;
+  maxSoFar = -Infinity;
+  currentWindowSum = 0;
+  windowStart = 0;
+  history = [];
+  stopAuto();
+
+  A.forEach((_, i) => {
+    document.getElementById(`cell-${i}`).className = 'cell';
+  });
+  document.getElementById('bracket').style.opacity = '0';
+  updateStats('—', '—', `0 / ${totalSteps}`);
+  updateFormula('Press <span class="op">Next Step</span> to begin');
+  document.getElementById('historyBody').innerHTML = '';
+  document.getElementById('nextBtn').disabled = false;
+}
+
+function toggleAuto() {
+  if (autoInterval) {
+    stopAuto();
+  } else {
+    const btn = document.getElementById('autoBtn');
+    btn.textContent = '⏸ Pause';
+    btn.classList.add('playing');
+    autoInterval = setInterval(() => {
+      if (step >= totalSteps) { stopAuto(); return; }
+      nextStep();
+    }, 1200);
+  }
+}
+
+function stopAuto() {
+  if (autoInterval) clearInterval(autoInterval);
+  autoInterval = null;
+  const btn = document.getElementById('autoBtn');
+  btn.textContent = '▶ Auto Play';
+  btn.classList.remove('playing');
+}
+</script>
+</body>
+</html>
