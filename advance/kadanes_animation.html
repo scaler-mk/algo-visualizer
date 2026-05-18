@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kadane's Algorithm Animation</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 16px;overflow-x:hidden}
+h1{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:#a78bfa;margin-bottom:4px;letter-spacing:-0.5px}
+.subtitle{font-size:.88rem;color:#94a3b8;margin-bottom:24px;text-align:center}
+.array-container{display:flex;gap:5px;margin-bottom:12px;padding:16px 8px;flex-wrap:wrap;justify-content:center}
+.cell{width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:10px;background:#1e2030;border:2px solid #2a2d3e;color:#cbd5e1;position:relative;transition:all .4s cubic-bezier(.4,0,.2,1)}
+.cell .idx{font-size:.6rem;color:#64748b;position:absolute;bottom:-16px}
+.cell.current{background:#1a2744;border-color:#3b82f6;color:#93c5fd;box-shadow:0 0 14px rgba(59,130,246,.2)}
+.cell.in-subarray{background:#132a1a;border-color:#22c55e;color:#86efac;box-shadow:0 0 14px rgba(34,197,94,.2)}
+.cell.negative-reset{background:#2a1215;border-color:#ef4444;color:#fca5a5;box-shadow:0 0 14px rgba(239,68,68,.2);animation:shakeX .4s ease}
+@keyframes shakeX{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.stats-panel{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 16px;width:100%;max-width:520px}
+.stat-card{background:#1e2030;border:1px solid #2a2d3e;border-radius:12px;padding:14px;text-align:center}
+.stat-card .label{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.stat-card .value{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700}
+.stat-card .value.curr{color:#3b82f6}
+.stat-card .value.max{color:#f59e0b}
+.stat-card .value.step{color:#a78bfa}
+.formula-bar{background:#161825;border:1px solid #2a2d3e;border-radius:12px;padding:12px 18px;font-family:'JetBrains Mono',monospace;font-size:.82rem;margin-bottom:20px;min-height:44px;display:flex;align-items:center;justify-content:center;gap:5px;color:#94a3b8;max-width:600px;width:100%;text-align:center;flex-wrap:wrap;transition:all .3s ease}
+.formula-bar .highlight{color:#67e8f9;font-weight:600}
+.formula-bar .reset{color:#f87171;font-weight:600}
+.formula-bar .good{color:#4ade80;font-weight:600}
+.formula-bar .gold{color:#fbbf24;font-weight:700}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;margin-bottom:20px}
+button{font-family:'DM Sans',sans-serif;font-weight:600;font-size:.85rem;border:none;border-radius:10px;padding:9px 20px;cursor:pointer;transition:all .2s ease}
+button:active{transform:scale(.96)}
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
+.btn-primary:hover{box-shadow:0 4px 20px rgba(59,130,246,.4)}
+.btn-primary:disabled{background:#2a2d3e;color:#4a5568;cursor:not-allowed;box-shadow:none}
+.btn-secondary{background:#1e2030;border:1px solid #2a2d3e;color:#94a3b8}
+.btn-secondary:hover{border-color:#3b82f6;color:#e2e8f0}
+.btn-auto{background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff}
+.btn-auto:hover{box-shadow:0 4px 20px rgba(167,139,250,.4)}
+.btn-auto.playing{background:linear-gradient(135deg,#f87171,#dc2626)}
+.legend{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;justify-content:center}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:.75rem;color:#94a3b8}
+.legend-dot{width:10px;height:10px;border-radius:3px;border:2px solid}
+.legend-dot.current{background:#1a2744;border-color:#3b82f6}
+.legend-dot.subarray{background:#132a1a;border-color:#22c55e}
+.legend-dot.resetd{background:#2a1215;border-color:#ef4444}
+.history-table{width:100%;max-width:520px;border-collapse:separate;border-spacing:0;background:#1e2030;border-radius:12px;overflow:hidden;border:1px solid #2a2d3e}
+.history-table th{font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:#64748b;padding:10px 12px;background:#161825;font-weight:600}
+.history-table td{font-family:'JetBrains Mono',monospace;font-size:.8rem;padding:8px 12px;text-align:center;border-top:1px solid #2a2d3e;color:#cbd5e1}
+.history-table tr.current-row{background:#1a2744}
+.history-table tr.current-row td{color:#93c5fd}
+.history-table tr.reset-row td{color:#fca5a5}
+.max-badge{display:inline-block;background:#422006;color:#fbbf24;font-size:.65rem;padding:2px 6px;border-radius:5px;margin-left:4px;font-weight:600}
+</style>
+</head>
+<body>
+<h1>Kadane's Algorithm</h1>
+<p class="subtitle">Maximum subarray sum — interactive dry run</p>
+<div class="legend">
+<div class="legend-item"><div class="legend-dot current"></div> Processing</div>
+<div class="legend-item"><div class="legend-dot subarray"></div> Current subarray</div>
+<div class="legend-item"><div class="legend-dot resetd"></div> Reset (sum &lt; 0)</div>
+</div>
+<div class="array-container" id="arrayContainer"></div>
+<div class="stats-panel">
+<div class="stat-card"><div class="label">currSum</div><div class="value curr" id="currSumVal">0</div></div>
+<div class="stat-card"><div class="label">maxSum</div><div class="value max" id="maxSumVal">-∞</div></div>
+<div class="stat-card"><div class="label">Step</div><div class="value step" id="stepVal">0 / 9</div></div>
+</div>
+<div class="formula-bar" id="formulaBar">Press <span class="highlight">Next Step</span> to begin Kadane's</div>
+<div class="controls">
+<button class="btn-secondary" onclick="reset()">Reset</button>
+<button class="btn-primary" id="nextBtn" onclick="nextStep()">Next Step →</button>
+<button class="btn-auto" id="autoBtn" onclick="toggleAuto()">▶ Auto Play</button>
+</div>
+<table class="history-table">
+<thead><tr><th>i</th><th>A[i]</th><th>currSum</th><th>maxSum</th><th>Action</th></tr></thead>
+<tbody id="historyBody"></tbody>
+</table>
+<script>
+const A=[-20,10,-20,-12,6,5,-3,8,-2];
+const N=A.length;
+let step=0,currSum=0,maxSum=-Infinity,subarrayStart=0,autoInterval=null;
+let history=[];
+const container=document.getElementById('arrayContainer');
+A.forEach((v,i)=>{const c=document.createElement('div');c.className='cell';c.id=`cell-${i}`;c.innerHTML=`${v}<span class="idx">${i}</span>`;container.appendChild(c)});
+function updateCells(currentIdx,subStart,subEnd,isReset){
+A.forEach((_,i)=>{const c=document.getElementById(`cell-${i}`);c.className='cell';
+if(i===currentIdx&&isReset){c.classList.add('negative-reset')}
+else if(i===currentIdx){c.classList.add('current')}
+else if(i>=subStart&&i<currentIdx&&!isReset){c.classList.add('in-subarray')}
+})}
+function nextStep(){
+if(step>=N)return;
+const i=step;
+const val=A[i];
+currSum+=val;
+let action='',isReset=false;
+if(currSum>maxSum)maxSum=currSum;
+if(currSum<0){action='Reset';isReset=true;currSum=0;subarrayStart=i+1}
+else{action=currSum===maxSum?'New max!':'Continue'}
+updateCells(i,subarrayStart,i+1,isReset);
+document.getElementById('currSumVal').textContent=currSum;
+document.getElementById('maxSumVal').textContent=maxSum;
+step++;
+document.getElementById('stepVal').textContent=`${step} / ${N}`;
+let fHtml='';
+if(isReset){fHtml=`currSum = <span class="reset">${currSum-0} → 0 (reset, sum went negative)</span>`}
+else if(action==='New max!'){fHtml=`currSum += ${val>=0?val:'('+val+')'} = <span class="good">${currSum}</span> → <span class="gold">new maxSum = ${maxSum}</span>`}
+else{fHtml=`currSum += ${val>=0?val:'('+val+')'} = <span class="highlight">${currSum}</span>`}
+document.getElementById('formulaBar').innerHTML=fHtml;
+history.push({i,val,currSum:isReset?0:currSum,maxSum,action,isReset});
+renderHistory();
+if(step>=N){document.getElementById('nextBtn').disabled=true;stopAuto();
+setTimeout(()=>{document.getElementById('formulaBar').innerHTML=`Done! Maximum subarray sum = <span class="gold">${maxSum}</span>`},500)}
+}
+function renderHistory(){
+const tb=document.getElementById('historyBody');tb.innerHTML='';
+history.forEach((h,idx)=>{const tr=document.createElement('tr');
+if(idx===history.length-1)tr.className=h.isReset?'reset-row':'current-row';
+tr.innerHTML=`<td>${h.i}</td><td>${h.val}</td><td>${h.currSum}</td><td>${h.maxSum}${h.action==='New max!'?'<span class="max-badge">MAX</span>':''}</td><td>${h.action}</td>`;
+tb.appendChild(tr)})}
+function reset(){step=0;currSum=0;maxSum=-Infinity;subarrayStart=0;history=[];stopAuto();
+A.forEach((_,i)=>{document.getElementById(`cell-${i}`).className='cell'});
+document.getElementById('currSumVal').textContent='0';
+document.getElementById('maxSumVal').textContent='-∞';
+document.getElementById('stepVal').textContent=`0 / ${N}`;
+document.getElementById('formulaBar').innerHTML='Press <span class="highlight">Next Step</span> to begin Kadane\'s';
+document.getElementById('historyBody').innerHTML='';
+document.getElementById('nextBtn').disabled=false}
+function toggleAuto(){if(autoInterval){stopAuto()}else{const b=document.getElementById('autoBtn');b.textContent='⏸ Pause';b.classList.add('playing');autoInterval=setInterval(()=>{if(step>=N){stopAuto();return}nextStep()},1000)}}
+function stopAuto(){if(autoInterval)clearInterval(autoInterval);autoInterval=null;const b=document.getElementById('autoBtn');b.textContent='▶ Auto Play';b.classList.remove('playing')}
+</script>
+</body>
+</html>
