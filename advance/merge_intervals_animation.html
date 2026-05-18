@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Merge Overlapping Intervals</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px;overflow-x:hidden}
+h1{font-family:'JetBrains Mono',monospace;font-size:1.35rem;font-weight:700;color:#f59e0b;margin-bottom:4px;letter-spacing:-.5px}
+.sub{font-size:.85rem;color:#94a3b8;margin-bottom:20px;text-align:center}
+.slabel{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:8px;width:100%;max-width:620px}
+.cards{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;width:100%;max-width:620px}
+.cd{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;padding:8px 14px;border-radius:8px;border:1.5px solid #3d3f54;background:#1e2030;color:#c4b5fd;transition:all .4s ease;white-space:nowrap}
+.cd.hi-cur{background:rgba(59,130,246,.2);border-color:#3b82f6;color:#93c5fd;box-shadow:0 0 10px rgba(59,130,246,.25)}
+.cd.hi-cmp{background:rgba(245,158,11,.15);border-color:#f59e0b;color:#fcd34d;box-shadow:0 0 10px rgba(245,158,11,.25)}
+.cd.used{opacity:.3;text-decoration:line-through;border-color:#2a2d3e}
+.tlw{width:100%;max-width:620px;margin-bottom:16px}
+.tl{position:relative;height:62px;background:#161825;border:1px solid #2a2d3e;border-radius:10px;margin-bottom:4px}
+.sc{display:flex;justify-content:space-between;padding:0 2px}
+.sc span{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:#4a5568}
+.bar{position:absolute;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:600;transition:all .5s ease;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px;min-width:20px}
+.bar.b-cur{top:6px;background:rgba(59,130,246,.35);border:1.5px solid #3b82f6;color:#93c5fd;z-index:3}
+.bar.b-cmp{top:34px;background:rgba(245,158,11,.3);border:1.5px solid #f59e0b;color:#fcd34d;z-index:4}
+.bar.b-mrg{top:6px;background:rgba(34,197,94,.25);border:2px solid #22c55e;color:#86efac;z-index:5;box-shadow:0 0 12px rgba(34,197,94,.2)}
+.bar.b-res{top:6px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.5);color:rgba(134,239,172,.7);z-index:1}
+.srow{display:flex;gap:10px;align-items:center;justify-content:center;margin-bottom:16px;flex-wrap:wrap;width:100%;max-width:620px}
+.sc2{background:#1e2030;border:1px solid #2a2d3e;border-radius:10px;padding:12px 18px;text-align:center;min-width:130px}
+.sc2 .lb{font-size:.62rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.sc2 .vl{font-family:'JetBrains Mono',monospace;font-size:1.15rem;font-weight:700}
+.sc2 .v1{color:#3b82f6}
+.sc2 .v2{color:#f59e0b}
+.sc2 .v3{color:#a78bfa}
+.fb{background:#161825;border:1px solid #2a2d3e;border-radius:12px;padding:12px 18px;font-family:'JetBrains Mono',monospace;font-size:.8rem;margin-bottom:18px;min-height:44px;display:flex;align-items:center;justify-content:center;color:#94a3b8;max-width:620px;width:100%;text-align:center;flex-wrap:wrap;line-height:1.6}
+.fb .bl{color:#60a5fa}
+.fb .am{color:#fbbf24}
+.fb .gn{color:#4ade80;font-weight:700}
+.fb .rd{color:#f87171}
+.ctr{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;margin-bottom:18px}
+button{font-family:'DM Sans',sans-serif;font-weight:600;font-size:.85rem;border:none;border-radius:10px;padding:9px 20px;cursor:pointer;transition:all .2s ease}
+button:active{transform:scale(.96)}
+.bp{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
+.bp:hover{box-shadow:0 4px 20px rgba(59,130,246,.4)}
+.bp:disabled{background:#2a2d3e;color:#4a5568;cursor:not-allowed;box-shadow:none}
+.bs{background:#1e2030;border:1px solid #2a2d3e;color:#94a3b8}
+.bs:hover{border-color:#3b82f6;color:#e2e8f0}
+.ba{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff}
+.ba:hover{box-shadow:0 4px 20px rgba(245,158,11,.4)}
+.ba.on{background:linear-gradient(135deg,#f87171,#dc2626)}
+.ra{width:100%;max-width:620px}
+.rl{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:8px}
+.rcs{display:flex;gap:8px;flex-wrap:wrap;min-height:36px}
+.rc{background:#132a1a;border:1px solid #22c55e;border-radius:8px;padding:7px 16px;font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:#86efac;transition:all .4s ease;opacity:0;transform:translateY(8px)}
+.rc.vis{opacity:1;transform:translateY(0)}
+.ht{width:100%;max-width:620px;border-collapse:separate;border-spacing:0;background:#1e2030;border-radius:10px;overflow:hidden;border:1px solid #2a2d3e;margin-top:18px}
+.ht th{font-size:.62rem;text-transform:uppercase;letter-spacing:1px;color:#64748b;padding:8px 10px;background:#161825;font-weight:600}
+.ht td{font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:7px 10px;text-align:center;border-top:1px solid #2a2d3e;color:#cbd5e1}
+.ht tr.rm td{color:#86efac}
+.ht tr.rn td{color:#fca5a5}
+.ht tr.ri td{color:#93c5fd}
+.bdg{display:inline-block;font-size:.58rem;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:4px}
+.bm{background:#052e16;color:#4ade80}
+.bn{background:#2a1215;color:#f87171}
+.bi{background:#172554;color:#60a5fa}
+</style>
+</head>
+<body>
+<h1>Merge Overlapping Intervals</h1>
+<p class="sub">Step through the merging algorithm on sorted intervals</p>
+
+<div class="slabel">Input intervals (sorted by start)</div>
+<div class="cards" id="cards"></div>
+
+<div class="slabel">Merge timeline (current = top, comparing = bottom)</div>
+<div class="tlw">
+<div class="tl" id="tl"></div>
+<div class="sc" id="sc"></div>
+</div>
+
+<div class="srow">
+<div class="sc2"><div class="lb">Current interval</div><div class="vl v1" id="v1">-</div></div>
+<div class="sc2"><div class="lb">Comparing with</div><div class="vl v2" id="v2">-</div></div>
+<div class="sc2"><div class="lb">Action</div><div class="vl v3" id="v3">-</div></div>
+</div>
+
+<div class="fb" id="fb">Press <span class="bl">Next Step</span> to begin merging</div>
+
+<div class="ctr">
+<button class="bs" id="bReset">Reset</button>
+<button class="bp" id="bNext">Next Step &rarr;</button>
+<button class="ba" id="bAuto">&#9654; Auto Play</button>
+</div>
+
+<div class="ra">
+<div class="rl">Merged result</div>
+<div class="rcs" id="rcs"></div>
+</div>
+
+<table class="ht">
+<thead><tr><th>#</th><th>Current</th><th>Next</th><th>Overlap?</th><th>After</th><th>Result</th></tr></thead>
+<tbody id="hb"></tbody>
+</table>
+
+<script>
+(function(){
+  var IV = [[0,2],[1,4],[5,6],[6,8],[7,10],[8,9],[12,14]];
+  var MX = 15;
+  var N = IV.length;
+  var step = 0;
+  var cS, cE;
+  var res = [];
+  var done = false;
+  var atm = null;
+  var hist = [];
+
+  var eTl = document.getElementById('tl');
+  var eV1 = document.getElementById('v1');
+  var eV2 = document.getElementById('v2');
+  var eV3 = document.getElementById('v3');
+  var eFb = document.getElementById('fb');
+  var eRcs = document.getElementById('rcs');
+  var eHb = document.getElementById('hb');
+  var eBn = document.getElementById('bNext');
+  var eBa = document.getElementById('bAuto');
+
+  document.getElementById('bReset').onclick = doReset;
+  eBn.onclick = doStep;
+  eBa.onclick = doToggle;
+
+  function pL(v){ return (v/MX*100)+'%'; }
+  function pW(a,b){ return Math.max((b-a)/MX*100, 2)+'%'; }
+  function f(a,b){ return '['+a+','+b+']'; }
+
+  function buildCards(){
+    var el = document.getElementById('cards');
+    el.innerHTML = '';
+    for(var i=0;i<N;i++){
+      var d = document.createElement('div');
+      d.className = 'cd';
+      d.id = 'c'+i;
+      d.textContent = '['+IV[i][0]+', '+IV[i][1]+']';
+      el.appendChild(d);
+    }
+  }
+
+  function buildScale(){
+    var el = document.getElementById('sc');
+    el.innerHTML = '';
+    for(var i=0;i<=MX;i++){
+      var s = document.createElement('span');
+      s.textContent = i;
+      el.appendChild(s);
+    }
+  }
+
+  function clrTl(){
+    while(eTl.firstChild) eTl.removeChild(eTl.firstChild);
+  }
+
+  function mkBar(a,b,cls,txt){
+    var d = document.createElement('div');
+    d.className = 'bar '+cls;
+    d.style.left = pL(a);
+    d.style.width = pW(a,b);
+    d.textContent = txt || (a+'-'+b);
+    eTl.appendChild(d);
+  }
+
+  function drawTl(cmpIv, merged){
+    clrTl();
+    for(var i=0;i<res.length;i++){
+      mkBar(res[i][0], res[i][1], 'b-res');
+    }
+    if(!done && cS !== undefined){
+      mkBar(cS, cE, merged ? 'b-mrg' : 'b-cur');
+    }
+    if(cmpIv){
+      mkBar(cmpIv[0], cmpIv[1], 'b-cmp');
+    }
+  }
+
+  function hiCards(curStart, cmpIdx){
+    for(var i=0;i<N;i++){
+      var el = document.getElementById('c'+i);
+      el.className = 'cd';
+      if(curStart >= 0 && IV[i][0] === curStart && IV[i][1] <= cE && i < (cmpIdx >= 0 ? cmpIdx : N)){
+        // previously consumed into current
+      }
+      if(cmpIdx >= 0 && i < cmpIdx){
+        el.className = 'cd used';
+      } else if(i === cmpIdx){
+        el.className = 'cd hi-cmp';
+      }
+    }
+    // highlight the "source" card of current if still visible
+    // Actually simplify: mark everything before step as used, step as comparing
+  }
+
+  function setCards2(usedBefore, cmpIdx){
+    for(var i=0;i<N;i++){
+      var el = document.getElementById('c'+i);
+      el.className = 'cd';
+      if(i < usedBefore){
+        el.className = 'cd used';
+      } else if(i === cmpIdx){
+        el.className = 'cd hi-cmp';
+      } else if(i === usedBefore){
+        el.className = 'cd hi-cur';
+      }
+    }
+  }
+
+  function showRes(){
+    eRcs.innerHTML = '';
+    for(var i=0;i<res.length;i++){
+      (function(idx){
+        var c = document.createElement('div');
+        c.className = 'rc';
+        c.textContent = '['+res[idx][0]+', '+res[idx][1]+']';
+        eRcs.appendChild(c);
+        setTimeout(function(){ c.className = 'rc vis'; }, 60*idx);
+      })(i);
+    }
+  }
+
+  function showHist(){
+    eHb.innerHTML = '';
+    for(var i=0;i<hist.length;i++){
+      var h = hist[i];
+      var tr = document.createElement('tr');
+      tr.className = h.cls;
+      tr.innerHTML = '<td>'+h.n+'</td><td>'+h.cur+'</td><td>'+h.nxt+'</td><td>'+h.ov+'</td><td>'+h.aft+'</td><td>'+h.rl+'</td>';
+      eHb.appendChild(tr);
+    }
+  }
+
+  function rsList(){
+    if(!res.length) return '-';
+    var s = '';
+    for(var i=0;i<res.length;i++){
+      if(i>0) s += ', ';
+      s += f(res[i][0],res[i][1]);
+    }
+    return s;
+  }
+
+  function doStep(){
+    if(done) return;
+
+    // Step 0: initialize current = first interval
+    if(step === 0){
+      cS = IV[0][0];
+      cE = IV[0][1];
+      setCards2(0, -1); // card 0 = hi-cur
+      drawTl(null, false);
+      eV1.textContent = f(cS,cE);
+      eV2.textContent = '-';
+      eV3.textContent = 'Init';
+      eFb.innerHTML = 'Set current = <span class="bl">'+f(cS,cE)+'</span>';
+      hist.push({n:1, cur:f(cS,cE), nxt:'-', ov:'<span class="bdg bi">INIT</span>', aft:f(cS,cE), rl:'-', cls:'ri'});
+      showHist();
+      step = 1;
+      return;
+    }
+
+    // All intervals processed - finalize
+    if(step >= N){
+      res.push([cS, cE]);
+      done = true;
+      clrTl();
+      for(var i=0;i<res.length;i++) mkBar(res[i][0],res[i][1],'b-res');
+      showRes();
+      for(var j=0;j<N;j++) document.getElementById('c'+j).className = 'cd used';
+      eV1.textContent = '-';
+      eV2.textContent = '-';
+      eV3.textContent = 'Done!';
+      eFb.innerHTML = 'Add last interval. <span class="gn">Result: '+rsList()+'</span>';
+      hist.push({n:hist.length+1, cur:f(cS,cE), nxt:'end', ov:'-', aft:'-', rl:rsList(), cls:'ri'});
+      showHist();
+      eBn.disabled = true;
+      stopA();
+      return;
+    }
+
+    var iv = IV[step];
+    var oldE = cE;
+    var olap = iv[0] <= cE;
+
+    if(olap){
+      // Merge
+      cE = Math.max(cE, iv[1]);
+      setCards2(step, step); // cards before step = used, card at step = comparing
+      drawTl(iv, true); // show merged bar + compare bar
+
+      eV1.textContent = f(cS, cE);
+      eV2.textContent = f(iv[0], iv[1]);
+      eV3.textContent = 'Merge!';
+      eFb.innerHTML = '<span class="am">'+iv[0]+'</span> &le; <span class="bl">'+oldE+'</span> &rarr; Overlap! Merge &rarr; <span class="gn">'+f(cS,cE)+'</span>';
+
+      hist.push({
+        n: hist.length+1,
+        cur: f(cS, oldE),
+        nxt: f(iv[0], iv[1]),
+        ov: 'Yes <span class="bdg bm">MERGE</span>',
+        aft: f(cS, cE),
+        rl: rsList() || '-',
+        cls: 'rm'
+      });
+    } else {
+      // No overlap - save current, start new
+      res.push([cS, cE]);
+      var prev = f(cS, cE);
+      cS = iv[0];
+      cE = iv[1];
+      setCards2(step, step);
+      drawTl(null, false);
+
+      eV1.textContent = f(cS, cE);
+      eV2.textContent = f(iv[0], iv[1]);
+      eV3.textContent = 'No overlap';
+      eFb.innerHTML = '<span class="am">'+iv[0]+'</span> &gt; <span class="bl">'+oldE+'</span> &rarr; <span class="rd">No overlap.</span> Save '+prev+', new current = <span class="bl">'+f(cS,cE)+'</span>';
+
+      showRes();
+
+      hist.push({
+        n: hist.length+1,
+        cur: prev,
+        nxt: f(iv[0], iv[1]),
+        ov: 'No <span class="bdg bn">SAVE</span>',
+        aft: f(cS, cE),
+        rl: rsList(),
+        cls: 'rn'
+      });
+    }
+
+    showHist();
+    step++;
+  }
+
+  function doReset(){
+    step = 0;
+    cS = undefined;
+    cE = undefined;
+    res = [];
+    done = false;
+    hist = [];
+    stopA();
+    clrTl();
+    buildCards();
+    eV1.textContent = '-';
+    eV2.textContent = '-';
+    eV3.textContent = '-';
+    eFb.innerHTML = 'Press <span class="bl">Next Step</span> to begin merging';
+    eRcs.innerHTML = '';
+    eHb.innerHTML = '';
+    eBn.disabled = false;
+  }
+
+  function doToggle(){
+    if(atm){
+      stopA();
+    } else {
+      eBa.textContent = '\u23F8 Pause';
+      eBa.className = 'ba on';
+      atm = setInterval(function(){
+        if(done){ stopA(); return; }
+        doStep();
+      }, 1400);
+    }
+  }
+
+  function stopA(){
+    if(atm){ clearInterval(atm); atm = null; }
+    eBa.textContent = '\u25B6 Auto Play';
+    eBa.className = 'ba';
+  }
+
+  buildScale();
+  buildCards();
+})();
+</script>
+</body>
+</html>
