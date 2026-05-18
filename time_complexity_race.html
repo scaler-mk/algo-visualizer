@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Complexity Race</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f2ee;
+    --surface: #ffffff;
+    --card: #faf9f6;
+    --ink: #1a1a1a;
+    --muted: #888;
+    --border: #e0ddd8;
+    --track-bg: #ede9e4;
+    --c1: #2d6a4f;
+    --c2: #40916c;
+    --c3: #b5783a;
+    --c4: #e87400;
+    --c5: #d64545;
+    --c6: #7b2d8b;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+    gap: 1.4rem;
+  }
+  header { text-align: center; }
+  h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.03em; }
+  .sub { font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--muted); margin-top: 0.3rem; }
+
+  .n-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 0.8rem 1.2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    width: min(820px, 100%);
+  }
+  .presets-label { font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-right: 0.3rem; }
+  .preset-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem; font-weight: 700;
+    padding: 0.35rem 0.85rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .preset-btn:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .preset-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .divider-v { width: 1px; height: 22px; background: var(--border); margin: 0 0.3rem; }
+  .btn-group { display: flex; gap: 0.5rem; }
+  button.run-btn {
+    background: var(--ink); color: #fff; border: none;
+    border-radius: 8px; padding: 0.45rem 1.2rem;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.82rem;
+    cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+  }
+  button.run-btn:hover { opacity: 0.78; }
+  button.run-btn:active { transform: scale(0.97); }
+  button.reset-btn {
+    background: transparent; color: var(--muted);
+    border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 0.82rem;
+    cursor: pointer; transition: background 0.15s;
+  }
+  button.reset-btn:hover { background: var(--border); }
+  .n-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem; font-weight: 700;
+    min-width: 80px; text-align: center;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.8rem;
+  }
+
+  .race {
+    width: min(820px, 100%);
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 1.4rem 1.4rem 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .scale-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem; color: var(--muted);
+    margin-bottom: 0.8rem; text-align: right;
+  }
+  .race-track { display: flex; flex-direction: column; gap: 10px; }
+  .lane {
+    display: grid;
+    grid-template-columns: 120px 1fr 150px;
+    align-items: center;
+    gap: 12px;
+  }
+  .lane-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem; font-weight: 700; text-align: right;
+  }
+  .track {
+    height: 34px;
+    background: var(--track-bg);
+    border-radius: 8px;
+    position: relative;
+  }
+  .bar {
+    height: 100%;
+    border-radius: 8px;
+    width: 0%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    overflow: hidden;
+    transition: width 0.03s linear;
+  }
+  .bar-lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem; font-weight: 700;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .bar.show-lbl .bar-lbl { opacity: 1; }
+  .right-info {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .iter-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem; color: var(--muted);
+  }
+  .iter-count.done { color: var(--ink); font-weight: 700; }
+  .tle-badge {
+    display: none;
+    background: #fff0f0;
+    border: 1px solid #f0a0a0;
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 0.64rem;
+    color: #c43030;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .tle-badge.show { display: inline-block; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-top: 1rem; justify-content: center;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.76rem; font-family: 'JetBrains Mono', monospace; color: var(--muted);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .summary {
+    width: min(820px, 100%);
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--card); }
+  th {
+    font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+    padding: 0.65rem 1rem; font-weight: 600;
+    text-align: left; border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 0.6rem 1rem; font-size: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    border-bottom: 0.5px solid var(--border);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--card); }
+  .ok { color: var(--c1); font-weight: 700; }
+  .maybe { color: var(--c3); font-weight: 700; }
+  .warn { color: var(--c4); font-weight: 700; }
+  .bad { color: var(--c5); font-weight: 700; }
+  .dead { color: var(--c6); font-weight: 700; }
+
+  .note-bar {
+    width: min(820px, 100%);
+    background: #fff9ed;
+    border: 1.5px solid #f5d88a;
+    border-radius: 10px;
+    padding: 0.65rem 1rem;
+    font-size: 0.78rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #7a5a00;
+    text-align: center;
+    display: none;
+  }
+  .note-bar.show { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Time Complexity Race</h1>
+  <p class="sub">bar width = log scale — iteration count shown in the label</p>
+</header>
+
+<div class="n-presets">
+  <span class="presets-label">N =</span>
+  <div class="n-display" id="n-display">10³</div>
+  <div class="btn-group">
+    <button class="preset-btn active" onclick="setN(1e3, this)">10³</button>
+    <button class="preset-btn" onclick="setN(1e4, this)">10⁴</button>
+    <button class="preset-btn" onclick="setN(1e5, this)">10⁵</button>
+    <button class="preset-btn" onclick="setN(1e6, this)">10⁶</button>
+    <button class="preset-btn" onclick="setN(1e7, this)">10⁷</button>
+    <button class="preset-btn" onclick="setN(1e8, this)">10⁸</button>
+    <button class="preset-btn" onclick="setN(1e9, this)">10⁹</button>
+  </div>
+  <div class="divider-v"></div>
+  <button class="run-btn" onclick="startRace()">▶ Race</button>
+  <button class="reset-btn" onclick="resetRace()">↺ Reset</button>
+</div>
+
+<div class="race">
+  <div class="scale-note">bar width = log₁₀ scale (linear scale unusable at 10⁹)</div>
+  <div class="race-track" id="race-track"></div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="note-bar" id="note-bar"></div>
+
+<div class="summary">
+  <table>
+    <thead>
+      <tr>
+        <th>complexity</th>
+        <th>iterations</th>
+        <th>time @ 10⁸ iter/s</th>
+        <th>verdict</th>
+      </tr>
+    </thead>
+    <tbody id="summary-body"></tbody>
+  </table>
+</div>
+
+<script>
+const complexities = [
+  { label: 'O(1)',       color: '#2d6a4f', fn: n => 1 },
+  { label: 'O(log₂ N)', color: '#40916c', fn: n => Math.log2(n) },
+  { label: 'O(√N)',      color: '#b5783a', fn: n => Math.sqrt(n) },
+  { label: 'O(N)',       color: '#e87400', fn: n => n },
+  { label: 'O(N log N)', color: '#d64545', fn: n => n * Math.log2(n) },
+  { label: 'O(N²)',      color: '#7b2d8b', fn: n => n * n },
+];
+
+let currentN = 1e3;
+let racing = false;
+let rafId = null;
+
+const SUP = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹' };
+function toSup(n) { return String(n).split('').map(c => SUP[c]||c).join(''); }
+function fmtSci(n) { return '10' + toSup(Math.round(Math.log10(n))); }
+
+function fmtNum(n) {
+  if (!isFinite(n) || n > 1e30) return '> 10³⁰';
+  if (n >= 1e18) return (n/1e18).toFixed(1) + ' × 10¹⁸';
+  if (n >= 1e15) return (n/1e15).toFixed(1) + ' × 10¹⁵';
+  if (n >= 1e12) return (n/1e12).toFixed(2) + 'T';
+  if (n >= 1e9)  return (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6)  return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3)  return (n/1e3).toFixed(1) + 'K';
+  return Math.round(n).toString();
+}
+
+function fmtTime(iters) {
+  const s = iters / 1e8;
+  if (s < 0.001) return '< 0.001s';
+  if (s < 1)     return s.toFixed(3) + 's';
+  if (s < 60)    return s.toFixed(1) + 's';
+  if (s < 3600)  return (s/60).toFixed(1) + ' min';
+  if (s < 86400) return (s/3600).toFixed(1) + ' hrs';
+  const days = s/86400;
+  if (days < 365) return days.toFixed(0) + ' days';
+  const yrs = days/365;
+  if (yrs < 1e6) return yrs.toFixed(0) + ' yrs';
+  if (yrs < 1e9) return (yrs/1e6).toFixed(1) + 'M yrs';
+  return '> 10⁹ yrs';
+}
+
+function verdict(iters) {
+  if (iters <= 1e7)  return ['ok',    '✓ fast'];
+  if (iters <= 1e8)  return ['maybe', '~ borderline'];
+  if (iters <= 1e10) return ['warn',  '⚠ slow'];
+  if (iters <= 1e14) return ['bad',   '✗ TLE'];
+  return ['dead', '✗ impossible'];
+}
+
+function setN(n, el) {
+  currentN = n;
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('n-display').textContent = fmtSci(n);
+  resetRace();
+}
+
+function buildUI() {
+  const N = currentN;
+  const track = document.getElementById('race-track');
+  const legend = document.getElementById('legend');
+  const body = document.getElementById('summary-body');
+  track.innerHTML = ''; legend.innerHTML = ''; body.innerHTML = '';
+
+  const values = complexities.map(c => c.fn(N));
+  const logVals = values.map(v => Math.log10(Math.max(v, 1)));
+  const logMax = Math.max(...logVals);
+
+  complexities.forEach((c, i) => {
+    const iters = values[i];
+
+    const lane = document.createElement('div');
+    lane.className = 'lane';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'lane-label';
+    lbl.style.color = c.color;
+    lbl.textContent = c.label;
+
+    const trackEl = document.createElement('div');
+    trackEl.className = 'track';
+
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.id = 'bar-' + i;
+    bar.style.background = c.color;
+    const barLbl = document.createElement('span');
+    barLbl.className = 'bar-lbl';
+    bar.appendChild(barLbl);
+    trackEl.appendChild(bar);
+
+    const ri = document.createElement('div');
+    ri.className = 'right-info';
+
+    const iterEl = document.createElement('div');
+    iterEl.className = 'iter-count';
+    iterEl.id = 'iter-' + i;
+    iterEl.textContent = '—';
+
+    const badge = document.createElement('span');
+    badge.className = 'tle-badge';
+    badge.id = 'tle-' + i;
+    badge.textContent = 'TLE';
+
+    ri.appendChild(iterEl);
+    ri.appendChild(badge);
+
+    lane.appendChild(lbl);
+    lane.appendChild(trackEl);
+    lane.appendChild(ri);
+    track.appendChild(lane);
+
+    // Legend
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `<div class="dot" style="background:${c.color}"></div>${c.label}`;
+    legend.appendChild(item);
+
+    // Table
+    const [vc, vt] = verdict(iters);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:${c.color};font-weight:700">${c.label}</td>
+      <td>${fmtNum(iters)}</td>
+      <td>${fmtTime(iters)}</td>
+      <td class="${vc}">${vt}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+function startRace() {
+  if (racing) return;
+  racing = true;
+
+  const N = currentN;
+  const values = complexities.map(c => c.fn(N));
+  const logVals = values.map(v => Math.log10(Math.max(v, 1)));
+  const logMax = Math.max(...logVals);
+
+  const STEPS = 120;
+  let step = 0;
+
+  function frame() {
+    step++;
+    const progress = Math.min(step / STEPS, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+
+    complexities.forEach((c, i) => {
+      const targetPct = logMax > 0 ? (logVals[i] / logMax) * 100 : 0;
+      const pct = eased * targetPct;
+
+      const bar = document.getElementById('bar-' + i);
+      bar.style.width = Math.max(pct, 0.3) + '%';
+
+      if (pct > 10) {
+        bar.classList.add('show-lbl');
+        bar.querySelector('.bar-lbl').textContent = fmtNum(values[i]);
+      }
+
+      if (progress >= 1) {
+        const iterEl = document.getElementById('iter-' + i);
+        iterEl.textContent = fmtNum(values[i]);
+        iterEl.classList.add('done');
+        if (values[i] > 1e8) {
+          document.getElementById('tle-' + i).classList.add('show');
+        }
+      }
+    });
+
+    if (progress >= 1) {
+      racing = false;
+      // Show note
+      const noteBar = document.getElementById('note-bar');
+      const n2 = values[5], nv = values[3], nlgn = values[4];
+      if (nv > 1e8) {
+        noteBar.textContent = `For N = ${fmtSci(N)}: even O(N) is TLE — need O(√N) or O(log N) solutions!`;
+      } else if (nlgn > 1e8) {
+        noteBar.textContent = `For N = ${fmtSci(N)}: O(N²) and O(N log N) are TLE — O(N) or better needed.`;
+      } else if (n2 > 1e8) {
+        noteBar.textContent = `For N = ${fmtSci(N)}: O(N²) exceeds 10⁸ iterations and will TLE. Use O(N log N) or better.`;
+      }
+      if (n2 > 1e8 || nv > 1e8) noteBar.classList.add('show');
+    } else {
+      rafId = requestAnimationFrame(frame);
+    }
+  }
+
+  rafId = requestAnimationFrame(frame);
+}
+
+function resetRace() {
+  racing = false;
+  cancelAnimationFrame(rafId);
+  document.getElementById('note-bar').classList.remove('show');
+  buildUI();
+}
+
+buildUI();
+</script>
+</body>
+</html>

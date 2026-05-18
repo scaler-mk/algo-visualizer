@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code Dry Run — Count Factors</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0e18;
+    --surface: #14141f;
+    --card: #1a1a28;
+    --border: #272738;
+    --teal: #00e5cc;
+    --amber: #ffc94d;
+    --coral: #ff6b72;
+    --purple: #b48bff;
+    --blue: #5b9fff;
+    --green: #4cde80;
+    --text: #dde0f0;
+    --sub: #666880;
+    --highlight-line: rgba(0,229,204,0.08);
+    --highlight-border: rgba(0,229,204,0.5);
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    grid-template-columns: 1fr;
+    padding: 1.5rem 1rem;
+    gap: 1.2rem;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  header { text-align: center; }
+  h1 { font-size: 1.5rem; font-weight: 800; color: var(--teal); letter-spacing: -0.02em; }
+  .sub { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--sub); margin-top: 0.2rem; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.75rem 1.1rem;
+    justify-content: center;
+  }
+  .ctrl-group { display: flex; align-items: center; gap: 0.5rem; }
+  .ctrl-label { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--sub); }
+  select, input[type=number] {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 0.35rem 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=number] { width: 70px; }
+  select:focus, input:focus { border-color: var(--teal); }
+  .btn-row { display: flex; gap: 0.5rem; }
+  button {
+    border: none; border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem;
+    cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+  }
+  button:hover { opacity: 0.82; }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.28; cursor: default; }
+  .btn-play { background: var(--teal); color: #0e0e18; }
+  .btn-step { background: var(--amber); color: #0e0e18; }
+  .btn-reset { background: transparent; color: var(--sub); border: 1px solid var(--border); }
+  .speed-label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--sub); }
+
+  /* Main layout */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 1rem;
+    align-items: start;
+  }
+  @media (max-width: 640px) {
+    .main { grid-template-columns: 1fr; }
+  }
+
+  /* Code panel */
+  .code-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--sub);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.7rem 1rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .dot-row { display: flex; gap: 5px; }
+  .dot-r, .dot-y, .dot-g {
+    width: 9px; height: 9px; border-radius: 50%;
+  }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .code-body { padding: 0.8rem 0; }
+  .code-line {
+    display: flex;
+    align-items: center;
+    padding: 3px 1rem 3px 0;
+    border-left: 3px solid transparent;
+    transition: background 0.2s, border-color 0.2s;
+    position: relative;
+  }
+  .code-line.active {
+    background: var(--highlight-line);
+    border-left-color: var(--teal);
+  }
+  .line-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--sub);
+    width: 36px;
+    text-align: right;
+    padding-right: 14px;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .line-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    white-space: pre;
+  }
+  /* syntax */
+  .kw { color: var(--coral); }
+  .fn { color: var(--blue); }
+  .nm { color: var(--amber); }
+  .cm { color: #444460; font-style: italic; }
+  .vr { color: var(--purple); }
+  .op { color: var(--sub); }
+
+  /* Arrow indicator */
+  .arrow-indicator {
+    position: absolute;
+    right: 8px;
+    font-size: 0.75rem;
+    color: var(--teal);
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .code-line.active .arrow-indicator { opacity: 1; }
+
+  /* Right panel */
+  .right-col { display: flex; flex-direction: column; gap: 1rem; }
+
+  /* Variables panel */
+  .vars-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .vars-body { padding: 0.75rem; display: flex; flex-direction: column; gap: 6px; }
+  .var-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    transition: border-color 0.25s, background 0.25s;
+  }
+  .var-row.changed {
+    border-color: var(--amber);
+    background: rgba(255,201,77,0.08);
+  }
+  .var-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--purple);
+    font-weight: 600;
+  }
+  .var-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--amber);
+    min-width: 36px;
+    text-align: right;
+    transition: color 0.2s;
+  }
+  .var-val.new { color: var(--teal); }
+
+  /* Factor chips */
+  .factors-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .factors-body {
+    padding: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 48px;
+  }
+  .f-chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    opacity: 0;
+    transform: scale(0.85) translateY(4px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .f-chip.show { opacity: 1; transform: scale(1) translateY(0); }
+  .f-chip.left { color: var(--teal); border-color: rgba(0,229,204,0.3); }
+  .f-chip.right { color: var(--purple); border-color: rgba(180,139,255,0.3); }
+  .f-chip.both { color: var(--coral); border-color: rgba(255,107,114,0.3); }
+
+  /* Status */
+  .status-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6rem 0.9rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--sub);
+    min-height: 2.4em;
+    line-height: 1.5;
+  }
+  .status-bar .highlight { color: var(--amber); font-weight: 700; }
+  .status-bar .ok { color: var(--green); font-weight: 700; }
+  .status-bar .no { color: var(--coral); }
+
+  /* Mode toggle */
+  .mode-tabs {
+    display: flex;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    width: fit-content;
+  }
+  .mode-tab {
+    padding: 0.35rem 0.8rem;
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    color: var(--sub);
+    transition: background 0.15s, color 0.15s;
+    border: none;
+    background: transparent;
+  }
+  .mode-tab.active { background: var(--teal); color: #0e0e18; font-weight: 700; }
+
+  /* Progress bar */
+  .progress-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6rem 0.9rem;
+  }
+  .progress-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--sub);
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .progress-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--teal);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.2s;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Code Dry Run — Count Factors</h1>
+  <p class="sub">step through the optimised algorithm, watch variables change live</p>
+</header>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <span class="ctrl-label">N =</span>
+    <input type="number" id="n-input" value="24" min="1" max="100">
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">mode:</span>
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tab-brute" onclick="setMode('brute')">brute O(N)</button>
+      <button class="mode-tab" id="tab-opt" onclick="setMode('opt')">optimised O(√N)</button>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">speed:</span>
+    <select id="speed-sel">
+      <option value="900">slow</option>
+      <option value="500" selected>medium</option>
+      <option value="200">fast</option>
+    </select>
+  </div>
+  <div class="btn-row">
+    <button class="btn-play" id="btn-play" onclick="togglePlay()">▶ Play</button>
+    <button class="btn-step" id="btn-step" onclick="stepOnce()">Step →</button>
+    <button class="btn-reset" onclick="resetAll()">↺ Reset</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Code panel -->
+  <div class="code-panel">
+    <div class="panel-title">
+      <div class="dot-row"><div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div></div>
+      <span id="code-title">countFactors_brute.py</span>
+    </div>
+    <div class="code-body" id="code-body"></div>
+  </div>
+
+  <div class="right-col">
+    <!-- Status -->
+    <div class="status-bar" id="status-bar">Press Play or Step to begin the dry run.</div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>loop progress</span>
+        <span id="prog-text">i = — / —</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+    </div>
+
+    <!-- Variables -->
+    <div class="vars-panel">
+      <div class="panel-title">variables</div>
+      <div class="vars-body" id="vars-body"></div>
+    </div>
+
+    <!-- Factors found -->
+    <div class="factors-panel">
+      <div class="panel-title">factors found</div>
+      <div class="factors-body" id="factors-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── State ── */
+let mode = 'brute';   // 'brute' | 'opt'
+let steps = [];       // array of step objects
+let stepIdx = 0;
+let playing = false;
+let playTimer = null;
+let prevVars = {};
+
+/* ── Code definitions ── */
+const BRUTE_LINES = [
+  { code: `<span class="kw">function</span> <span class="fn">countFactors</span>(<span class="vr">N</span>):`, indent: 0 },
+  { code: `    <span class="vr">fac_count</span> <span class="op">=</span> <span class="nm">0</span>`, indent: 1 },
+  { code: `    <span class="kw">for</span> <span class="vr">i</span> <span class="op">=</span> <span class="nm">1</span> <span class="kw">till</span> <span class="vr">N</span>:`, indent: 1 },
+  { code: `        <span class="kw">if</span> <span class="vr">N</span> <span class="op">%</span> <span class="vr">i</span> <span class="op">==</span> <span class="nm">0</span>:`, indent: 2 },
+  { code: `            <span class="vr">fac_count</span> <span class="op">=</span> <span class="vr">fac_count</span> <span class="op">+</span> <span class="nm">1</span>`, indent: 3 },
+  { code: `    <span class="kw">return</span> <span class="vr">fac_count</span>`, indent: 1 },
+];
+const OPT_LINES = [
+  { code: `<span class="kw">function</span> <span class="fn">countFactors</span>(<span class="vr">N</span>):`, indent: 0 },
+  { code: `    <span class="vr">fac_count</span> <span class="op">=</span> <span class="nm">0</span>`, indent: 1 },
+  { code: `    <span class="kw">for</span> <span class="vr">i</span> <span class="op">=</span> <span class="nm">1</span> <span class="kw">till</span> <span class="fn">sqrt</span>(<span class="vr">N</span>):`, indent: 1 },
+  { code: `        <span class="kw">if</span> <span class="vr">N</span> <span class="op">%</span> <span class="vr">i</span> <span class="op">==</span> <span class="nm">0</span>:`, indent: 2 },
+  { code: `            <span class="kw">if</span> <span class="vr">i</span> <span class="op">==</span> <span class="vr">N</span> <span class="op">/</span> <span class="vr">i</span>:`, indent: 3 },
+  { code: `                <span class="vr">fac_count</span> <span class="op">=</span> <span class="vr">fac_count</span> <span class="op">+</span> <span class="nm">1</span>`, indent: 4 },
+  { code: `            <span class="kw">else</span>:`, indent: 3 },
+  { code: `                <span class="vr">fac_count</span> <span class="op">=</span> <span class="vr">fac_count</span> <span class="op">+</span> <span class="nm">2</span>`, indent: 4 },
+  { code: `    <span class="kw">return</span> <span class="vr">fac_count</span>`, indent: 1 },
+];
+
+/* ── Step generator ── */
+function generateSteps(N, isBrute) {
+  const s = [];
+  const limit = isBrute ? N : Math.floor(Math.sqrt(N));
+
+  // line 0: function def
+  s.push({ line: 0, vars: { N }, status: `Calling <span class="highlight">countFactors(${N})</span>`, factors: [] });
+  // line 1: init
+  s.push({ line: 1, vars: { N, fac_count: 0 }, status: `Initialise <span class="highlight">fac_count = 0</span>`, factors: [] });
+
+  let fac_count = 0;
+  const factors = [];
+
+  for (let i = 1; i <= limit; i++) {
+    // line 2: for
+    s.push({ line: 2, vars: { N, i, fac_count }, status: `Loop iteration <span class="highlight">i = ${i}</span>  (limit = ${limit})`, factors: [...factors] });
+    // line 3: if N % i == 0
+    const rem = N % i;
+    s.push({ line: 3, vars: { N, i, fac_count }, status: `Check: <span class="highlight">${N} % ${i} = ${rem}</span>  → ${rem === 0 ? '<span class="ok">factor!</span>' : '<span class="no">not a factor</span>'}`, factors: [...factors] });
+
+    if (rem === 0) {
+      if (!isBrute) {
+        const partner = N / i;
+        const isPerfect = (i === partner);
+        // line 4: inner if
+        s.push({ line: 4, vars: { N, i, fac_count }, status: `Check: <span class="highlight">i == N/i</span> → ${i} == ${partner} → ${isPerfect ? '<span class="ok">perfect square!</span>' : '<span class="no">not equal → +2</span>'}`, factors: [...factors] });
+        if (isPerfect) {
+          fac_count += 1;
+          factors.push({ val: i, type: 'both' });
+          s.push({ line: 5, vars: { N, i, fac_count }, status: `Perfect square factor: <span class="highlight">${i}</span> — adding <span class="highlight">1</span>`, factors: [...factors] });
+        } else {
+          // line 7: else +2
+          fac_count += 2;
+          factors.push({ val: i, type: 'left' });
+          factors.push({ val: partner, type: 'right' });
+          s.push({ line: 7, vars: { N, i, fac_count }, status: `Pair found: <span class="highlight">(${i}, ${partner})</span> — adding <span class="highlight">2</span>`, factors: [...factors] });
+        }
+      } else {
+        fac_count += 1;
+        factors.push({ val: i, type: 'left' });
+        s.push({ line: 4, vars: { N, i, fac_count }, status: `Factor <span class="highlight">${i}</span> divides ${N} — fac_count → <span class="highlight">${fac_count}</span>`, factors: [...factors] });
+      }
+    }
+  }
+
+  const retLine = isBrute ? 5 : 8;
+  s.push({ line: retLine, vars: { N, fac_count }, status: `Done! Returning <span class="ok">fac_count = ${fac_count}</span>`, factors: [...factors] });
+  return s;
+}
+
+/* ── Render code ── */
+function renderCode() {
+  const lines = mode === 'brute' ? BRUTE_LINES : OPT_LINES;
+  const body = document.getElementById('code-body');
+  body.innerHTML = '';
+  lines.forEach((l, i) => {
+    const div = document.createElement('div');
+    div.className = 'code-line';
+    div.id = 'line-' + i;
+    div.innerHTML = `<span class="line-num">${i + 1}</span><span class="line-code">${l.code}</span><span class="arrow-indicator">◀ executing</span>`;
+    body.appendChild(div);
+  });
+  document.getElementById('code-title').textContent = mode === 'brute' ? 'countFactors_brute.py' : 'countFactors_optimised.py';
+}
+
+/* ── Apply step ── */
+function applyStep(idx) {
+  if (idx >= steps.length) return;
+  const step = steps[idx];
+
+  // Highlight line
+  document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+  const activeLine = document.getElementById('line-' + step.line);
+  if (activeLine) {
+    activeLine.classList.add('active');
+    activeLine.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  // Variables
+  const varsBody = document.getElementById('vars-body');
+  varsBody.innerHTML = '';
+  const varNames = Object.keys(step.vars);
+  varNames.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'var-row';
+    const oldVal = prevVars[name];
+    const newVal = step.vars[name];
+    const changed = (oldVal !== undefined && oldVal !== newVal);
+    if (changed) row.classList.add('changed');
+
+    row.innerHTML = `<span class="var-name">${name}</span><span class="var-val${changed ? ' new' : ''}">${newVal !== undefined ? newVal : '—'}</span>`;
+    varsBody.appendChild(row);
+  });
+  prevVars = { ...step.vars };
+
+  // Factors
+  const factorsBody = document.getElementById('factors-body');
+  factorsBody.innerHTML = '';
+  (step.factors || []).forEach(f => {
+    const chip = document.createElement('div');
+    chip.className = `f-chip ${f.type}`;
+    chip.textContent = f.val;
+    factorsBody.appendChild(chip);
+    requestAnimationFrame(() => chip.classList.add('show'));
+  });
+
+  // Status
+  document.getElementById('status-bar').innerHTML = step.status;
+
+  // Progress
+  const N = parseInt(document.getElementById('n-input').value);
+  const limit = mode === 'brute' ? N : Math.floor(Math.sqrt(N));
+  const i = step.vars.i || 0;
+  const pct = limit > 0 ? Math.min((i / limit) * 100, 100) : 0;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-text').textContent = `i = ${i || '—'} / ${limit}`;
+}
+
+/* ── Play/Step ── */
+function togglePlay() {
+  if (playing) {
+    playing = false;
+    clearInterval(playTimer);
+    document.getElementById('btn-play').textContent = '▶ Play';
+  } else {
+    if (stepIdx >= steps.length) resetAll();
+    playing = true;
+    document.getElementById('btn-play').textContent = '⏸ Pause';
+    const speed = parseInt(document.getElementById('speed-sel').value);
+    playTimer = setInterval(() => {
+      if (stepIdx >= steps.length) {
+        playing = false;
+        clearInterval(playTimer);
+        document.getElementById('btn-play').textContent = '▶ Play';
+        return;
+      }
+      applyStep(stepIdx);
+      stepIdx++;
+    }, speed);
+  }
+}
+
+function stepOnce() {
+  if (playing) { togglePlay(); }
+  if (stepIdx >= steps.length) return;
+  applyStep(stepIdx);
+  stepIdx++;
+}
+
+function resetAll() {
+  playing = false;
+  clearInterval(playTimer);
+  document.getElementById('btn-play').textContent = '▶ Play';
+  stepIdx = 0;
+  prevVars = {};
+
+  const N = parseInt(document.getElementById('n-input').value) || 24;
+  steps = generateSteps(N, mode === 'brute');
+  renderCode();
+
+  document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+  document.getElementById('vars-body').innerHTML = '';
+  document.getElementById('factors-body').innerHTML = '';
+  document.getElementById('status-bar').innerHTML = 'Press <strong>Play</strong> or <strong>Step</strong> to begin the dry run.';
+  document.getElementById('prog-fill').style.width = '0%';
+  document.getElementById('prog-text').textContent = 'i = — / —';
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('tab-brute').classList.toggle('active', m === 'brute');
+  document.getElementById('tab-opt').classList.toggle('active', m === 'opt');
+  resetAll();
+}
+
+/* ── Init ── */
+document.getElementById('n-input').addEventListener('change', resetAll);
+renderCode();
+steps = generateSteps(24, true);
+</script>
+</body>
+</html>
