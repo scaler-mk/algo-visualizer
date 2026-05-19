@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Find the Missing Number</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    text-align: center;
+    margin-bottom: 6px;
+    color: #f8fafc;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+  }
+
+  /* Mode toggle */
+  .mode-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+
+  .mode-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.88rem;
+    padding: 10px 28px;
+    border: 2px solid #334155;
+    background: #1e293b;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .mode-btn:first-child { border-radius: 8px 0 0 8px; }
+  .mode-btn:last-child { border-radius: 0 8px 8px 0; }
+
+  .mode-btn.active {
+    background: #1e3a5f;
+    border-color: #3b82f6;
+    color: #93c5fd;
+  }
+
+  /* Presets */
+  .presets {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .preset-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    padding: 8px 14px;
+    border: 1.5px solid #334155;
+    border-radius: 8px;
+    background: #1e293b;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .preset-btn:hover { border-color: #60a5fa; color: #60a5fa; }
+  .preset-btn.active { border-color: #3b82f6; background: #1e3a5f; color: #93c5fd; }
+
+  /* Array row */
+  .section-label {
+    text-align: center;
+    font-size: 0.78rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+
+  .array-row {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 24px;
+    min-height: 60px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .cell {
+    width: 52px;
+    height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #1e293b;
+    border: 2px solid #334155;
+    transition: all 0.35s;
+  }
+
+  .cell .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+
+  .cell .idx {
+    font-size: 0.6rem;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  .cell.current {
+    border-color: #fbbf24;
+    background: #422006;
+    box-shadow: 0 0 16px rgba(251,191,36,0.2);
+  }
+
+  .cell.processed {
+    border-color: #475569;
+    opacity: 0.5;
+  }
+
+  .cell.found {
+    border-color: #34d399;
+    background: #064e3b;
+    box-shadow: 0 0 18px rgba(52,211,153,0.25);
+  }
+
+  .cell.missing-cell {
+    border-color: #f87171;
+    background: #450a0a;
+    border-style: dashed;
+  }
+
+  /* Calculation area */
+  .calc-area {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .calc-box {
+    text-align: center;
+    padding: 16px 28px;
+    border-radius: 14px;
+    background: #1e293b;
+    border: 2px solid #334155;
+    min-width: 150px;
+    transition: all 0.35s;
+  }
+
+  .calc-box.highlight {
+    border-color: #a78bfa;
+    box-shadow: 0 0 16px rgba(167,139,250,0.2);
+  }
+
+  .calc-box.result-highlight {
+    border-color: #34d399;
+    box-shadow: 0 0 20px rgba(52,211,153,0.3);
+  }
+
+  .calc-label {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .calc-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #f8fafc;
+  }
+
+  /* Narration */
+  .narration {
+    max-width: 660px;
+    margin: 0 auto 24px;
+    padding: 16px 20px;
+    border-radius: 10px;
+    background: #1a1f2e;
+    border-left: 4px solid #3b82f6;
+    font-size: 0.92rem;
+    color: #cbd5e1;
+    min-height: 52px;
+    line-height: 1.55;
+  }
+
+  /* Result banner */
+  .result-banner {
+    text-align: center;
+    padding: 14px;
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    display: none;
+    background: #064e3b;
+    border: 2px solid #34d399;
+    color: #34d399;
+  }
+
+  .result-banner.show { display: block; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .ctrl-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .ctrl-btn.primary { background: #3b82f6; color: #fff; }
+  .ctrl-btn.primary:hover { background: #2563eb; }
+  .ctrl-btn.secondary { background: #334155; color: #cbd5e1; }
+  .ctrl-btn.secondary:hover { background: #475569; }
+  .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Complexity badge */
+  .complexity {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 20px;
+  }
+
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: #1e293b;
+    border: 1px solid #334155;
+  }
+
+  .badge span { color: #94a3b8; }
+  .badge strong { color: #fbbf24; }
+
+  /* Logic card */
+  .logic-card {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 16px;
+    border-radius: 10px;
+    background: #1e293b;
+    border: 1px solid #334155;
+  }
+
+  .logic-card h3 {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .logic-card code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    display: block;
+    line-height: 1.7;
+    color: #e2e8f0;
+  }
+
+  .logic-card code .kw { color: #c084fc; }
+  .logic-card code .cm { color: #64748b; }
+
+  /* Operations counter */
+  .ops-badge {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-bottom: 16px;
+  }
+
+  .ops-badge strong { color: #fbbf24; }
+</style>
+</head>
+<body>
+
+<h1>Find the Missing Number</h1>
+<p class="subtitle">Array has N−1 elements from 1 to N. Find the missing one.</p>
+
+<div class="mode-toggle">
+  <button class="mode-btn active" onclick="setMode('brute')">Brute Force O(N²)</button>
+  <button class="mode-btn" onclick="setMode('sum')">Sum Formula O(N)</button>
+</div>
+
+<div class="presets" id="presets"></div>
+
+<div class="section-label">Array A</div>
+<div class="array-row" id="arrayRow"></div>
+
+<div class="calc-area" id="calcArea"></div>
+
+<div class="ops-badge" id="opsBadge">Operations: <strong>0</strong></div>
+
+<div class="narration" id="narration">Choose a preset, then press <strong>Step</strong> or <strong>Auto Play</strong>.</div>
+
+<div class="result-banner" id="resultBanner"></div>
+
+<div class="controls">
+  <button class="ctrl-btn secondary" onclick="resetAnim()">Reset</button>
+  <button class="ctrl-btn primary" id="stepBtn" onclick="step()">Step →</button>
+  <button class="ctrl-btn primary" id="autoBtn" onclick="autoPlay()">Auto Play ▶</button>
+</div>
+
+<div class="logic-card" id="logicCard"></div>
+
+<script>
+const presetData = [
+  { arr: [3, 1, 4, 5, 2, 7, 6], n: 8, label: "N=8, missing 8" },
+  { arr: [2, 5, 1, 4, 6], n: 6, label: "N=6, missing 3" },
+  { arr: [1, 2, 3, 4], n: 5, label: "N=5, missing 5" },
+  { arr: [2, 3, 4, 5], n: 5, label: "N=5, missing 1" },
+  { arr: [1], n: 2, label: "N=2, missing 2" },
+];
+
+let mode = 'brute';
+let arr = [];
+let N = 0;
+let missing = 0;
+let pos = 0;
+let done = false;
+let autoTimer = null;
+let ops = 0;
+
+// Brute force state
+let bruteTarget = 1; // checking if 'bruteTarget' exists in array
+let bruteInner = 0;
+let bruteFound = false;
+let brutePhase = 'searching'; // 'searching' | 'found' | 'notfound'
+
+// Sum state
+let sumExpected = 0;
+let sumActual = 0;
+let sumPos = 0;
+let sumPhaseStarted = false;
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.mode-btn')[m === 'brute' ? 0 : 1].classList.add('active');
+  updateLogicCard();
+  resetAnim();
+}
+
+function updateLogicCard() {
+  const lc = document.getElementById('logicCard');
+  if (mode === 'brute') {
+    lc.innerHTML = `<h3>Brute Force</h3><code>
+<span class="kw">for</span> target = 1 <span class="kw">to</span> N:<br>
+&nbsp;&nbsp;found = false<br>
+&nbsp;&nbsp;<span class="kw">for each</span> element <span class="kw">in</span> array:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> element == target → found = true<br>
+&nbsp;&nbsp;<span class="kw">if</span> !found → <span class="kw">return</span> target <span class="cm">// missing!</span>
+</code>`;
+  } else {
+    lc.innerHTML = `<h3>Sum Formula</h3><code>
+expectedSum = N × (N + 1) / 2<br>
+actualSum = sum of all elements<br>
+missing = expectedSum − actualSum
+</code>`;
+  }
+}
+
+function buildPresets() {
+  const container = document.getElementById('presets');
+  container.innerHTML = '';
+  presetData.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = p.label;
+    btn.onclick = () => loadPreset(i);
+    container.appendChild(btn);
+  });
+}
+
+function loadPreset(idx) {
+  document.querySelectorAll('.preset-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  arr = [...presetData[idx].arr];
+  N = presetData[idx].n;
+  // Find the actual missing number
+  const full = new Set();
+  for (let i = 1; i <= N; i++) full.add(i);
+  arr.forEach(v => full.delete(v));
+  missing = [...full][0];
+  resetAnim();
+}
+
+function resetAnim() {
+  clearInterval(autoTimer);
+  autoTimer = null;
+  done = false;
+  ops = 0;
+  bruteTarget = 1;
+  bruteInner = 0;
+  bruteFound = false;
+  brutePhase = 'searching';
+  sumExpected = 0;
+  sumActual = 0;
+  sumPos = 0;
+  sumPhaseStarted = false;
+
+  // Build array display
+  const row = document.getElementById('arrayRow');
+  row.innerHTML = '';
+  arr.forEach((v, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.id = 'acell-' + i;
+    cell.innerHTML = `<span class="val">${v}</span><span class="idx">${i}</span>`;
+    row.appendChild(cell);
+  });
+
+  // Build calc area
+  const ca = document.getElementById('calcArea');
+  if (mode === 'brute') {
+    ca.innerHTML = `
+      <div class="calc-box" id="targetBox"><div class="calc-label">Checking for</div><div class="calc-value" id="targetVal">1</div></div>
+      <div class="calc-box" id="statusBox"><div class="calc-label">Status</div><div class="calc-value" id="statusVal" style="font-size:1rem;">scanning…</div></div>
+    `;
+  } else {
+    ca.innerHTML = `
+      <div class="calc-box" id="expBox"><div class="calc-label">Expected Sum</div><div class="calc-value" id="expVal">?</div></div>
+      <div class="calc-box" id="actBox"><div class="calc-label">Actual Sum</div><div class="calc-value" id="actVal">0</div></div>
+      <div class="calc-box" id="diffBox"><div class="calc-label">Missing</div><div class="calc-value" id="diffVal">?</div></div>
+    `;
+  }
+
+  document.getElementById('opsBadge').innerHTML = 'Operations: <strong>0</strong>';
+  document.getElementById('narration').innerHTML = 'Press <strong>Step</strong> or <strong>Auto Play</strong> to begin.';
+  document.getElementById('resultBanner').className = 'result-banner';
+  document.getElementById('stepBtn').disabled = false;
+  document.getElementById('autoBtn').disabled = false;
+}
+
+function step() {
+  if (done) return;
+  if (mode === 'brute') stepBrute();
+  else stepSum();
+}
+
+function stepBrute() {
+  // Clear previous highlights
+  for (let i = 0; i < arr.length; i++) {
+    const c = document.getElementById('acell-' + i);
+    c.className = 'cell';
+  }
+
+  if (brutePhase === 'notfound') {
+    // We already found the missing number on the previous step
+    finishWith(bruteTarget);
+    return;
+  }
+
+  // Check current inner position
+  if (bruteInner < arr.length) {
+    ops++;
+    document.getElementById('opsBadge').innerHTML = `Operations: <strong>${ops}</strong>`;
+    const cell = document.getElementById('acell-' + bruteInner);
+    cell.classList.add('current');
+    document.getElementById('targetVal').textContent = bruteTarget;
+
+    if (arr[bruteInner] === bruteTarget) {
+      // Found it!
+      cell.classList.add('found');
+      document.getElementById('statusVal').textContent = 'Found ✓';
+      document.getElementById('statusVal').style.color = '#34d399';
+      document.getElementById('narration').innerHTML =
+        `Looking for <strong>${bruteTarget}</strong>: found at index <strong>${bruteInner}</strong>. Move to next target.`;
+      // Advance to next target
+      bruteTarget++;
+      bruteInner = 0;
+      bruteFound = false;
+
+      if (bruteTarget > N) {
+        finishWith(missing);
+        return;
+      }
+
+      setTimeout(() => {
+        document.getElementById('statusVal').textContent = 'scanning…';
+        document.getElementById('statusVal').style.color = '#f8fafc';
+        document.getElementById('targetVal').textContent = bruteTarget;
+      }, 400);
+
+    } else {
+      document.getElementById('narration').innerHTML =
+        `Looking for <strong>${bruteTarget}</strong>: index ${bruteInner} has ${arr[bruteInner]} — not a match.`;
+      bruteInner++;
+    }
+  } else {
+    // Exhausted array without finding bruteTarget
+    document.getElementById('statusVal').textContent = 'NOT FOUND ✗';
+    document.getElementById('statusVal').style.color = '#f87171';
+    document.getElementById('targetBox').classList.add('highlight');
+    document.getElementById('narration').innerHTML =
+      `<strong>${bruteTarget}</strong> not found in the array! That's our missing number.`;
+    brutePhase = 'notfound';
+  }
+}
+
+function stepSum() {
+  if (!sumPhaseStarted) {
+    // Step 1: compute expected sum
+    sumExpected = N * (N + 1) / 2;
+    document.getElementById('expVal').textContent = sumExpected;
+    document.getElementById('expBox').classList.add('highlight');
+    document.getElementById('narration').innerHTML =
+      `Expected sum for 1 to ${N}: <strong>${N} × ${N + 1} / 2 = ${sumExpected}</strong>`;
+    sumPhaseStarted = true;
+    ops++;
+    document.getElementById('opsBadge').innerHTML = `Operations: <strong>${ops}</strong>`;
+    return;
+  }
+
+  if (sumPos < arr.length) {
+    // Clear prev
+    for (let i = 0; i < arr.length; i++) {
+      document.getElementById('acell-' + i).className = 'cell';
+    }
+    if (sumPos > 0) {
+      document.getElementById('acell-' + (sumPos - 1)).classList.add('processed');
+    }
+
+    const cell = document.getElementById('acell-' + sumPos);
+    cell.classList.add('current');
+    sumActual += arr[sumPos];
+    ops++;
+    document.getElementById('opsBadge').innerHTML = `Operations: <strong>${ops}</strong>`;
+    document.getElementById('actVal').textContent = sumActual;
+    document.getElementById('actBox').classList.add('highlight');
+    document.getElementById('narration').innerHTML =
+      `Add A[${sumPos}] = ${arr[sumPos]} → actual sum = <strong>${sumActual}</strong>`;
+
+    setTimeout(() => {
+      document.getElementById('actBox').classList.remove('highlight');
+      document.getElementById('expBox').classList.remove('highlight');
+    }, 400);
+
+    sumPos++;
+  } else {
+    // Final step: compute difference
+    const result = sumExpected - sumActual;
+    document.getElementById('diffVal').textContent = result;
+    document.getElementById('diffBox').classList.add('result-highlight');
+    document.getElementById('narration').innerHTML =
+      `Missing = expectedSum − actualSum = ${sumExpected} − ${sumActual} = <strong>${result}</strong>`;
+    finishWith(result);
+  }
+}
+
+function finishWith(val) {
+  done = true;
+  clearInterval(autoTimer);
+  const banner = document.getElementById('resultBanner');
+  banner.className = 'result-banner show';
+  banner.textContent = `Missing number: ${val}`;
+  document.getElementById('stepBtn').disabled = true;
+  document.getElementById('autoBtn').disabled = true;
+}
+
+function autoPlay() {
+  if (done) return;
+  document.getElementById('autoBtn').disabled = true;
+  autoTimer = setInterval(() => {
+    if (done) { clearInterval(autoTimer); return; }
+    step();
+  }, 750);
+}
+
+// Init
+buildPresets();
+updateLogicCard();
+loadPreset(0);
+</script>
+</body>
+</html>

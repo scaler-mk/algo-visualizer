@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Valid Parentheses — Counter Approach</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    text-align: center;
+    margin-bottom: 6px;
+    color: #f8fafc;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+  }
+
+  /* Preset buttons */
+  .presets {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .preset-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    padding: 8px 16px;
+    border: 1.5px solid #334155;
+    border-radius: 8px;
+    background: #1e293b;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .preset-btn:hover { border-color: #60a5fa; color: #60a5fa; }
+  .preset-btn.active { border-color: #3b82f6; background: #1e3a5f; color: #93c5fd; }
+
+  /* String display */
+  .string-row {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 28px;
+    min-height: 64px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .char-cell {
+    width: 52px;
+    height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #1e293b;
+    border: 2px solid #334155;
+    transition: all 0.35s;
+    position: relative;
+  }
+
+  .char-cell .ch {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .char-cell .idx {
+    font-size: 0.65rem;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  .char-cell.current {
+    border-color: #fbbf24;
+    background: #422006;
+    box-shadow: 0 0 18px rgba(251,191,36,0.25);
+  }
+
+  .char-cell.valid {
+    border-color: #34d399;
+    background: #064e3b;
+  }
+
+  .char-cell.invalid {
+    border-color: #f87171;
+    background: #450a0a;
+  }
+
+  .char-cell.processed {
+    border-color: #475569;
+    background: #1e293b;
+    opacity: 0.55;
+  }
+
+  /* Counter display */
+  .counter-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin-bottom: 24px;
+  }
+
+  .counter-box {
+    text-align: center;
+    padding: 18px 32px;
+    border-radius: 14px;
+    background: #1e293b;
+    border: 2px solid #334155;
+    min-width: 160px;
+    transition: all 0.35s;
+  }
+
+  .counter-box.highlight-up {
+    border-color: #34d399;
+    box-shadow: 0 0 20px rgba(52,211,153,0.2);
+  }
+
+  .counter-box.highlight-down {
+    border-color: #f87171;
+    box-shadow: 0 0 20px rgba(248,113,113,0.2);
+  }
+
+  .counter-box.negative {
+    border-color: #f87171;
+    background: #450a0a;
+  }
+
+  .counter-label {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .counter-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #f8fafc;
+  }
+
+  /* Narration box */
+  .narration {
+    max-width: 640px;
+    margin: 0 auto 24px;
+    padding: 16px 20px;
+    border-radius: 10px;
+    background: #1a1f2e;
+    border-left: 4px solid #3b82f6;
+    font-size: 0.92rem;
+    color: #cbd5e1;
+    min-height: 52px;
+    line-height: 1.55;
+  }
+
+  /* Result banner */
+  .result-banner {
+    text-align: center;
+    padding: 14px;
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  .result-banner.valid-result {
+    display: block;
+    background: #064e3b;
+    border: 2px solid #34d399;
+    color: #34d399;
+  }
+
+  .result-banner.invalid-result {
+    display: block;
+    background: #450a0a;
+    border: 2px solid #f87171;
+    color: #f87171;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .ctrl-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .ctrl-btn.primary {
+    background: #3b82f6;
+    color: #fff;
+  }
+
+  .ctrl-btn.primary:hover { background: #2563eb; }
+
+  .ctrl-btn.secondary {
+    background: #334155;
+    color: #cbd5e1;
+  }
+
+  .ctrl-btn.secondary:hover { background: #475569; }
+
+  .ctrl-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Logic explanation */
+  .logic-card {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 16px;
+    border-radius: 10px;
+    background: #1e293b;
+    border: 1px solid #334155;
+  }
+
+  .logic-card h3 {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .logic-card code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    display: block;
+    line-height: 1.7;
+    color: #e2e8f0;
+  }
+
+  .logic-card code .kw { color: #c084fc; }
+  .logic-card code .cm { color: #64748b; }
+  .logic-card code .hl { background: #422006; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Valid Parentheses — Counter Approach</h1>
+<p class="subtitle">Only ( and ) — no stack needed, just a counter</p>
+
+<div class="presets">
+  <button class="preset-btn active" onclick="loadPreset(0)">( ( ) ) — valid</button>
+  <button class="preset-btn" onclick="loadPreset(1)">( ) ( ) — valid</button>
+  <button class="preset-btn" onclick="loadPreset(2)">( ( ) — invalid</button>
+  <button class="preset-btn" onclick="loadPreset(3)">( ) ) ( — invalid</button>
+  <button class="preset-btn" onclick="loadPreset(4)">) ( — early negative</button>
+  <button class="preset-btn" onclick="loadPreset(5)">empty string — valid</button>
+</div>
+
+<div class="string-row" id="stringRow"></div>
+
+<div class="counter-section">
+  <div class="counter-box" id="counterBox">
+    <div class="counter-label">Counter</div>
+    <div class="counter-value" id="counterValue">0</div>
+  </div>
+  <div class="counter-box" id="verdictBox" style="opacity: 0.35;">
+    <div class="counter-label">Verdict</div>
+    <div class="counter-value" id="verdictValue" style="font-size:1.2rem;">—</div>
+  </div>
+</div>
+
+<div class="narration" id="narration">Choose a preset above, then press <strong>Step</strong> or <strong>Auto Play</strong> to walk through the algorithm.</div>
+
+<div class="result-banner" id="resultBanner"></div>
+
+<div class="controls">
+  <button class="ctrl-btn secondary" id="resetBtn" onclick="resetAnim()">Reset</button>
+  <button class="ctrl-btn primary" id="stepBtn" onclick="step()">Step →</button>
+  <button class="ctrl-btn primary" id="autoBtn" onclick="autoPlay()">Auto Play ▶</button>
+</div>
+
+<div class="logic-card">
+  <h3>Algorithm</h3>
+  <code>
+    <span class="kw">int</span> counter = 0;<br>
+    <span class="kw">for each</span> char c <span class="kw">in</span> string:<br>
+    &nbsp;&nbsp;<span class="kw">if</span> c == '(' → counter++<br>
+    &nbsp;&nbsp;<span class="kw">if</span> c == ')' → counter--<br>
+    &nbsp;&nbsp;<span class="kw">if</span> counter &lt; 0 → <span class="cm">// early exit: invalid</span><br>
+    <span class="kw">return</span> counter == 0 <span class="cm">// true = valid</span>
+  </code>
+</div>
+
+<script>
+const presets = [
+  { str: "(())", label: "nested valid" },
+  { str: "()()", label: "sequential valid" },
+  { str: "(()", label: "missing closing" },
+  { str: "())(", label: "extra closing mid" },
+  { str: ")(", label: "early negative" },
+  { str: "", label: "empty string" },
+];
+
+let current = [];
+let counter = 0;
+let pos = -1;
+let done = false;
+let autoTimer = null;
+let earlyExit = false;
+
+function loadPreset(idx) {
+  document.querySelectorAll('.preset-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  current = presets[idx].str.split('');
+  resetAnim();
+}
+
+function resetAnim() {
+  clearInterval(autoTimer);
+  autoTimer = null;
+  counter = 0;
+  pos = -1;
+  done = false;
+  earlyExit = false;
+
+  const row = document.getElementById('stringRow');
+  row.innerHTML = '';
+
+  if (current.length === 0) {
+    row.innerHTML = '<div style="color:#64748b;font-style:italic;">empty string</div>';
+  }
+
+  current.forEach((ch, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'char-cell';
+    cell.id = 'cell-' + i;
+    cell.innerHTML = `<span class="ch">${ch}</span><span class="idx">${i}</span>`;
+    row.appendChild(cell);
+  });
+
+  document.getElementById('counterValue').textContent = '0';
+  document.getElementById('counterBox').className = 'counter-box';
+  document.getElementById('verdictValue').textContent = '—';
+  document.getElementById('verdictBox').style.opacity = '0.35';
+  document.getElementById('resultBanner').className = 'result-banner';
+  document.getElementById('resultBanner').textContent = '';
+  document.getElementById('narration').innerHTML = 'Press <strong>Step</strong> or <strong>Auto Play</strong> to begin.';
+  document.getElementById('stepBtn').disabled = false;
+  document.getElementById('autoBtn').disabled = false;
+
+  if (current.length === 0) {
+    document.getElementById('narration').innerHTML = 'Empty string — nothing to scan. Counter stays 0 → <strong>valid</strong>.';
+    showFinalResult(true);
+  }
+}
+
+function step() {
+  if (done) return;
+
+  // Mark previous cell as processed
+  if (pos >= 0) {
+    const prev = document.getElementById('cell-' + pos);
+    if (prev && !prev.classList.contains('invalid')) {
+      prev.classList.remove('current');
+      prev.classList.add('processed');
+    }
+  }
+
+  pos++;
+
+  if (pos >= current.length) {
+    finish();
+    return;
+  }
+
+  const ch = current[pos];
+  const cell = document.getElementById('cell-' + pos);
+  cell.classList.add('current');
+
+  const counterBox = document.getElementById('counterBox');
+
+  if (ch === '(') {
+    counter++;
+    counterBox.className = 'counter-box highlight-up';
+    cell.classList.add('valid');
+    document.getElementById('narration').innerHTML =
+      `Index <strong>${pos}</strong>: found <code>(</code> → counter++ → counter is now <strong>${counter}</strong>`;
+  } else if (ch === ')') {
+    counter--;
+    if (counter < 0) {
+      counterBox.className = 'counter-box negative';
+      cell.classList.add('invalid');
+      cell.classList.remove('current');
+      document.getElementById('narration').innerHTML =
+        `Index <strong>${pos}</strong>: found <code>)</code> → counter-- → counter is <strong>${counter}</strong> — <span style="color:#f87171;">NEGATIVE! No matching open paren. Early exit → INVALID.</span>`;
+      earlyExit = true;
+      showFinalResult(false);
+      return;
+    } else {
+      counterBox.className = 'counter-box highlight-down';
+      cell.classList.add('valid');
+      document.getElementById('narration').innerHTML =
+        `Index <strong>${pos}</strong>: found <code>)</code> → counter-- → counter is now <strong>${counter}</strong>`;
+    }
+  }
+
+  document.getElementById('counterValue').textContent = counter;
+
+  setTimeout(() => { counterBox.className = 'counter-box'; }, 500);
+
+  if (pos === current.length - 1 && !earlyExit) {
+    setTimeout(() => { if (!earlyExit) finish(); }, 800);
+  }
+}
+
+function finish() {
+  if (done) return;
+  done = true;
+  clearInterval(autoTimer);
+
+  const isValid = counter === 0;
+  document.getElementById('verdictBox').style.opacity = '1';
+  document.getElementById('verdictValue').textContent = isValid ? '✓ VALID' : '✗ INVALID';
+  document.getElementById('verdictValue').style.color = isValid ? '#34d399' : '#f87171';
+
+  if (!earlyExit) {
+    document.getElementById('narration').innerHTML = isValid
+      ? `Scan complete. Counter = <strong>0</strong> → every open paren was matched. <span style="color:#34d399;font-weight:700;">VALID</span>`
+      : `Scan complete. Counter = <strong>${counter}</strong> → ${counter} unmatched open paren(s) remain. <span style="color:#f87171;font-weight:700;">INVALID</span>`;
+  }
+
+  showFinalResult(isValid);
+  document.getElementById('stepBtn').disabled = true;
+  document.getElementById('autoBtn').disabled = true;
+}
+
+function showFinalResult(isValid) {
+  done = true;
+  clearInterval(autoTimer);
+  const banner = document.getElementById('resultBanner');
+  banner.className = isValid ? 'result-banner valid-result' : 'result-banner invalid-result';
+  banner.textContent = isValid ? '✓  Valid Parentheses' : '✗  Invalid Parentheses';
+  document.getElementById('stepBtn').disabled = true;
+  document.getElementById('autoBtn').disabled = true;
+}
+
+function autoPlay() {
+  if (done) return;
+  document.getElementById('autoBtn').disabled = true;
+  autoTimer = setInterval(() => {
+    if (done) { clearInterval(autoTimer); return; }
+    step();
+  }, 900);
+}
+
+// Init
+loadPreset(0);
+</script>
+</body>
+</html>
