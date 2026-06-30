@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hashing Interactive Visualizer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.header {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-bottom: 1px solid #334155;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-icon { font-size: 28px; }
+.header-title { font-size: 20px; font-weight: 700; color: #f1f5f9; }
+.header-sub { font-size: 13px; color: #64748b; margin-top: 2px; }
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  background: #1e293b;
+  border-bottom: 2px solid #1e293b;
+  padding: 0 24px;
+  gap: 4px;
+  overflow-x: auto;
+}
+.tab {
+  padding: 14px 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  user-select: none;
+}
+.tab:hover { color: #94a3b8; }
+.tab.active { color: #60a5fa; border-bottom-color: #3b82f6; }
+
+/* ── SECTIONS ── */
+.section { display: none; padding: 28px 32px; max-width: 960px; margin: 0 auto; }
+.section.active { display: block; }
+
+.section-title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+.section-sub { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+
+/* ── CARDS ── */
+.card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 20px;
+}
+.card-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #64748b;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+
+/* ── GRID ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .section { padding: 16px; }
+}
+
+/* ── BUTTONS ── */
+.btn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+  letter-spacing: 0.4px;
+}
+.btn:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.9; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.btn-blue   { background: #3b82f6; color: #fff; }
+.btn-green  { background: #22c55e; color: #052e16; }
+.btn-red    { background: #ef4444; color: #fff; }
+.btn-amber  { background: #f59e0b; color: #1c0f00; }
+.btn-purple { background: #8b5cf6; color: #fff; }
+.btn-slate  { background: #475569; color: #e2e8f0; }
+
+/* ── INPUTS ── */
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; color: #64748b; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+.field input {
+  width: 100%;
+  padding: 9px 12px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus { border-color: #3b82f6; }
+
+/* ── ARRAY DISPLAY ── */
+.array-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.cell {
+  width: 48px; height: 48px;
+  background: #1e293b;
+  border: 2px solid #334155;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Courier New', monospace;
+  font-size: 16px; font-weight: 700;
+  transition: all 0.3s;
+  position: relative;
+}
+.cell .idx {
+  position: absolute; bottom: -18px;
+  font-size: 10px; color: #475569;
+  font-family: monospace; font-weight: 400;
+}
+.cell.visited  { border-color: #22c55e; background: rgba(34,197,94,0.12); color: #86efac; }
+.cell.current  { border-color: #f59e0b; background: rgba(245,158,11,0.18); color: #fde68a; transform: scale(1.12); z-index: 1; }
+.cell.found    { border-color: #60a5fa; background: rgba(96,165,250,0.18); color: #93c5fd; }
+
+/* ── STEP CONTROLS ── */
+.step-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+.step-info {
+  flex: 1; min-width: 180px;
+  background: #0f172a; border-radius: 8px;
+  padding: 8px 14px; font-size: 13px; color: #94a3b8;
+}
+
+/* ── KV ENTRIES ── */
+.kv-entry {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.kv-key {
+  background: #0f172a; border: 1.5px solid #3b82f6;
+  border-radius: 6px; padding: 6px 12px;
+  font-family: monospace; font-size: 14px; color: #60a5fa;
+  min-width: 56px; text-align: center;
+}
+.kv-arrow { color: #475569; font-size: 16px; }
+.kv-val {
+  background: #0f172a; border: 1.5px solid #34d399;
+  border-radius: 6px; padding: 6px 12px;
+  font-family: monospace; font-size: 14px; color: #34d399;
+  min-width: 56px; text-align: center;
+}
+.kv-entry.flash-green { animation: fgreen 0.5s ease; }
+.kv-entry.flash-blue  { animation: fblue  0.5s ease; }
+.kv-entry.flash-amber { animation: famber 0.5s ease; }
+.kv-entry.flash-red   { animation: fred   0.5s ease; }
+@keyframes fgreen { 0%,100%{background:transparent} 50%{background:rgba(34,197,94,0.15)} }
+@keyframes fblue  { 0%,100%{background:transparent} 50%{background:rgba(96,165,250,0.15)} }
+@keyframes famber { 0%,100%{background:transparent} 50%{background:rgba(245,158,11,0.15)} }
+@keyframes fred   { 0%,100%{background:transparent} 50%{background:rgba(239,68,68,0.15)} }
+
+/* ── FEEDBACK ── */
+.feedback {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  border-left: 3px solid #334155;
+  background: #0f172a;
+  color: #64748b;
+  min-height: 38px;
+  transition: all 0.3s;
+  line-height: 1.5;
+}
+.feedback.ok   { border-color: #22c55e; color: #86efac; }
+.feedback.info { border-color: #3b82f6; color: #93c5fd; }
+.feedback.warn { border-color: #f59e0b; color: #fde68a; }
+.feedback.err  { border-color: #ef4444; color: #fca5a5; }
+
+/* ── BADGES ── */
+.badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.badge {
+  background: #0f172a; border: 1px solid #334155;
+  border-radius: 6px; padding: 4px 10px;
+  font-size: 12px; color: #64748b;
+}
+.badge strong { color: #60a5fa; }
+
+/* ── MODE TOGGLE ── */
+.mode-toggle { display: flex; gap: 6px; margin-bottom: 18px; }
+.mode-btn {
+  flex: 1; padding: 8px;
+  border: 2px solid #334155; background: transparent;
+  color: #64748b; border-radius: 8px; cursor: pointer;
+  font-weight: 700; font-size: 13px; transition: all 0.2s;
+}
+.mode-btn.active { border-color: #3b82f6; color: #60a5fa; background: rgba(59,130,246,0.1); }
+
+/* ── OP BUTTONS GRID ── */
+.op-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+
+/* ── FREQ MAP ── */
+.freq-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.freq-k {
+  background: #0f172a; border: 1.5px solid #3b82f6;
+  color: #60a5fa; padding: 5px 10px; border-radius: 6px;
+  font-family: monospace; min-width: 38px; text-align: center; font-size: 13px;
+}
+.freq-track { flex: 1; height: 24px; background: #0f172a; border-radius: 4px; overflow: hidden; }
+.freq-fill {
+  height: 100%; min-width: 28px;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+  display: flex; align-items: center; padding-left: 8px;
+  font-size: 12px; font-weight: 700; color: #fff;
+  border-radius: 4px; transition: width 0.4s ease;
+}
+
+/* ── PAIR TAGS ── */
+.tag {
+  background: rgba(59,130,246,0.12); border: 1px solid #3b82f6;
+  border-radius: 6px; padding: 4px 10px;
+  font-size: 12px; color: #93c5fd; font-family: monospace;
+  animation: popIn 0.25s ease;
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.tag.amber { border-color: #f59e0b; color: #fde68a; background: rgba(245,158,11,0.1); }
+.tags-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── LOG ── */
+.log-scroll { max-height: 220px; overflow-y: auto; }
+.log-scroll::-webkit-scrollbar { width: 4px; }
+.log-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+.log-line {
+  font-size: 12px; font-family: monospace; padding: 5px 0;
+  border-bottom: 1px solid #1e293b; color: #64748b; line-height: 1.5;
+}
+.log-line.lf { color: #86efac; }
+.log-line.li { color: #fde68a; }
+
+/* ── STAT CARDS ── */
+.stats-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat {
+  background: #1e293b; border: 1px solid #334155;
+  border-radius: 10px; padding: 14px 20px; text-align: center; min-width: 110px;
+}
+.stat-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+.stat-val { font-size: 30px; font-weight: 700; color: #60a5fa; margin-top: 4px; }
+
+/* ── QUERY ── */
+.query-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.query-input {
+  padding: 9px 12px; background: #0f172a; border: 1px solid #334155;
+  border-radius: 8px; color: #e2e8f0; font-size: 14px; width: 120px; outline: none;
+}
+.query-input:focus { border-color: #3b82f6; }
+.query-result { margin-top: 10px; font-size: 15px; min-height: 24px; color: #64748b; }
+
+/* ── EMPTY ── */
+.empty { color: #334155; font-size: 13px; text-align: center; padding: 40px 0; }
+
+/* ── DIVIDER ── */
+.gap { margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">🗂️</div>
+  <div>
+    <div class="header-title">Hashing Interactive Visualizer</div>
+    <div class="header-sub">Step through HashMap & HashSet concepts with live animations</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab(0)">⚡ HashMap / HashSet Ops</div>
+  <div class="tab" onclick="showTab(1)">📊 Frequency Query</div>
+  <div class="tab" onclick="showTab(2)">🔢 Count Pairs</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1 – HashMap / HashSet Operations
+═══════════════════════════════════════════════ -->
+<div class="section active" id="sec0">
+  <div class="section-title">HashMap &amp; HashSet Operations</div>
+  <div class="section-sub">All operations run in O(1) time — no scanning, just direct lookup via hash key.</div>
+
+  <div class="grid-2">
+    <!-- Controls -->
+    <div class="card">
+      <div class="card-title">Controls</div>
+
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="hmBtn" onclick="setMode('hashmap')">HashMap</button>
+        <button class="mode-btn" id="hsBtn" onclick="setMode('hashset')">HashSet</button>
+      </div>
+
+      <div class="field">
+        <label>Key (Integer)</label>
+        <input type="number" id="keyIn" placeholder="e.g. 100003" value="100003" />
+      </div>
+      <div class="field" id="valField">
+        <label>Value</label>
+        <select id="valIn" style="width:100%; padding:9px 12px; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:14px; outline:none; cursor:pointer;">
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+      </div>
+
+      <div class="op-grid">
+        <button class="btn btn-green"  onclick="doOp('insert')">INSERT</button>
+        <button class="btn btn-blue"   onclick="doOp('search')">SEARCH</button>
+        <button class="btn btn-red"    onclick="doOp('delete')">DELETE</button>
+        <button class="btn btn-amber" id="updateBtn" onclick="doOp('update')">UPDATE</button>
+      </div>
+
+      <div class="feedback" id="opFb">Enter a key and choose an operation.</div>
+
+      <div class="badges">
+        <div class="badge">Time: <strong>O(1)</strong></div>
+        <div class="badge">Space: <strong>O(N)</strong></div>
+        <div class="badge">Size: <strong id="mapSize">0</strong></div>
+      </div>
+    </div>
+
+    <!-- Visual map -->
+    <div class="card">
+      <div class="card-title" id="mapLabel">HashMap — key → value</div>
+      <div id="mapDisplay">
+        <div class="empty">HashMap is empty.<br>Insert a key to begin.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2 – Frequency Query
+═══════════════════════════════════════════════ -->
+<div class="section" id="sec1">
+  <div class="section-title">Problem 1 — Frequency of Given Elements</div>
+  <div class="section-sub">Array A = [2, 6, 3, 8, 2, 8, 2, 3, 8, 10, 6] &nbsp;|&nbsp; Build a frequency HashMap, then answer any query in O(1).</div>
+
+  <!-- Array -->
+  <div class="array-wrap" id="freqCells"></div>
+
+  <!-- Controls -->
+  <div class="step-controls">
+    <button class="btn btn-slate" id="fPrev" onclick="freqMove(-1)" disabled>◀ Prev</button>
+    <button class="btn btn-blue"  id="fNext" onclick="freqMove(1)">Next ▶</button>
+    <button class="btn btn-purple" id="fAuto" onclick="freqAuto()">▶ Auto</button>
+    <button class="btn btn-slate"  onclick="freqReset()">↺ Reset</button>
+    <div class="step-info" id="fInfo">Step 0 / 11 — Click Next to start scanning.</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Current Step</div>
+      <div style="font-size:13px; color:#94a3b8; margin-bottom:8px;">
+        Pointer: <span id="fPtr" style="color:#f59e0b; font-weight:700;">—</span>
+      </div>
+      <div style="font-size:13px; color:#94a3b8;">
+        Action: <span id="fAction" style="color:#e2e8f0;">Waiting…</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Frequency HashMap</div>
+      <div id="freqMapEl">
+        <div class="empty" style="padding:20px 0;">Map is empty — start stepping.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gap"></div>
+  <div class="card">
+    <div class="card-title">Query Element Frequency (available once map is fully built)</div>
+    <div class="query-row">
+      <input class="query-input" type="number" id="qInput" placeholder="Element…" />
+      <button class="btn btn-blue" id="qBtn" onclick="runQuery()" disabled>Search O(1)</button>
+    </div>
+    <div class="query-result" id="qResult"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3 – Count Pairs
+═══════════════════════════════════════════════ -->
+<div class="section" id="sec2">
+  <div class="section-title">Problem 4 — Count Pairs with Sum K</div>
+  <div class="section-sub">Array = [2, 5, 2, 5, 8, 5, 2, 8] &nbsp;|&nbsp; K = 10 &nbsp;|&nbsp; Expected answer: <strong style="color:#60a5fa">9 pairs</strong></div>
+
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-lbl">Pairs Found</div>
+      <div class="stat-val" id="pairCnt">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Step</div>
+      <div class="stat-val" id="pairStep" style="color:#f59e0b; font-size:20px; margin-top:8px;">0 / 8</div>
+    </div>
+    <div class="stat" style="flex:1; text-align:left;">
+      <div class="stat-lbl">HashMap (freq so far)</div>
+      <div class="tags-wrap gap" id="pHm" style="min-height:30px;"></div>
+    </div>
+  </div>
+
+  <!-- Array -->
+  <div class="array-wrap" id="pairCells"></div>
+
+  <!-- Controls -->
+  <div class="step-controls">
+    <button class="btn btn-slate" id="pPrev" onclick="pairMove(-1)" disabled>◀ Prev</button>
+    <button class="btn btn-blue"  id="pNext" onclick="pairMove(1)">Next ▶</button>
+    <button class="btn btn-purple" id="pAuto" onclick="pairAuto()">▶ Auto</button>
+    <button class="btn btn-slate"  onclick="pairReset()">↺ Reset</button>
+    <div class="step-info" id="pInfo">Click Next to start.</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Step Log</div>
+      <div class="log-scroll" id="pLog"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pairs Discovered</div>
+      <div class="tags-wrap" id="pPairs"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  TAB SWITCHING
+// ─────────────────────────────────────────────
+function showTab(i) {
+  document.querySelectorAll('.section').forEach((s, j) => s.classList.toggle('active', j === i));
+  document.querySelectorAll('.tab').forEach((t, j) => t.classList.toggle('active', j === i));
+}
+
+// ─────────────────────────────────────────────
+//  SECTION 1 — HashMap / HashSet Operations
+// ─────────────────────────────────────────────
+let mapStore = {};
+let mapMode = 'hashmap';
+
+function setMode(m) {
+  mapMode = m;
+  mapStore = {};
+  document.getElementById('hmBtn').classList.toggle('active', m === 'hashmap');
+  document.getElementById('hsBtn').classList.toggle('active', m === 'hashset');
+  document.getElementById('valField').style.display  = m === 'hashset' ? 'none' : '';
+  document.getElementById('updateBtn').style.display = m === 'hashset' ? 'none' : '';
+  document.getElementById('mapLabel').textContent =
+    m === 'hashmap' ? 'HashMap — key → value' : 'HashSet — keys only';
+  document.getElementById('keyIn').value = '';
+  document.getElementById('mapSize').textContent = '0';
+  renderMapDisplay();
+  fb('opFb', `Switched to ${m === 'hashmap' ? 'HashMap (integer key → true/false)' : 'HashSet (integer keys only)'}.`, 'info');
+}
+
+function fb(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `feedback ${type}`;
+}
+
+function doOp(op) {
+  const keyRaw = document.getElementById('keyIn').value.trim();
+  const key = keyRaw === '' ? '' : (isNaN(Number(keyRaw)) ? keyRaw : keyRaw);
+  const valEl = document.getElementById('valIn');
+  const val = valEl.value;
+  if (!key) { fb('opFb', '⚠️ Please enter an integer key.', 'err'); return; }
+
+  if (op === 'insert') {
+    if (key in mapStore) {
+      const dupMsg = mapMode === 'hashset'
+        ? `⚠️ Key "${key}" already exists in the HashSet. Duplicate keys are ignored.`
+        : `⚠️ Key "${key}" already exists. Use UPDATE to change its value.`;
+      fb('opFb', dupMsg, 'warn');
+      flash(key, 'flash-amber');
+    } else {
+      mapStore[key] = mapMode === 'hashset' ? null : (val || '—');
+      renderMapDisplay();
+      fb('opFb', `✅ Inserted "${key}"${mapMode === 'hashmap' ? ` → "${val || '—'}"` : ''}.`, 'ok');
+      flash(key, 'flash-green');
+    }
+  } else if (op === 'search') {
+    if (key in mapStore) {
+      const v = mapStore[key];
+      fb('opFb', `🔍 Found! "${key}"${mapMode === 'hashmap' ? ` → "${v}"` : ''} — O(1) lookup, no scanning.`, 'info');
+      flash(key, 'flash-blue');
+    } else {
+      fb('opFb', `❌ "${key}" not found.`, 'err');
+    }
+  } else if (op === 'delete') {
+    if (key in mapStore) {
+      delete mapStore[key];
+      renderMapDisplay();
+      fb('opFb', `🗑️ Deleted key "${key}".`, 'ok');
+    } else {
+      fb('opFb', `❌ "${key}" not found — nothing to delete.`, 'err');
+    }
+  } else if (op === 'update') {
+    if (!(key in mapStore)) {
+      fb('opFb', `❌ "${key}" not found. Use INSERT first.`, 'err');
+    } else {
+      const old = mapStore[key];
+      mapStore[key] = val || '—';
+      renderMapDisplay();
+      fb('opFb', `✏️ Updated "${key}": "${old}" → "${val || '—'}".`, 'ok');
+      flash(key, 'flash-amber');
+    }
+  }
+
+  document.getElementById('mapSize').textContent = Object.keys(mapStore).length;
+}
+
+function flash(key, cls) {
+  setTimeout(() => {
+    document.querySelectorAll('.kv-entry').forEach(el => {
+      if (el.dataset.key === key) {
+        el.classList.remove('flash-green','flash-blue','flash-amber','flash-red');
+        void el.offsetWidth;
+        el.classList.add(cls);
+      }
+    });
+  }, 30);
+}
+
+function renderMapDisplay() {
+  const keys = Object.keys(mapStore);
+  const el = document.getElementById('mapDisplay');
+  if (!keys.length) {
+    el.innerHTML = `<div class="empty">${mapMode === 'hashmap' ? 'HashMap' : 'HashSet'} is empty.<br>Insert a key to begin.</div>`;
+    return;
+  }
+  el.innerHTML = keys.map(k => `
+    <div class="kv-entry" data-key="${k}">
+      <div class="kv-key">${k}</div>
+      ${mapMode === 'hashmap' ? `<div class="kv-arrow">→</div><div class="kv-val">${mapStore[k]}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+renderMapDisplay();
+
+// ─────────────────────────────────────────────
+//  SECTION 2 — Frequency Query
+// ─────────────────────────────────────────────
+const FA = [2, 6, 3, 8, 2, 8, 2, 3, 8, 10, 6];
+let fStep = 0, fMap = {}, fTimer = null;
+
+(function initFreqCells() {
+  document.getElementById('freqCells').innerHTML =
+    FA.map((v, i) => `<div class="cell" id="fc${i}">${v}<span class="idx">${i}</span></div>`).join('');
+})();
+
+function freqReset() {
+  fStep = 0; fMap = {};
+  clearInterval(fTimer); fTimer = null;
+  document.getElementById('fAuto').textContent = '▶ Auto';
+  document.getElementById('fPrev').disabled = true;
+  document.getElementById('fNext').disabled = false;
+  document.getElementById('fAuto').disabled = false;
+  document.getElementById('qBtn').disabled = true;
+  document.getElementById('qResult').textContent = '';
+  document.getElementById('fInfo').textContent = `Step 0 / ${FA.length} — Click Next to start scanning.`;
+  document.getElementById('fPtr').textContent = '—';
+  document.getElementById('fAction').textContent = 'Waiting…';
+  document.getElementById('freqMapEl').innerHTML = '<div class="empty" style="padding:20px 0;">Map is empty — start stepping.</div>';
+  FA.forEach((_, i) => { document.getElementById('fc' + i).className = 'cell'; });
+}
+
+function freqMove(d) {
+  fStep = Math.max(0, Math.min(fStep + d, FA.length));
+
+  // Rebuild map up to fStep
+  fMap = {};
+  for (let i = 0; i < fStep; i++) fMap[FA[i]] = (fMap[FA[i]] || 0) + 1;
+
+  // Update cell styles
+  FA.forEach((_, i) => {
+    const c = document.getElementById('fc' + i);
+    if      (i === fStep - 1) c.className = 'cell current';
+    else if (i < fStep - 1)   c.className = 'cell visited';
+    else                       c.className = 'cell';
+  });
+
+  renderFreqMap();
+
+  const done = fStep >= FA.length;
+  document.getElementById('fPrev').disabled = fStep === 0;
+  document.getElementById('fNext').disabled = done;
+  document.getElementById('fAuto').disabled = done;
+  document.getElementById('qBtn').disabled  = !done;
+
+  if (fStep === 0) {
+    document.getElementById('fInfo').textContent = `Step 0 / ${FA.length} — Click Next to start scanning.`;
+    document.getElementById('fPtr').textContent = '—';
+    document.getElementById('fAction').textContent = 'Waiting…';
+  } else if (done) {
+    document.getElementById('fInfo').textContent = `✅ All ${FA.length} elements processed. Query any element below!`;
+    document.getElementById('fPtr').textContent = '—';
+    document.getElementById('fAction').textContent = 'Map fully built — ready for O(1) queries!';
+    clearInterval(fTimer); fTimer = null;
+    document.getElementById('fAuto').textContent = '▶ Auto';
+  } else {
+    const curr = FA[fStep - 1];
+    const freq = fMap[curr];
+    const action = freq === 1
+      ? `"${curr}" is new → inserted with freq = 1`
+      : `"${curr}" exists → freq updated to ${freq}`;
+    document.getElementById('fInfo').textContent = `Step ${fStep} / ${FA.length} — element: ${curr}`;
+    document.getElementById('fPtr').textContent = `arr[${fStep-1}] = ${curr}`;
+    document.getElementById('fAction').textContent = action;
+  }
+}
+
+function renderFreqMap() {
+  const entries = Object.entries(fMap).sort((a, b) => +a[0] - +b[0]);
+  if (!entries.length) {
+    document.getElementById('freqMapEl').innerHTML =
+      '<div class="empty" style="padding:20px 0;">Map is empty — start stepping.</div>';
+    return;
+  }
+  const maxF = Math.max(...entries.map(e => e[1]));
+  document.getElementById('freqMapEl').innerHTML = entries.map(([k, v]) => `
+    <div class="freq-row">
+      <div class="freq-k">${k}</div>
+      <div class="freq-track">
+        <div class="freq-fill" style="width:${Math.max(20, (v/maxF)*100)}%">${v}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function freqAuto() {
+  if (fTimer) {
+    clearInterval(fTimer); fTimer = null;
+    document.getElementById('fAuto').textContent = '▶ Auto';
+    return;
+  }
+  document.getElementById('fAuto').textContent = '⏸ Pause';
+  fTimer = setInterval(() => {
+    if (fStep >= FA.length) {
+      clearInterval(fTimer); fTimer = null;
+      document.getElementById('fAuto').textContent = '▶ Auto';
+      return;
+    }
+    freqMove(1);
+  }, 650);
+}
+
+function runQuery() {
+  const q = parseInt(document.getElementById('qInput').value);
+  const el = document.getElementById('qResult');
+  if (isNaN(q)) { el.textContent = '⚠️ Enter a number.'; return; }
+  const freq = fMap[q] || 0;
+  el.innerHTML = freq
+    ? `✅ Frequency of <strong style="color:#60a5fa">${q}</strong> = <strong style="color:#22c55e; font-size:22px">${freq}</strong>`
+    : `❌ Element <strong style="color:#60a5fa">${q}</strong> not found → frequency = <strong style="color:#ef4444">0</strong>`;
+}
+
+// ─────────────────────────────────────────────
+//  SECTION 3 — Count Pairs
+// ─────────────────────────────────────────────
+const PA = [2, 5, 2, 5, 8, 5, 2, 8];
+const PK = 10;
+let pStep = 0, pTimer = null;
+
+// Precompute each state
+const pStates = (() => {
+  let hm = {}, c = 0, allPairs = [], states = [];
+  for (let i = 0; i < PA.length; i++) {
+    const tgt = PK - PA[i];
+    let log, newPairs = [];
+
+    if (hm[tgt] !== undefined) {
+      // Find previous indices where arr[j] === tgt
+      for (let j = 0; j < i; j++) if (PA[j] === tgt) newPairs.push(`(${j},${i})`);
+      c += hm[tgt];
+      log = { t: 'lf', msg: `i=${i}: arr[i]=${PA[i]}, target=${tgt} ✓ found (freq=${hm[tgt]}) → pairs += ${hm[tgt]}, total = ${c}` };
+    } else {
+      log = { t: 'li', msg: `i=${i}: arr[i]=${PA[i]}, target=${tgt} ✗ not found → insert ${PA[i]} into map` };
+    }
+
+    hm[PA[i]] = (hm[PA[i]] || 0) + 1;
+    allPairs = [...allPairs, ...newPairs];
+    states.push({ hm: {...hm}, c, log, newPairs, allPairs: [...allPairs] });
+  }
+  return states;
+})();
+
+(function initPairCells() {
+  document.getElementById('pairCells').innerHTML =
+    PA.map((v, i) => `<div class="cell" id="pc${i}">${v}<span class="idx">${i}</span></div>`).join('');
+})();
+
+function pairReset() {
+  pStep = 0;
+  clearInterval(pTimer); pTimer = null;
+  document.getElementById('pAuto').textContent = '▶ Auto';
+  document.getElementById('pPrev').disabled = true;
+  document.getElementById('pNext').disabled = false;
+  document.getElementById('pairCnt').textContent = '0';
+  document.getElementById('pairStep').textContent = '0 / ' + PA.length;
+  document.getElementById('pHm').innerHTML = '';
+  document.getElementById('pLog').innerHTML = '';
+  document.getElementById('pPairs').innerHTML = '';
+  document.getElementById('pInfo').textContent = 'Click Next to start.';
+  PA.forEach((_, i) => { document.getElementById('pc' + i).className = 'cell'; });
+}
+
+function renderPairState() {
+  const done = pStep >= PA.length;
+  const st = pStep > 0 ? pStates[pStep - 1] : null;
+
+  // Cells
+  PA.forEach((_, i) => {
+    const c = document.getElementById('pc' + i);
+    if      (i === pStep - 1) c.className = 'cell current';
+    else if (i < pStep - 1)   c.className = 'cell visited';
+    else                       c.className = 'cell';
+  });
+
+  document.getElementById('pairCnt').textContent  = st ? st.c : 0;
+  document.getElementById('pairStep').textContent = `${pStep} / ${PA.length}`;
+
+  document.getElementById('pHm').innerHTML = st
+    ? Object.entries(st.hm).map(([k, v]) => `<span class="tag amber">${k}→${v}</span>`).join('')
+    : '';
+
+  document.getElementById('pLog').innerHTML = st
+    ? pStates.slice(0, pStep)
+        .map(s => `<div class="log-line ${s.log.t}">${s.log.msg}</div>`).join('')
+    : '';
+  document.getElementById('pLog').scrollTop = 9999;
+
+  document.getElementById('pPairs').innerHTML = st
+    ? st.allPairs.map(p => `<span class="tag">${p}</span>`).join('')
+    : '';
+
+  document.getElementById('pPrev').disabled = pStep === 0;
+  document.getElementById('pNext').disabled = done;
+
+  if (pStep === 0) {
+    document.getElementById('pInfo').textContent = 'Click Next to start.';
+  } else if (done) {
+    document.getElementById('pInfo').textContent = `✅ Done! Found ${st.c} pairs with sum K=${PK}.`;
+    clearInterval(pTimer); pTimer = null;
+    document.getElementById('pAuto').textContent = '▶ Auto';
+  } else {
+    const curr = PA[pStep - 1];
+    document.getElementById('pInfo').textContent =
+      `Processing arr[${pStep-1}] = ${curr}  |  target = ${PK} − ${curr} = ${PK - curr}`;
+  }
+}
+
+function pairMove(d) {
+  pStep = Math.max(0, Math.min(pStep + d, PA.length));
+  renderPairState();
+}
+
+function pairAuto() {
+  if (pTimer) {
+    clearInterval(pTimer); pTimer = null;
+    document.getElementById('pAuto').textContent = '▶ Auto';
+    return;
+  }
+  document.getElementById('pAuto').textContent = '⏸ Pause';
+  pTimer = setInterval(() => {
+    if (pStep >= PA.length) {
+      clearInterval(pTimer); pTimer = null;
+      document.getElementById('pAuto').textContent = '▶ Auto';
+      return;
+    }
+    pairMove(1);
+  }, 900);
+}
+</script>
+</body>
+</html>
