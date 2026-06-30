@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quick Sort Dry Run</title>
+<style>
+  :root{
+    --navy:#1e3a8a;
+    --pivot:#f43f5e;
+    --pivot-bg:#fecdd3;
+    --left-color:#059669;
+    --right-color:#7c3aed;
+    --cell-border:#cbd5e1;
+    --bg:#f8fafc;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    background:var(--bg);
+    padding:32px 24px 64px;
+    color:#0f172a;
+  }
+  h1{
+    text-align:center;
+    color:var(--navy);
+    font-size:30px;
+    margin-bottom:6px;
+  }
+  .subtitle{
+    text-align:center;
+    color:#64748b;
+    margin-bottom:36px;
+    font-size:15px;
+  }
+  .container{
+    max-width:1100px;
+    margin:0 auto;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+  .row{
+    background:var(--card);
+    border-radius:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    border:1px solid #e2e8f0;
+    padding:22px 28px;
+  }
+  .row.initial, .row.final{
+    text-align:center;
+  }
+  .row-header{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:16px;
+  }
+  .step-badge{
+    width:36px;height:36px;
+    border-radius:50%;
+    background:var(--navy);
+    color:white;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;
+    font-size:16px;
+    flex-shrink:0;
+  }
+  .step-title{
+    font-weight:700;
+    color:var(--navy);
+    font-size:16px;
+  }
+  .step-sub{
+    color:#475569;
+    font-size:13.5px;
+    margin-top:2px;
+  }
+  .array{
+    display:flex;
+    justify-content:center;
+    gap:0;
+    flex-wrap:wrap;
+  }
+  .cell{
+    width:48px;height:48px;
+    border:1.5px solid var(--cell-border);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:600;
+    font-size:17px;
+    background:white;
+    margin-left:-1px;
+  }
+  .cell.pivot{
+    background:var(--pivot-bg);
+    border-color:var(--pivot);
+    color:#9f1239;
+    font-weight:800;
+    position:relative;
+    z-index:2;
+  }
+  .pivot-label{
+    color:var(--pivot);
+    font-weight:700;
+    font-size:13px;
+    text-align:center;
+    margin-bottom:4px;
+  }
+  .split-zone{
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    gap:60px;
+    margin-top:22px;
+    position:relative;
+  }
+  .branch{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-width:160px;
+  }
+  .arrow-svg{
+    width:90px;
+    height:46px;
+  }
+  .branch-label{
+    font-size:13px;
+    font-weight:700;
+    margin-top:6px;
+    margin-bottom:10px;
+    padding:3px 10px;
+    border-radius:20px;
+  }
+  .branch-label.left{
+    color:var(--left-color);
+    background:#d1fae5;
+  }
+  .branch-label.right{
+    color:var(--right-color);
+    background:#ede9fe;
+  }
+  .branch-array{
+    display:flex;
+  }
+  .branch-array .cell{
+    width:42px;height:42px;
+    font-size:15px;
+  }
+  .pending-tag{
+    align-self:center;
+    color:#94a3b8;
+    font-style:italic;
+    font-size:13px;
+    display:flex;
+    align-items:center;
+    margin-top:8px;
+  }
+  .center-pivot-down{
+    display:flex;
+    justify-content:center;
+    margin-top:14px;
+  }
+  .legend{
+    display:flex;
+    justify-content:center;
+    gap:28px;
+    margin:6px 0 8px;
+    font-size:13px;
+    color:#475569;
+  }
+  .legend-dot{
+    display:inline-block;
+    width:12px;height:12px;
+    border-radius:3px;
+    margin-right:6px;
+    vertical-align:middle;
+  }
+  .row.initial .array .cell, .row.final .array .cell{
+    width:54px;height:54px;
+    font-size:19px;
+  }
+  .row.final{
+    background:linear-gradient(135deg,#ecfdf5,#f0fdfa);
+    border:1.5px solid #6ee7b7;
+  }
+  .final-title{
+    font-weight:800;
+    color:#047857;
+    font-size:18px;
+    margin-bottom:14px;
+  }
+  hr.divider{
+    border:none;
+    border-top:1px dashed #e2e8f0;
+    margin:6px 0 20px;
+  }
+  .multi-pair{
+    display:flex;
+    justify-content:center;
+    gap:48px;
+    flex-wrap:wrap;
+  }
+</style>
+</head>
+<body>
+
+<h1>Quick Sort Dry Run <span style="color:#64748b; font-weight:500; font-size:18px;">(All Distinct Elements)</span></h1>
+<div class="subtitle">Each step partitions the array around a pivot into a left branch (≤ pivot) and a right branch (&gt; pivot)</div>
+
+<div class="container">
+
+  <!-- Initial Array -->
+  <div class="row initial">
+    <div class="step-title" style="margin-bottom:14px;">Initial Array</div>
+    <div class="pivot-label">▼ Pivot</div>
+    <div class="array" id="initial-array"></div>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="row" id="step1">
+    <div class="row-header">
+      <div class="step-badge">1</div>
+      <div>
+        <div class="step-title">Choose pivot = 7</div>
+        <div class="step-sub">Array: [7, 2, 9, 1, 5, 8, 3, 6, 4]</div>
+      </div>
+    </div>
+    <div class="array" id="s1-array"></div>
+
+    <div class="legend">
+      <span><span class="legend-dot" style="background:#10b981;"></span>Left part: elements ≤ 7</span>
+      <span><span class="legend-dot" style="background:#7c3aed;"></span>Right part: elements &gt; 7</span>
+    </div>
+
+    <div class="split-zone">
+      <div class="branch">
+        <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C20 10, 12 28, 8 42" stroke="#059669" stroke-width="3" fill="none" marker-end="url(#arrowL)"/></svg>
+        <div class="branch-label left">≤ 7</div>
+        <div class="branch-array" id="s1-left"></div>
+      </div>
+      <div class="branch">
+        <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C70 10, 78 28, 82 42" stroke="#7c3aed" stroke-width="3" fill="none" marker-end="url(#arrowR)"/></svg>
+        <div class="branch-label right">&gt; 7</div>
+        <div class="branch-array" id="s1-right"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="row" id="step2">
+    <div class="row-header">
+      <div class="step-badge">2</div>
+      <div>
+        <div class="step-title">Left part [6, 2, 4, 1, 5, 3] &nbsp;→&nbsp; Pivot = 6</div>
+        <div class="step-sub">Right part [9, 8] still pending</div>
+      </div>
+    </div>
+    <div class="array" id="s2-array"></div>
+    <div class="split-zone">
+      <div class="branch">
+        <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C20 10, 12 28, 8 42" stroke="#059669" stroke-width="3" fill="none" marker-end="url(#arrowL)"/></svg>
+        <div class="branch-label left">≤ 6</div>
+        <div class="branch-array" id="s2-left"></div>
+      </div>
+      <div class="branch">
+        <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C70 10, 78 28, 82 42" stroke="#7c3aed" stroke-width="3" fill="none" marker-end="url(#arrowR)"/></svg>
+        <div class="branch-label right">&gt; 6</div>
+        <div class="branch-array" id="s2-right"></div>
+      </div>
+      <div class="pending-tag">⏳ Right part [9, 8] — to be sorted</div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="row" id="step3">
+    <div class="row-header">
+      <div class="step-badge">3</div>
+      <div>
+        <div class="step-title">Left part [3, 2, 4, 1, 5] &nbsp;→&nbsp; Pivot = 3</div>
+        <div class="step-sub">Right part [9, 8] still pending</div>
+      </div>
+    </div>
+    <div class="array" id="s3-array"></div>
+    <div class="split-zone">
+      <div class="branch">
+        <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C20 10, 12 28, 8 42" stroke="#059669" stroke-width="3" fill="none" marker-end="url(#arrowL)"/></svg>
+        <div class="branch-label left">≤ 3</div>
+        <div class="branch-array" id="s3-left"></div>
+      </div>
+      <div class="branch">
+        <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C70 10, 78 28, 82 42" stroke="#7c3aed" stroke-width="3" fill="none" marker-end="url(#arrowR)"/></svg>
+        <div class="branch-label right">&gt; 3</div>
+        <div class="branch-array" id="s3-right"></div>
+      </div>
+      <div class="pending-tag">⏳ Right part [9, 8] — to be sorted</div>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="row" id="step4">
+    <div class="row-header">
+      <div class="step-badge">4</div>
+      <div>
+        <div class="step-title">Two tiny partitions resolve at once</div>
+        <div class="step-sub">Left part [2, 1] → Pivot = 2 &nbsp;|&nbsp; Right part [4, 5] → Pivot = 4</div>
+      </div>
+    </div>
+    <div class="multi-pair">
+      <div>
+        <div class="array" id="s4a-array" style="margin-bottom:10px;"></div>
+        <div class="split-zone" style="gap:34px; margin-top:10px;">
+          <div class="branch">
+            <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C20 10, 12 28, 8 42" stroke="#059669" stroke-width="3" fill="none" marker-end="url(#arrowL)"/></svg>
+            <div class="branch-label left">≤ 2</div>
+            <div class="branch-array" id="s4a-left"></div>
+          </div>
+          <div class="branch">
+            <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C70 10, 78 28, 82 42" stroke="#7c3aed" stroke-width="3" fill="none" marker-end="url(#arrowR)"/></svg>
+            <div class="branch-label right">&gt; 2</div>
+            <div class="branch-array" id="s4a-right"></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="array" id="s4b-array" style="margin-bottom:10px;"></div>
+        <div class="split-zone" style="gap:34px; margin-top:10px;">
+          <div class="branch">
+            <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C20 10, 12 28, 8 42" stroke="#059669" stroke-width="3" fill="none" marker-end="url(#arrowL)"/></svg>
+            <div class="branch-label left">≤ 4</div>
+            <div class="branch-array" id="s4b-left"></div>
+          </div>
+          <div class="branch">
+            <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C70 10, 78 28, 82 42" stroke="#7c3aed" stroke-width="3" fill="none" marker-end="url(#arrowR)"/></svg>
+            <div class="branch-label right">&gt; 4</div>
+            <div class="branch-array" id="s4b-right"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="row" id="step5">
+    <div class="row-header">
+      <div class="step-badge">5</div>
+      <div>
+        <div class="step-title">Right part [9, 8] &nbsp;→&nbsp; Pivot = 9</div>
+      </div>
+    </div>
+    <div class="array" id="s5-array"></div>
+    <div class="split-zone">
+      <div class="branch">
+        <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C20 10, 12 28, 8 42" stroke="#059669" stroke-width="3" fill="none" marker-end="url(#arrowL)"/></svg>
+        <div class="branch-label left">≤ 9</div>
+        <div class="branch-array" id="s5-left"></div>
+      </div>
+      <div class="branch">
+        <svg class="arrow-svg" viewBox="0 0 90 46"><path d="M45 2 C70 10, 78 28, 82 42" stroke="#7c3aed" stroke-width="3" fill="none" marker-end="url(#arrowR)"/></svg>
+        <div class="branch-label right">&gt; 9</div>
+        <div class="branch-array" id="s5-right"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final -->
+  <div class="row final">
+    <div class="final-title">✅ Final Sorted Array</div>
+    <div class="array" id="final-array"></div>
+  </div>
+
+</div>
+
+<svg width="0" height="0">
+  <defs>
+    <marker id="arrowL" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#059669"/>
+    </marker>
+    <marker id="arrowR" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+</svg>
+
+<script>
+function makeCell(val, isPivot){
+  const d = document.createElement('div');
+  d.className = 'cell' + (isPivot ? ' pivot' : '');
+  d.textContent = val;
+  return d;
+}
+function fillArray(id, arr, pivotVal){
+  const el = document.getElementById(id);
+  arr.forEach(v => el.appendChild(makeCell(v, v === pivotVal)));
+}
+
+fillArray('initial-array', [7,2,9,1,5,8,3,6,4], 7);
+
+fillArray('s1-array', [7,2,9,1,5,8,3,6,4], 7);
+fillArray('s1-left', [6,2,4,1,5,3]);
+fillArray('s1-right', [9,8]);
+
+fillArray('s2-array', [6,2,4,1,5,3], 6);
+fillArray('s2-left', [3,2,4,1,5]);
+fillArray('s2-right', []);
+
+fillArray('s3-array', [3,2,4,1,5], 3);
+fillArray('s3-left', [2,1]);
+fillArray('s3-right', [4,5]);
+
+fillArray('s4a-array', [2,1], 2);
+fillArray('s4a-left', [1]);
+fillArray('s4a-right', []);
+
+fillArray('s4b-array', [4,5], 4);
+fillArray('s4b-left', []);
+fillArray('s4b-right', [5]);
+
+fillArray('s5-array', [9,8], 9);
+fillArray('s5-left', [8]);
+fillArray('s5-right', []);
+
+fillArray('final-array', [1,2,3,4,5,6,7,8,9]);
+
+document.querySelectorAll('.branch-array').forEach(el => {
+  if(el.children.length === 0){
+    el.textContent = '(empty)';
+    el.style.color = '#cbd5e1';
+    el.style.fontSize = '12px';
+    el.style.fontStyle = 'italic';
+    el.style.minHeight = '42px';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+  }
+});
+</script>
+
+</body>
+</html>
