@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sorting Animations — Merge Sort & Stable Sort</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --ink:#e2e8f0; --muted:#94a3b8;
+    --accent:#38bdf8; --accent2:#a78bfa; --good:#34d399; --bad:#f87171; --warn:#fbbf24;
+    --line:#3b4a63;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);padding:24px;}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:18px}
+  .tabs{display:flex;gap:8px;margin-bottom:18px}
+  .tab{padding:10px 18px;border-radius:10px;background:var(--panel);color:var(--muted);
+    cursor:pointer;font-weight:600;font-size:14px;border:1px solid transparent;user-select:none}
+  .tab.active{background:var(--accent);color:#04222e;border-color:var(--accent)}
+  .view{display:none}
+  .view.active{display:block}
+  .panel{background:var(--panel);border-radius:14px;padding:18px;margin-bottom:16px;border:1px solid #29384f}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  button.ctl{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    padding:9px 14px;border-radius:9px;cursor:pointer;font-weight:600;font-size:13px}
+  button.ctl:hover{border-color:var(--accent)}
+  button.ctl.primary{background:var(--accent);color:#04222e;border-color:var(--accent)}
+  button.ctl:disabled{opacity:.4;cursor:not-allowed}
+  .controls label{font-size:13px;color:var(--muted)}
+  input[type=range]{accent-color:var(--accent)}
+  .status{font-size:14px;color:var(--ink);min-height:22px;margin-top:4px}
+  .status b{color:var(--accent)}
+  /* ---- tree ---- */
+  #treeWrap{position:relative;width:100%;overflow-x:auto}
+  #tree{position:relative;margin:0 auto}
+  #edges{position:absolute;top:0;left:0;pointer-events:none}
+  .node{position:absolute;display:flex;transform:translate(-50%,0);
+    transition:opacity .3s; background:transparent}
+  .cell{min-width:20px;height:26px;line-height:26px;text-align:center;font-size:13px;
+    font-weight:600;border:1px solid var(--line);background:var(--panel2);
+    margin:0 1px;border-radius:5px;padding:0 4px}
+  .node.sorted .cell{background:#14532d;border-color:var(--good);color:#d1fae5}
+  .node.active .cell{background:#1e3a8a;border-color:var(--accent)}
+  /* ---- merge station ---- */
+  .station{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+  .arr{margin-bottom:6px}
+  .arr h4{margin:0 0 6px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .row{display:flex;gap:5px}
+  .box{width:34px;height:34px;line-height:34px;text-align:center;border-radius:7px;
+    font-weight:700;background:var(--panel2);border:2px solid var(--line);position:relative}
+  .box.ptr{border-color:var(--warn);box-shadow:0 0 0 3px rgba(251,191,36,.18)}
+  .box.used{opacity:.32}
+  .box.pick{border-color:var(--good);background:#14532d;color:#d1fae5}
+  .box.out{border-color:var(--accent2);background:#312e81}
+  .arrow{font-size:11px;color:var(--warn);text-align:center;height:14px}
+  /* ---- stable ---- */
+  .stage{position:relative;margin-bottom:8px}
+  .lane{position:relative;height:70px;margin-bottom:6px}
+  .lane-label{font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  .card{position:absolute;top:0;width:64px;height:60px;border-radius:10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-weight:700;transition:left .7s cubic-bezier(.5,.05,.3,1);border:2px solid rgba(255,255,255,.15)}
+  .card .nm{font-size:17px}
+  .card .mk{font-size:11px;opacity:.85;font-weight:600}
+  .verdict{font-size:14px;font-weight:700;margin-top:4px;min-height:20px}
+  .ok{color:var(--good)} .no{color:var(--bad)}
+  .legend{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6}
+  .key{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:middle;margin:0 4px 0 10px}
+</style>
+</head>
+<body>
+  <h1>Sorting Animations</h1>
+  <div class="sub">Classroom visuals for Merge Sort &amp; Stable Sort. Use the controls to play, step, or reset.</div>
+
+  <div class="tabs">
+    <div class="tab active" data-v="merge">Merge Sort</div>
+    <div class="tab" data-v="stable">Stable Sort</div>
+  </div>
+
+  <!-- ================= MERGE SORT ================= -->
+  <div class="view active" id="view-merge">
+    <div class="panel">
+      <div class="controls">
+        <button class="ctl primary" id="m-play">▶ Play</button>
+        <button class="ctl" id="m-back">◀ Step</button>
+        <button class="ctl" id="m-step">Step ▶</button>
+        <button class="ctl" id="m-reset">↻ Reset</button>
+        <label>Speed</label>
+        <input type="range" id="m-speed" min="1" max="10" value="6">
+        <span id="m-progress" style="color:var(--muted);font-size:13px"></span>
+      </div>
+      <div class="status" id="m-status"></div>
+    </div>
+
+    <div class="panel">
+      <div id="treeWrap"><div id="tree"><svg id="edges"></svg></div></div>
+    </div>
+
+    <div class="panel">
+      <h4 style="margin:0 0 10px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px">Merge Station — combining two sorted halves</h4>
+      <div class="station" id="station">
+        <div class="arr"><h4>Left half</h4><div class="row" id="st-L"></div></div>
+        <div class="arr"><h4>Right half</h4><div class="row" id="st-R"></div></div>
+        <div class="arr"><h4>Merged output</h4><div class="row" id="st-O"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= STABLE SORT ================= -->
+  <div class="view" id="view-stable">
+    <div class="panel">
+      <div class="controls">
+        <button class="ctl primary" id="s-play">▶ Sort by Marks</button>
+        <button class="ctl" id="s-reset">↻ Reset</button>
+      </div>
+      <div class="status" id="s-status">Five students with marks. Sort ascending by <b>marks</b> — watch the three students with <b>8</b>.</div>
+    </div>
+
+    <div class="panel">
+      <div class="lane-label">Input order</div>
+      <div class="lane" id="lane-in"></div>
+
+      <div class="lane-label" style="margin-top:14px">Stable sort &nbsp;<span style="color:var(--muted);font-weight:400">— equal marks keep their original order</span></div>
+      <div class="lane" id="lane-stable"></div>
+      <div class="verdict" id="v-stable"></div>
+
+      <div class="lane-label" style="margin-top:14px">Unstable sort &nbsp;<span style="color:var(--muted);font-weight:400">— equal marks may get reordered</span></div>
+      <div class="lane" id="lane-unstable"></div>
+      <div class="verdict" id="v-unstable"></div>
+
+      <div class="legend">
+        <span class="key" style="background:#6366f1"></span>marks = 8 (the equal-key group to watch)
+        <span class="key" style="background:#475569"></span>other marks
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ============ TAB SWITCHING ============ */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('view-'+t.dataset.v).classList.add('active');
+    if(t.dataset.v==='stable') stableReset();
+  };
+});
+
+/* ===================================================================
+   MERGE SORT
+=================================================================== */
+const INPUT=[3,10,6,8,15,2,12,18,17];
+let nodes=[],nid=0;
+function build(lo,hi,depth){
+  const n={id:nid++,lo,hi,depth,vals:INPUT.slice(lo,hi+1),current:INPUT.slice(lo,hi+1),children:[],sorted:false};
+  nodes.push(n);
+  if(lo<hi){const mid=(lo+hi)>>1;n.children=[build(lo,mid,depth+1),build(mid+1,hi,depth+1)];}
+  return n;
+}
+const root=build(0,INPUT.length-1,0);
+const maxDepth=Math.max(...nodes.map(n=>n.depth));
+
+/* layout */
+let slot=0;
+(function layout(n){
+  if(!n.children.length){n.slot=slot++;}
+  else{n.children.forEach(layout);n.slot=(n.children[0].slot+n.children[1].slot)/2;}
+})(root);
+const numLeaves=slot;
+const SLOTW=80, LEVELH=64, MARGIN=40;
+const treeW=numLeaves*SLOTW + MARGIN;
+const treeH=(maxDepth+1)*LEVELH+10;
+nodes.forEach(n=>{n.x=MARGIN/2 + (n.slot+0.5)*SLOTW; n.y=n.depth*LEVELH+6;});
+
+/* frames */
+const frames=[];
+for(let d=0;d<=maxDepth;d++) frames.push({type:'divide',depth:d,
+  text:d===0?'Start: one unsorted array.':'Divide: split each part in half ('+(d)+' level'+(d>1?'s':'')+' deep).'});
+(function genMerge(n){
+  if(!n.children.length) return n.vals.slice();
+  const L=genMerge(n.children[0]), R=genMerge(n.children[1]);
+  frames.push({type:'load',id:n.id,L:L.slice(),R:R.slice(),
+    text:'Merge halves ['+L.join(', ')+'] and ['+R.join(', ')+'].'});
+  const out=[];let i=0,j=0;
+  const push=(arr,pick)=>frames.push({type:'step',id:n.id,L:L.slice(),R:R.slice(),i,j,out:out.slice(),pick,
+    text:'Compare fronts → take '+pick+' value '+arr[arr.length-1]+'.'});
+  while(i<L.length&&j<R.length){
+    if(L[i]<=R[j]){out.push(L[i]);i++;push(out,'left');}
+    else{out.push(R[j]);j++;push(out,'right');}
+  }
+  while(i<L.length){out.push(L[i]);i++;push(out,'left');}
+  while(j<R.length){out.push(R[j]);j++;push(out,'right');}
+  frames.push({type:'done',id:n.id,result:out.slice(),
+    text:'Half merged into sorted ['+out.join(', ')+'].'});
+  return out;
+})(root);
+frames.push({type:'finish',text:'Done! The whole array is sorted: ['+[...INPUT].sort((a,b)=>a-b).join(', ')+'].'});
+
+/* build DOM */
+const tree=document.getElementById('tree');
+tree.style.width=treeW+'px';tree.style.height=treeH+'px';
+const svg=document.getElementById('edges');
+svg.setAttribute('width',treeW);svg.setAttribute('height',treeH);
+nodes.forEach(n=>{
+  n.children.forEach(c=>{
+    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',n.x);l.setAttribute('y1',n.y+26);
+    l.setAttribute('x2',c.x);l.setAttribute('y2',c.y);
+    l.setAttribute('stroke','#3b4a63');l.setAttribute('stroke-width','2');
+    l.dataset.child=c.id;svg.appendChild(l);
+  });
+});
+nodes.forEach(n=>{
+  const el=document.createElement('div');
+  el.className='node';el.id='node-'+n.id;
+  el.style.left=n.x+'px';el.style.top=n.y+'px';
+  tree.appendChild(el);n.el=el;
+});
+
+let mIdx=-1, mTimer=null;
+function renderMerge(idx){
+  // reset state
+  let revealed=-1; nodes.forEach(n=>{n.current=n.vals.slice();n.sorted=false;n.active=false;});
+  let station=null;
+  for(let k=0;k<=idx;k++){
+    const f=frames[k];if(!f)continue;
+    if(f.type==='divide') revealed=Math.max(revealed,f.depth);
+    else if(f.type==='load'){station={...f};nodes.forEach(n=>n.active=false);byId(f.id).active=true;}
+    else if(f.type==='step'){station={...f};nodes.forEach(n=>n.active=false);byId(f.id).active=true;}
+    else if(f.type==='done'){byId(f.id).current=f.result.slice();byId(f.id).sorted=true;byId(f.id).active=false;station=null;}
+    else if(f.type==='finish'){station=null;}
+  }
+  // draw nodes
+  nodes.forEach(n=>{
+    const show=n.depth<=revealed;
+    n.el.style.opacity=show?'1':'0';
+    n.el.className='node'+(n.sorted?' sorted':'')+(n.active?' active':'');
+    n.el.innerHTML=n.current.map(v=>'<div class="cell">'+v+'</div>').join('');
+  });
+  svg.querySelectorAll('line').forEach(l=>{
+    const c=byId(+l.dataset.child);l.style.opacity=(c.depth<=revealed)?'1':'0';
+  });
+  // station
+  drawStation(station);
+  // status + progress
+  const f=frames[Math.min(idx,frames.length-1)];
+  document.getElementById('m-status').innerHTML=idx<0?'Press <b>Play</b> to begin. We start with one unsorted array and divide it down.':(f?f.text:'');
+  document.getElementById('m-progress').textContent=(idx+1)+' / '+frames.length;
+}
+function byId(id){return nodes.find(n=>n.id===id);}
+function drawStation(s){
+  const L=document.getElementById('st-L'),R=document.getElementById('st-R'),O=document.getElementById('st-O');
+  if(!s){L.innerHTML=R.innerHTML=O.innerHTML='<span style="color:var(--muted);font-size:12px">— idle —</span>';return;}
+  const i=s.i||0,j=s.j||0,out=s.out||[];
+  L.innerHTML=s.L.map((v,k)=>'<div class="box '+(k<i?'used':'')+(k===i&&s.type==='step'?' ptr':'')+'">'+v+'</div>').join('');
+  R.innerHTML=s.R.map((v,k)=>'<div class="box '+(k<j?'used':'')+(k===j&&s.type==='step'?' ptr':'')+'">'+v+'</div>').join('');
+  O.innerHTML=out.length?out.map((v,k)=>'<div class="box out'+(k===out.length-1?' pick':'')+'">'+v+'</div>').join(''):'<span style="color:var(--muted);font-size:12px">building…</span>';
+}
+function mStep(d){mIdx=Math.max(-1,Math.min(frames.length-1,mIdx+d));renderMerge(mIdx);updMBtns();}
+function updMBtns(){document.getElementById('m-back').disabled=mIdx<0;document.getElementById('m-step').disabled=mIdx>=frames.length-1;}
+function mPlay(){
+  const btn=document.getElementById('m-play');
+  if(mTimer){clearInterval(mTimer);mTimer=null;btn.textContent='▶ Play';return;}
+  if(mIdx>=frames.length-1) mIdx=-1;
+  btn.textContent='❚❚ Pause';
+  const speed=()=>1100-(document.getElementById('m-speed').value-1)*100;
+  const tick=()=>{if(mIdx>=frames.length-1){clearInterval(mTimer);mTimer=null;btn.textContent='▶ Play';return;}mStep(1);clearInterval(mTimer);mTimer=setInterval(tick,speed());};
+  mTimer=setInterval(tick,speed());
+}
+document.getElementById('m-play').onclick=mPlay;
+document.getElementById('m-step').onclick=()=>mStep(1);
+document.getElementById('m-back').onclick=()=>mStep(-1);
+document.getElementById('m-reset').onclick=()=>{if(mTimer){clearInterval(mTimer);mTimer=null;document.getElementById('m-play').textContent='▶ Play';}mIdx=-1;renderMerge(-1);updMBtns();};
+renderMerge(-1);updMBtns();
+
+/* ===================================================================
+   STABLE SORT
+=================================================================== */
+const students=[
+  {nm:'A',mk:8},{nm:'B',mk:5},{nm:'C',mk:8},{nm:'D',mk:4},{nm:'E',mk:8}
+];
+const CARDW=64,GAP=14;
+function color(mk){return mk===8?'#6366f1':'#475569';}
+function makeLane(id,data){
+  const lane=document.getElementById(id);lane.innerHTML='';
+  data.forEach((s,k)=>{
+    const c=document.createElement('div');
+    c.className='card';c.id=id+'-'+s.nm;
+    c.style.left=(k*(CARDW+GAP))+'px';
+    c.style.background=color(s.mk);
+    c.innerHTML='<div class="nm">'+s.nm+'</div><div class="mk">marks '+s.mk+'</div>';
+    lane.appendChild(c);
+  });
+}
+function moveLane(id,order){
+  order.forEach((s,k)=>{
+    const c=document.getElementById(id+'-'+s.nm);
+    if(c) c.style.left=(k*(CARDW+GAP))+'px';
+  });
+}
+// stable: equal keys keep input order (A,C,E). unstable: reverse the equal group (E,C,A)
+const stableOrder=[...students].sort((a,b)=>a.mk-b.mk); // stable in JS for small arrays via index tiebreak below
+// enforce explicit orders for clarity
+const stableRes=[{nm:'D',mk:4},{nm:'B',mk:5},{nm:'A',mk:8},{nm:'C',mk:8},{nm:'E',mk:8}];
+const unstableRes=[{nm:'D',mk:4},{nm:'B',mk:5},{nm:'E',mk:8},{nm:'C',mk:8},{nm:'A',mk:8}];
+function stableReset(){
+  makeLane('lane-in',students);
+  makeLane('lane-stable',students);
+  makeLane('lane-unstable',students);
+  document.getElementById('v-stable').textContent='';
+  document.getElementById('v-unstable').textContent='';
+  document.getElementById('s-status').innerHTML='Five students with marks. Sort ascending by <b>marks</b> — watch the three students with <b>8</b>.';
+}
+document.getElementById('s-play').onclick=()=>{
+  moveLane('lane-stable',stableRes);
+  moveLane('lane-unstable',unstableRes);
+  document.getElementById('s-status').innerHTML='Sorting by marks ascending… equal-mark students are highlighted.';
+  setTimeout(()=>{
+    document.getElementById('v-stable').innerHTML='<span class="ok">✓ Order of the three 8s preserved: A → C → E (same as input)</span>';
+    document.getElementById('v-unstable').innerHTML='<span class="no">✗ Order of the 8s changed: E → C → A (input order lost)</span>';
+  },800);
+};
+stableReset();
+</script>
+</body>
+</html>
